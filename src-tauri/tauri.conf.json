@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "EC Treasury",
+  "version": "1.0.0",
+  "identifier": "com.ectreasury.app",
+  "build": {
+    "beforeDevCommand": "npm run web",
+    "devUrl": "http://localhost:8081",
+    "beforeBuildCommand": "npm run export:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "EC Treasury & Student Management",
+        "width": 1100,
+        "height": 780,
+        "minWidth": 720,
+        "minHeight": 540,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "rpm", "appimage"]
+  }
+}

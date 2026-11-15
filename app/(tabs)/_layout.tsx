@@ -1,67 +1,92 @@
-import { SymbolView } from 'expo-symbols';
-import { Link, Tabs } from 'expo-router';
-import { Platform, Pressable } from 'react-native';
-
-import Colors from '@/constants/Colors';
+import { BarChart3, Gavel, HeartHandshake, Users } from 'lucide-react-native';
+import { Tabs } from 'expo-router';
+import React from 'react';
+import { Platform } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
+  const isDark = colorScheme === 'dark';
+
+  const bottomInset = Platform.OS === 'web' ? 0 : Math.max(insets.bottom, 12);
+  const tabHeight = Platform.OS === 'web' ? 64 : 60 + bottomInset;
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
-      }}>
+        headerShown: false,
+        tabBarActiveTintColor: isDark ? '#a5b4fc' : '#4338ca',
+        tabBarInactiveTintColor: isDark ? '#71717a' : '#71717a',
+        tabBarActiveBackgroundColor: isDark
+          ? 'rgba(99, 102, 241, 0.22)'
+          : 'rgba(79, 70, 229, 0.12)',
+        tabBarInactiveBackgroundColor: 'transparent',
+        tabBarLabelPosition: Platform.OS === 'web' ? 'beside-icon' : 'below-icon',
+        tabBarItemStyle: {
+          borderRadius: 20,
+          marginHorizontal: 4,
+          marginVertical: 4,
+          paddingVertical: 4,
+          paddingHorizontal: 12,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        tabBarStyle: {
+          backgroundColor: isDark ? '#09090b' : '#ffffff',
+          borderTopWidth: 0,
+          elevation: 0,
+          shadowOpacity: 0,
+          height: tabHeight,
+          paddingBottom: bottomInset,
+          paddingTop: 4,
+          paddingHorizontal: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '700',
+          marginLeft: Platform.OS === 'web' ? 6 : 0,
+        },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                {({ pressed }) => (
-                  <SymbolView
-                    name={{ ios: 'info.circle', android: 'info', web: 'info' }}
-                    size={25}
-                    tintColor={Colors[colorScheme].text}
-                    style={{ opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
+          title: 'အခမ်းအနား',
+          tabBarLabel: 'Events',
+          tabBarIcon: ({ color, size }) => (
+            <HeartHandshake size={size || 20} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="fines"
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
+          title: 'ဒဏ်ကြေး',
+          tabBarLabel: 'Fines',
+          tabBarIcon: ({ color, size }) => (
+            <Gavel size={size || 20} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="roster"
+        options={{
+          title: 'ကျောင်းသား',
+          tabBarLabel: 'Roster',
+          tabBarIcon: ({ color, size }) => (
+            <Users size={size || 20} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="reports"
+        options={{
+          title: 'အစီရင်ခံစာ',
+          tabBarLabel: 'Reports',
+          tabBarIcon: ({ color, size }) => (
+            <BarChart3 size={size || 20} color={color} />
           ),
         }}
       />

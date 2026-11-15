@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "ec-temp",
-    "slug": "ec-temp",
+    "name": "EC Treasury",
+    "slug": "ec-treasury",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "ectemp",
+    "scheme": "ectreasury",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
@@ -21,7 +21,7 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "server",
+      "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -33,7 +33,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true
