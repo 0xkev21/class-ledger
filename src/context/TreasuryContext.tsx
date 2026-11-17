@@ -2,7 +2,13 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import { User } from '@supabase/supabase-js';
+import { useColorScheme } from '@/components/useColorScheme';
 import { INITIAL_STATE, loadDatabase, resetDatabaseToDefaults, saveDatabase } from '../storage/db';
+import {
+  ActiveThemeColor,
+  resolveThemeColor,
+  ThemeColorId,
+} from '../theme/themeColors';
 import {
   createSessionFromUrl,
   getCurrentUser,
@@ -33,6 +39,7 @@ import {
 } from '../storage/sync';
 import {
   AppDatabaseState,
+  AppLanguage,
   AppSettings,
   Event,
   EventRecord,
@@ -45,6 +52,7 @@ import {
   Subject,
   SubjectFineStat,
 } from '../types';
+import { getTranslations, Translations } from '../i18n';
 
 export type CloudSyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'disabled';
 
@@ -56,6 +64,10 @@ interface TreasuryContextType {
   eventRecords: EventRecord[];
   fines: Fine[];
   isLoading: boolean;
+  themeColor: ActiveThemeColor;
+  language: AppLanguage;
+  setLanguage: (lang: AppLanguage) => Promise<void>;
+  t: Translations;
 
   // Settings
   updateSettings: (data: Partial<AppSettings>) => Promise<void>;
@@ -146,6 +158,8 @@ const TreasuryContext = createContext<TreasuryContextType | null>(null);
 
 export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AppDatabaseState>(INITIAL_STATE);
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Supabase Sync States
@@ -159,10 +173,64 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Debounce ref for auto-pushing local changes to cloud
   const pushDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const realtimeDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPushingRef = useRef<boolean>(false);
   const realtimeUnsubRef = useRef<(() => void) | null>(null);
   const authUnsubRef = useRef<(() => void) | null>(null);
 
   const isCloudConnected = isCloudConfigured();
+
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const themeColor = useMemo(() => {
+    return resolveThemeColor(
+      state.settings.themeColorId,
+      isDark
+    );
+  }, [state.settings.themeColorId, isDark]);
+
+  const language: AppLanguage = state.settings.language === 'en' ? 'en' : 'my';
+  const t = useMemo(() => getTranslations(language), [language]);
+
+  const setLanguage = async (newLang: AppLanguage) => {
+    await updateSettings({ language: newLang });
+  };
+
+  // Safely merges cloud database state without wiping local user theme/UI preferences
+  const applyCloudState = async (
+    cloudState: AppDatabaseState,
+    syncedAt?: string,
+    message?: string
+  ) => {
+    let updatedNext: AppDatabaseState | null = null;
+    setState((prev) => {
+      const mergedSettings: AppSettings = {
+        ecKbzpayName: cloudState.settings.ecKbzpayName || prev.settings.ecKbzpayName,
+        ecKbzpayPhone: cloudState.settings.ecKbzpayPhone || prev.settings.ecKbzpayPhone,
+        themeColorId: prev.settings.themeColorId || cloudState.settings.themeColorId || 'indigo',
+        language: prev.settings.language || cloudState.settings.language || 'my',
+      };
+      const next: AppDatabaseState = {
+        ...cloudState,
+        settings: mergedSettings,
+      };
+      updatedNext = next;
+      stateRef.current = next;
+      return next;
+    });
+
+    if (updatedNext) {
+      await saveDatabase(updatedNext);
+    }
+    if (syncedAt) {
+      setLastSyncedAt(syncedAt);
+      await saveLastSyncedAt(syncedAt);
+    }
+    if (message) {
+      setSyncStatus('synced');
+      setSyncMessage(message);
+    }
+  };
 
   // Load database and initialize Supabase on mount
   useEffect(() => {
@@ -174,6 +242,7 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const localData = await loadDatabase();
         if (isMounted) {
           setState(localData);
+          stateRef.current = localData;
           setIsLoading(false);
         }
 
@@ -203,7 +272,7 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               setSyncStatus('syncing');
               setSyncMessage('Google အကောင့်နှင့် ချိတ်ဆက်ပြီး Cloud စာရင်းရယူနေပါသည်...');
               try {
-                const pullRes = await pullCloudToLocal(client, newUser.id);
+                const pullRes = await pullCloudToLocal(client, newUser.id, stateRef.current.settings);
                 if (pullRes.success && pullRes.updatedState) {
                   const cloudHasData =
                     pullRes.updatedState.students.length > 0 ||
@@ -211,19 +280,17 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                     pullRes.updatedState.fines.length > 0;
 
                   if (cloudHasData) {
-                    setState(pullRes.updatedState);
-                    await saveDatabase(pullRes.updatedState);
-                    setSyncStatus('synced');
-                    setSyncMessage(`Synced with ${newUser.email}`);
-                    const now = pullRes.syncedAt || new Date().toISOString();
-                    setLastSyncedAt(now);
-                    await saveLastSyncedAt(now);
+                    await applyCloudState(
+                      pullRes.updatedState,
+                      pullRes.syncedAt || new Date().toISOString(),
+                      `Synced with ${newUser.email}`
+                    );
                   } else if (
-                    localData.students.length > 0 ||
-                    localData.events.length > 0 ||
-                    localData.fines.length > 0
+                    stateRef.current.students.length > 0 ||
+                    stateRef.current.events.length > 0 ||
+                    stateRef.current.fines.length > 0
                   ) {
-                    const pushRes = await pushLocalToCloud(localData, client, newUser.id);
+                    const pushRes = await pushLocalToCloud(stateRef.current, client, newUser.id);
                     if (pushRes.success) {
                       setSyncStatus('synced');
                       setSyncMessage(`Local data uploaded to ${newUser.email}`);
@@ -252,7 +319,7 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
           try {
             const currentUser = await getCurrentUser();
-            const pullRes = await pullCloudToLocal(client, currentUser?.id);
+            const pullRes = await pullCloudToLocal(client, currentUser?.id, localData.settings);
             if (!isMounted) return;
 
             if (pullRes.success && pullRes.updatedState) {
@@ -262,13 +329,11 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 pullRes.updatedState.fines.length > 0;
 
               if (cloudHasData) {
-                setState(pullRes.updatedState);
-                await saveDatabase(pullRes.updatedState);
-                setSyncStatus('synced');
-                setSyncMessage(currentUser ? `Synced with ${currentUser.email}` : 'Synced with Cloud');
-                const now = pullRes.syncedAt || new Date().toISOString();
-                setLastSyncedAt(now);
-                await saveLastSyncedAt(now);
+                await applyCloudState(
+                  pullRes.updatedState,
+                  pullRes.syncedAt || new Date().toISOString(),
+                  currentUser ? `Synced with ${currentUser.email}` : 'Synced with Cloud'
+                );
               } else {
                 const pushRes = await pushLocalToCloud(localData, client, currentUser?.id);
                 if (pushRes.success) {
@@ -281,16 +346,19 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               }
 
               if (realtimeUnsubRef.current) realtimeUnsubRef.current();
-              realtimeUnsubRef.current = subscribeToTreasuryRealtime(client, async () => {
-                const activeUser = await getCurrentUser();
-                const updateRes = await pullCloudToLocal(client, activeUser?.id);
-                if (updateRes.success && updateRes.updatedState && isMounted) {
-                  setState(updateRes.updatedState);
-                  await saveDatabase(updateRes.updatedState);
-                  const now = new Date().toISOString();
-                  setLastSyncedAt(now);
-                  await saveLastSyncedAt(now);
+              realtimeUnsubRef.current = subscribeToTreasuryRealtime(client, () => {
+                if (isPushingRef.current) return;
+                if (realtimeDebounceTimerRef.current) {
+                  clearTimeout(realtimeDebounceTimerRef.current);
                 }
+                realtimeDebounceTimerRef.current = setTimeout(async () => {
+                  if (!isMounted || isPushingRef.current) return;
+                  const activeUser = await getCurrentUser();
+                  const updateRes = await pullCloudToLocal(client, activeUser?.id, stateRef.current.settings);
+                  if (updateRes.success && updateRes.updatedState && isMounted) {
+                    await applyCloudState(updateRes.updatedState, new Date().toISOString());
+                  }
+                }, 800);
               });
             } else {
               setSyncStatus('error');
@@ -318,14 +386,10 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (client) {
         getCurrentUser().then((activeUser) => {
           if (activeUser) {
-            pullCloudToLocal(client, activeUser.id)
+            pullCloudToLocal(client, activeUser.id, stateRef.current.settings)
               .then((updateRes) => {
                 if (updateRes.success && updateRes.updatedState && isMounted) {
-                  setState(updateRes.updatedState);
-                  saveDatabase(updateRes.updatedState);
-                  const now = updateRes.syncedAt || new Date().toISOString();
-                  setLastSyncedAt(now);
-                  saveLastSyncedAt(now);
+                  applyCloudState(updateRes.updatedState, updateRes.syncedAt || new Date().toISOString());
                 }
               })
               .catch(() => {});
@@ -391,6 +455,7 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (realtimeUnsubRef.current) realtimeUnsubRef.current();
       if (authUnsubRef.current) authUnsubRef.current();
       if (pushDebounceTimerRef.current) clearTimeout(pushDebounceTimerRef.current);
+      if (realtimeDebounceTimerRef.current) clearTimeout(realtimeDebounceTimerRef.current);
     };
   }, []);
 
@@ -403,6 +468,7 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setState((prev) => {
       const next = updater(prev);
       nextState = next;
+      stateRef.current = next;
       return next;
     });
 
@@ -422,6 +488,7 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       pushDebounceTimerRef.current = setTimeout(async () => {
         try {
+          isPushingRef.current = true;
           if (cloudAction) {
             await cloudAction(client);
           }
@@ -439,20 +506,52 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } catch (err: any) {
           setSyncStatus('error');
           setSyncMessage(err.message || 'Auto sync failed');
+        } finally {
+          setTimeout(() => {
+            isPushingRef.current = false;
+          }, 1200);
         }
       }, 500);
     }
   };
 
-  // Settings
+  // Settings: Instant local update, fast persistence, and light background cloud sync
   const updateSettings = async (data: Partial<AppSettings>) => {
-    await updateAndPersist((prev) => ({
-      ...prev,
-      settings: {
-        ...prev.settings,
-        ...data,
-      },
-    }));
+    let nextState: AppDatabaseState | null = null;
+    setState((prev) => {
+      const next: AppDatabaseState = {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          ...data,
+        },
+      };
+      nextState = next;
+      stateRef.current = next;
+      return next;
+    });
+
+    if (!nextState) return;
+    const next = nextState as AppDatabaseState;
+
+    saveDatabase(next).catch((e) => console.error('Local settings auto-save failed:', e));
+
+    const client = getSupabaseClient();
+    if (client && user?.id) {
+      try {
+        const payload: Record<string, any> = {
+          user_id: user.id,
+          ec_kbzpay_name: next.settings.ecKbzpayName || '',
+          ec_kbzpay_phone: next.settings.ecKbzpayPhone || '',
+          theme_color_id: next.settings.themeColorId || 'indigo',
+          language: next.settings.language || 'my',
+          updated_at: new Date().toISOString(),
+        };
+        await client.from('settings').upsert(payload);
+      } catch (settingsErr) {
+        console.warn('Background settings sync error:', settingsErr);
+      }
+    }
   };
 
   // Student management
@@ -819,6 +918,7 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const resetToDefaults = async () => {
     const defaults = await resetDatabaseToDefaults();
     setState(defaults);
+    stateRef.current = defaults;
     const client = getSupabaseClient();
     if (client) {
       await pushLocalToCloud(defaults, client, user?.id);
@@ -833,6 +933,8 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           settings: {
             ecKbzpayName: parsed.settings?.ecKbzpayName || '',
             ecKbzpayPhone: parsed.settings?.ecKbzpayPhone || '',
+            themeColorId: parsed.settings?.themeColorId || stateRef.current.settings.themeColorId || 'indigo',
+            language: parsed.settings?.language === 'en' ? 'en' : (stateRef.current.settings.language || 'my'),
           },
           students: Array.isArray(parsed.students) ? parsed.students : [],
           subjects: Array.isArray(parsed.subjects) ? parsed.subjects : [],
@@ -843,6 +945,7 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         };
         await saveDatabase(sanitized);
         setState(sanitized);
+        stateRef.current = sanitized;
         const client = getSupabaseClient();
         if (client) {
           await pushLocalToCloud(sanitized, client, user?.id);
@@ -904,15 +1007,13 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
         return res;
       } else {
-        const res = await pullCloudToLocal(client, user?.id);
+        const res = await pullCloudToLocal(client, user?.id, stateRef.current.settings);
         if (res.success && res.updatedState) {
-          setState(res.updatedState);
-          await saveDatabase(res.updatedState);
-          setSyncStatus('synced');
-          setSyncMessage(user ? `Successfully pulled for ${user.email}` : 'Successfully pulled from Supabase');
-          const now = new Date().toISOString();
-          setLastSyncedAt(now);
-          await saveLastSyncedAt(now);
+          await applyCloudState(
+            res.updatedState,
+            new Date().toISOString(),
+            user ? `Successfully pulled for ${user.email}` : 'Successfully pulled from Supabase'
+          );
         } else {
           setSyncStatus('error');
           setSyncMessage(res.message);
@@ -930,16 +1031,19 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const client = getSupabaseClient();
     if (client) {
       if (realtimeUnsubRef.current) realtimeUnsubRef.current();
-      realtimeUnsubRef.current = subscribeToTreasuryRealtime(client, async () => {
-        const activeUser = await getCurrentUser();
-        const updateRes = await pullCloudToLocal(client, activeUser?.id);
-        if (updateRes.success && updateRes.updatedState) {
-          setState(updateRes.updatedState);
-          await saveDatabase(updateRes.updatedState);
-          const now = new Date().toISOString();
-          setLastSyncedAt(now);
-          await saveLastSyncedAt(now);
+      realtimeUnsubRef.current = subscribeToTreasuryRealtime(client, () => {
+        if (isPushingRef.current) return;
+        if (realtimeDebounceTimerRef.current) {
+          clearTimeout(realtimeDebounceTimerRef.current);
         }
+        realtimeDebounceTimerRef.current = setTimeout(async () => {
+          if (isPushingRef.current) return;
+          const activeUser = await getCurrentUser();
+          const updateRes = await pullCloudToLocal(client, activeUser?.id, stateRef.current.settings);
+          if (updateRes.success && updateRes.updatedState) {
+            await applyCloudState(updateRes.updatedState, new Date().toISOString());
+          }
+        }, 800);
       });
       syncNow('pull');
     } else {
@@ -958,6 +1062,10 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         eventRecords: state.eventRecords,
         fines: state.fines,
         isLoading,
+        themeColor,
+        language,
+        setLanguage,
+        t,
         updateSettings,
         addStudent,
         updateStudent,
@@ -1011,4 +1119,24 @@ export const useTreasury = () => {
     throw new Error('useTreasury must be used within a TreasuryProvider');
   }
   return context;
+};
+
+export const useAppTheme = () => {
+  const { themeColor, settings, updateSettings } = useTreasury();
+  const colorScheme = useColorScheme();
+  return {
+    themeColor,
+    isDark: colorScheme === 'dark',
+    themeColorId: (settings.themeColorId as ThemeColorId) || 'indigo',
+    setThemeColor: async (themeColorId: ThemeColorId) => {
+      await updateSettings({
+        themeColorId,
+      });
+    },
+  };
+};
+
+export const useTranslation = () => {
+  const { language, setLanguage, t } = useTreasury();
+  return { language, setLanguage, t };
 };

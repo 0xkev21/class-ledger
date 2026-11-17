@@ -57,6 +57,8 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
     isCloudConnected,
     syncNow,
     refreshCloudConnection,
+    themeColor,
+    language,
   } = useTreasury();
 
   // Auth form states
@@ -295,21 +297,25 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable className="flex-1 items-center justify-center bg-black/60 px-4" onPress={onClose}>
         <Pressable
+          style={{ borderCurve: 'continuous' }}
           className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl dark:bg-slate-900"
           onPress={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <View className="flex-row items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+          <View className="flex-row items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
             <View className="flex-row items-center space-x-2">
-              <View className="h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-950/60">
-                <Cloud size={20} color="#4f46e5" />
+              <View
+                style={{ backgroundColor: themeColor.surface }}
+                className="h-9 w-9 items-center justify-center rounded-xl"
+              >
+                <Cloud size={20} color={themeColor.primary} />
               </View>
               <View className="ml-2.5">
-                <Text className="text-base font-bold text-slate-900 dark:text-white">
-                  အကောင့် & Cloud Sync
+                <Text className="text-base font-bold text-zinc-900 dark:text-zinc-50">
+                  {language === 'en' ? 'Account & Cloud Sync' : 'အကောင့် & Cloud Sync'}
                 </Text>
-                <Text className="text-xs text-slate-500 dark:text-slate-400">
-                  ဖုန်းနှင့် ကွန်ပျူတာ အချင်းချင်း စာရင်းမျှဝေခြင်း
+                <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {language === 'en' ? 'Cross-device live sync' : 'ဖုန်းနှင့် ကွန်ပျူတာ အချင်းချင်း စာရင်းမျှဝေခြင်း'}
                 </Text>
               </View>
             </View>
@@ -324,6 +330,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
           <ScrollView
             style={{ maxHeight: Platform.OS === 'web' ? '70vh' : 500 }}
             contentContainerStyle={{ paddingVertical: 12 }}
+            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={true}
           >
             {/* Feedback Banner */}
@@ -382,8 +389,14 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
                           className="h-12 w-12 rounded-full border border-indigo-200"
                         />
                       ) : (
-                        <View className="h-12 w-12 items-center justify-center rounded-full bg-indigo-600">
-                          <Text className="text-base font-bold text-white">
+                        <View
+                          style={{ backgroundColor: themeColor.primary }}
+                          className="h-12 w-12 items-center justify-center rounded-full"
+                        >
+                          <Text
+                            style={{ color: themeColor.onPrimary }}
+                            className="text-base font-bold"
+                          >
                             {userName.slice(0, 2).toUpperCase()}
                           </Text>
                         </View>
@@ -411,7 +424,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
                       className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 active:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40"
                     >
                       <Text className="text-xs font-bold text-rose-700 dark:text-rose-300">
-                        ထွက်မည် (Sign Out)
+                        {language === 'en' ? 'Sign Out' : 'ထွက်မည်'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -471,10 +484,19 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
               /* If Logged Out: Show Frictionless Google Sign In & Email Form */
               <View className="mb-4">
                 {/* Friendly Value Proposition Card */}
-                <View className="mb-4 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4 dark:border-indigo-900/50 dark:bg-indigo-950/30">
+                <View
+                  style={{
+                    backgroundColor: themeColor.surface,
+                    borderColor: themeColor.border,
+                  }}
+                  className="mb-4 rounded-2xl border p-4"
+                >
                   <View className="flex-row items-center">
-                    <ShieldCheck size={16} color="#4f46e5" />
-                    <Text className="ml-2 text-xs font-bold text-indigo-950 dark:text-indigo-200">
+                    <ShieldCheck size={16} color={themeColor.primary} />
+                    <Text
+                      style={{ color: themeColor.text }}
+                      className="ml-2 text-xs font-bold"
+                    >
                       မည်သည့် Setup မှ ပြုလုပ်ရန် မလိုပါ
                     </Text>
                   </View>
@@ -676,14 +698,18 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
                         <TouchableOpacity
                           disabled={isSubmittingAuth}
                           onPress={handleEmailAuthSubmit}
-                          className="flex-row items-center justify-center rounded-xl bg-indigo-600 py-2.5 active:bg-indigo-700"
+                          style={{ backgroundColor: themeColor.primary }}
+                          className="flex-row items-center justify-center rounded-xl py-2.5 active:opacity-90"
                         >
                           {isSubmittingAuth ? (
-                            <ActivityIndicator size="small" color="#ffffff" />
+                            <ActivityIndicator size="small" color={themeColor.onPrimary} />
                           ) : (
-                            <LogIn size={15} color="#ffffff" />
+                            <LogIn size={15} color={themeColor.onPrimary} />
                           )}
-                          <Text className="ml-1.5 text-xs font-bold text-white">
+                          <Text
+                            style={{ color: themeColor.onPrimary }}
+                            className="ml-1.5 text-xs font-bold"
+                          >
                             {authMode === 'signin' ? 'Sign In ဝင်မည်' : 'အကောင့်သစ်ဖွင့်မည်'}
                           </Text>
                         </TouchableOpacity>
@@ -701,7 +727,9 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
                           </TouchableOpacity>
 
                           <TouchableOpacity onPress={() => setShowEmailForm(false)}>
-                            <Text className="text-[11px] text-slate-400">ပိတ်မည် (Close)</Text>
+                            <Text className="text-[11px] text-slate-400">
+                              {language === 'en' ? 'Close' : 'ပိတ်မည်'}
+                            </Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -732,14 +760,18 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
                         <TouchableOpacity
                           disabled={isSubmittingAuth}
                           onPress={handleRequestPasswordReset}
-                          className="flex-row items-center justify-center rounded-xl bg-indigo-600 py-2.5 active:bg-indigo-700"
+                          style={{ backgroundColor: themeColor.primary }}
+                          className="flex-row items-center justify-center rounded-xl py-2.5 active:opacity-90"
                         >
                           {isSubmittingAuth ? (
-                            <ActivityIndicator size="small" color="#ffffff" />
+                            <ActivityIndicator size="small" color={themeColor.onPrimary} />
                           ) : (
-                            <Send size={14} color="#ffffff" />
+                            <Send size={14} color={themeColor.onPrimary} />
                           )}
-                          <Text className="ml-1.5 text-xs font-bold text-white">
+                          <Text
+                            style={{ color: themeColor.onPrimary }}
+                            className="ml-1.5 text-xs font-bold"
+                          >
                             Recovery Code (၈ လုံး) ပို့ပါ
                           </Text>
                         </TouchableOpacity>
@@ -812,14 +844,18 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
                         <TouchableOpacity
                           disabled={isSubmittingAuth}
                           onPress={handleConfirmNewPassword}
-                          className="flex-row items-center justify-center rounded-xl bg-indigo-600 py-2.5 active:bg-indigo-700"
+                          style={{ backgroundColor: themeColor.primary }}
+                          className="flex-row items-center justify-center rounded-xl py-2.5 active:opacity-90"
                         >
                           {isSubmittingAuth ? (
-                            <ActivityIndicator size="small" color="#ffffff" />
+                            <ActivityIndicator size="small" color={themeColor.onPrimary} />
                           ) : (
-                            <Lock size={14} color="#ffffff" />
+                            <Lock size={14} color={themeColor.onPrimary} />
                           )}
-                          <Text className="ml-1.5 text-xs font-bold text-white">
+                          <Text
+                            style={{ color: themeColor.onPrimary }}
+                            className="ml-1.5 text-xs font-bold"
+                          >
                             စကားဝှက်အသစ် သိမ်းဆည်းပြီး ဝင်မည်
                           </Text>
                         </TouchableOpacity>
@@ -879,14 +915,18 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
                         <TouchableOpacity
                           disabled={isSubmittingAuth}
                           onPress={handleVerifyOtpLogin}
-                          className="flex-row items-center justify-center rounded-xl bg-indigo-600 py-2.5 active:bg-indigo-700"
+                          style={{ backgroundColor: themeColor.primary }}
+                          className="flex-row items-center justify-center rounded-xl py-2.5 active:opacity-90"
                         >
                           {isSubmittingAuth ? (
-                            <ActivityIndicator size="small" color="#ffffff" />
+                            <ActivityIndicator size="small" color={themeColor.onPrimary} />
                           ) : (
-                            <KeyRound size={14} color="#ffffff" />
+                            <KeyRound size={14} color={themeColor.onPrimary} />
                           )}
-                          <Text className="ml-1.5 text-xs font-bold text-white">
+                          <Text
+                            style={{ color: themeColor.onPrimary }}
+                            className="ml-1.5 text-xs font-bold"
+                          >
                             Code အတည်ပြုပြီး ဝင်မည်
                           </Text>
                         </TouchableOpacity>

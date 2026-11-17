@@ -1,24 +1,21 @@
 import {
-  AlertCircle,
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
   Clock,
   Copy,
   HeartHandshake,
+  Image as ImageIcon,
   Plus,
   Search,
   Share2,
-  Tag,
   Trash2,
   User,
-  Users,
   X,
 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -29,14 +26,18 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTreasury } from '../context/TreasuryContext';
+import { useAppTheme, useTreasury } from '../context/TreasuryContext';
 import { Event } from '../types';
+import { DragDismissSheet } from './animated/DragDismissSheet';
+import { PressableScale } from './animated/PressableScale';
 import {
   copyReportToClipboard,
   generateClosingEventAnnouncement,
   generateInitialEventAnnouncement,
 } from '../utils/exporter';
 import { formatDate, formatMMK } from '../utils/formatters';
+import { AestheticReportModal } from './AestheticReportModal';
+import { NativeIcon } from './NativeIcon';
 
 interface EventDetailModalProps {
   event: Event | null;
@@ -62,9 +63,12 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
     setEventStudentPaid,
     deleteEvent,
     getEventStats,
+    language,
+    t,
   } = useTreasury();
+  const { isDark, themeColor } = useAppTheme();
 
-  // Mode: 'details' view or in-sheet 'add_donor' view (eliminates nested modal)
+  // Mode: 'details' view or in-sheet 'add_donor' view
   const [viewMode, setViewMode] = useState<'details' | 'add_donor'>('details');
 
   // Filter chips for fixed fee: All, Paid, Unpaid
@@ -75,6 +79,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [donorAmount, setDonorAmount] = useState('5000');
   const [donorSearch, setDonorSearch] = useState('');
+  const [showAestheticExport, setShowAestheticExport] = useState(false);
 
   const handleClose = () => {
     setViewMode('details');
@@ -145,13 +150,13 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
       });
   }, [event, students, records, fixedFilter, searchQuery]);
 
-  // Burmese Announcement Copy Actions
+  // Copy Burmese Announcement to Clipboard
   const handleCopyInitialAnnouncement = async () => {
     if (!event) return;
     const text = generateInitialEventAnnouncement(event, settings);
     const success = await copyReportToClipboard(text);
     if (success) {
-      onShowToast('အစောပိုင်း ကြေညာချက် စာသား ကူးယူပြီးပါပြီ!');
+      onShowToast(t.events.noticeCopied);
     }
   };
 
@@ -160,33 +165,33 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
     const text = generateClosingEventAnnouncement(event, stats.totalCollected);
     const success = await copyReportToClipboard(text);
     if (success) {
-      onShowToast('စာရင်းပိတ် / နောက်ဆုံးရက် ကြေညာချက် ကူးယူပြီးပါပြီ!');
+      onShowToast(t.events.finalCopied);
     }
   };
 
   const handleDeleteEvent = () => {
     if (!event) return;
     Alert.alert(
-      'အခမ်းအနား ဖျက်မည်',
-      `"${event.name}" နှင့် သက်ဆိုင်သော မှတ်တမ်းအားလုံးကို ဖျက်ပစ်ရန် သေချာပါသလား?`,
+      t.events.deleteConfirmTitle,
+      t.events.deleteConfirmMsg(event.name),
       [
-        { text: 'မဖျက်တော့ပါ', style: 'cancel' },
+        { text: t.common.cancel, style: 'cancel' },
         {
-          text: 'ဖျက်မည်',
+          text: t.common.delete,
           style: 'destructive',
           onPress: async () => {
             await deleteEvent(event.id);
-            onClose();
-            onShowToast('အခမ်းအနားကို ဖျက်ပစ်လိုက်ပါပြီ');
+            handleClose();
+            onShowToast(t.events.eventDeletedToast);
           },
         },
       ]
     );
   };
 
-  // Add donor submit
   const handleAddDonorSubmit = async () => {
     if (!event || !selectedStudentId) {
+      Alert.alert(t.common.error, t.modals.eventDetail.errorSelectStudent);
       return;
     }
     const amt = parseInt(donorAmount, 10);
@@ -197,44 +202,42 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
     setDonorAmount('5000');
     setDonorSearch('');
     setViewMode('details');
-    onShowToast('အလှူရှင် မှတ်တမ်းထည့်သွင်းပြီးပါပြီ!');
+    onShowToast(t.events.donorAddedToast);
   };
 
   // Safe early exit AFTER all hooks are evaluated
   if (!visible || !event) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View className="flex-1 justify-end md:justify-center items-center bg-black/40">
-        <Pressable className="absolute inset-0" onPress={handleClose} />
-
-        <View
-          style={{
-            maxHeight: windowHeight * 0.92,
-            height: Platform.OS === 'web' ? 'auto' : Math.min(windowHeight * 0.88, 720),
-            paddingBottom: Math.max(insets.bottom, 16),
-          }}
-          className="w-full md:max-w-2xl bg-slate-50 dark:bg-zinc-950 rounded-t-[32px] md:rounded-[28px] flex flex-col shadow-2xl overflow-hidden"
-        >
-          {/* Top Drag Handle Indicator (mobile only) */}
-          <View className="items-center pt-3 pb-1 bg-white dark:bg-zinc-900 md:hidden">
-            <View className="h-1.5 w-12 rounded-full bg-slate-200 dark:bg-zinc-700" />
-          </View>
-
-          {/* Header */}
-          {viewMode === 'add_donor' ? (
-            <View className="px-6 py-4 bg-white dark:bg-zinc-900 flex-row items-center justify-between border-b border-slate-100 dark:border-zinc-800">
-              <View className="flex-row items-center flex-1 mr-3">
-                <TouchableOpacity
-                  onPress={() => setViewMode('details')}
-                  accessibilityLabel="Go back to event details"
+    <>
+      <DragDismissSheet
+        visible={visible}
+        onClose={handleClose}
+        maxHeight={windowHeight * 0.92}
+        isDark={isDark}
+        sheetClassName="p-0 overflow-hidden"
+      >
+        {/* Header */}
+        {viewMode === 'add_donor' ? (
+          <View className="px-6 py-4 bg-white dark:bg-zinc-900 flex-row items-center justify-between border-b border-slate-100 dark:border-zinc-800">
+            <View className="flex-row items-center flex-1 mr-3">
+              <TouchableOpacity
+                onPress={() => setViewMode('details')}
+                  accessibilityLabel="Go back"
+                  style={{ borderCurve: 'continuous' }}
                   className="h-9 w-9 rounded-full bg-slate-100 dark:bg-zinc-800 items-center justify-center mr-3 active:bg-slate-200 dark:active:bg-zinc-700"
                 >
-                  <ArrowLeft size={18} color="#71717a" />
+                  <NativeIcon
+                    sfSymbol="chevron.left"
+                    materialName="arrow-back"
+                    FallbackIcon={ArrowLeft}
+                    size={18}
+                    color="#71717a"
+                  />
                 </TouchableOpacity>
                 <View className="flex-1">
                   <Text className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
-                    အလှူရှင် စာရင်းသွင်းရန်
+                    {t.modals.eventDetail.addDonorTitle}
                   </Text>
                   <Text className="text-xs text-zinc-500 dark:text-zinc-400" numberOfLines={1}>
                     {event.name}
@@ -244,9 +247,16 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               <TouchableOpacity
                 onPress={handleClose}
                 accessibilityLabel="Close"
+                style={{ borderCurve: 'continuous' }}
                 className="h-9 w-9 rounded-full bg-slate-100 dark:bg-zinc-800 items-center justify-center"
               >
-                <X size={18} color="#71717a" />
+                <NativeIcon
+                  sfSymbol="xmark"
+                  materialName="close"
+                  FallbackIcon={X}
+                  size={18}
+                  color="#71717a"
+                />
               </TouchableOpacity>
             </View>
           ) : (
@@ -254,32 +264,53 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               <View className="flex-1 mr-3">
                 <View className="flex-row items-center gap-2 mb-1">
                   <View
-                    className={`rounded-full px-2.5 py-0.5 ${
-                      event.type === 'donation'
-                        ? 'bg-rose-50 dark:bg-rose-950/60'
-                        : 'bg-indigo-50 dark:bg-indigo-950/60'
-                    }`}
+                    style={{
+                      backgroundColor:
+                        event.type === 'donation'
+                          ? isDark
+                            ? 'rgba(244, 63, 94, 0.20)'
+                            : '#fff1f2'
+                          : themeColor.surface,
+                      borderCurve: 'continuous',
+                    }}
+                    className="rounded-full px-2.5 py-0.5"
                   >
                     <Text
-                      className={`text-[11px] font-bold ${
-                        event.type === 'donation'
-                          ? 'text-rose-600 dark:text-rose-300'
-                          : 'text-indigo-600 dark:text-indigo-300'
-                      }`}
+                      style={{
+                        color:
+                          event.type === 'donation'
+                            ? isDark
+                              ? '#fecdd3'
+                              : '#e11d48'
+                            : themeColor.text,
+                      }}
+                      className="text-[11px] font-bold"
                     >
-                      {event.type === 'donation' ? 'စေတနာအလှူ (Donation)' : 'သတ်မှတ်ကြေး (Fixed Fee)'}
+                      {event.type === 'donation' ? t.events.donation : t.events.fixedFee}
                     </Text>
                   </View>
                   {event.dueDate ? (
-                    <View className="flex-row items-center rounded-full bg-slate-100 dark:bg-zinc-800 px-2.5 py-0.5">
-                      <CalendarDays size={12} color="#71717a" />
+                    <View
+                      style={{ borderCurve: 'continuous' }}
+                      className="flex-row items-center rounded-full bg-slate-100 dark:bg-zinc-800 px-2.5 py-0.5"
+                    >
+                      <NativeIcon
+                        sfSymbol="calendar"
+                        materialName="calendar-today"
+                        FallbackIcon={CalendarDays}
+                        size={12}
+                        color="#71717a"
+                      />
                       <Text className="ml-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
                         {event.dueDate}
                       </Text>
                     </View>
                   ) : null}
                 </View>
-                <Text className="text-xl font-extrabold text-zinc-900 dark:text-zinc-50 leading-relaxed py-0.5">
+                <Text
+                  selectable
+                  className="text-xl font-extrabold text-zinc-900 dark:text-zinc-50 leading-relaxed py-0.5"
+                >
                   {event.name}
                 </Text>
               </View>
@@ -288,23 +319,37 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                 <TouchableOpacity
                   onPress={handleDeleteEvent}
                   accessibilityLabel="Delete event"
+                  style={{ borderCurve: 'continuous' }}
                   className="h-9 w-9 rounded-full bg-slate-100 dark:bg-zinc-800 items-center justify-center active:bg-rose-100"
                 >
-                  <Trash2 size={16} color="#e11d48" />
+                  <NativeIcon
+                    sfSymbol="trash"
+                    materialName="delete-outline"
+                    FallbackIcon={Trash2}
+                    size={16}
+                    color="#e11d48"
+                  />
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleClose}
                   accessibilityLabel="Close"
+                  style={{ borderCurve: 'continuous' }}
                   className="h-9 w-9 rounded-full bg-slate-100 dark:bg-zinc-800 items-center justify-center"
                 >
-                  <X size={18} color="#71717a" />
+                  <NativeIcon
+                    sfSymbol="xmark"
+                    materialName="close"
+                    FallbackIcon={X}
+                    size={18}
+                    color="#71717a"
+                  />
                 </TouchableOpacity>
               </View>
             </View>
           )}
 
           {viewMode === 'add_donor' ? (
-            /* In-Sheet Add Donor Form (No nested modal!) */
+            /* In-Sheet Add Donor Form */
             <ScrollView
               style={{ flex: 1 }}
               contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 }}
@@ -313,28 +358,46 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
             >
               {/* Step 1: Select Student */}
               <Text className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
-                ၁။ လှူဒါန်းသူ ကျောင်းသား ရွေးချယ်ပါ
+                {t.modals.eventDetail.donorStudentLabel}
               </Text>
 
-              <View className="flex-row items-center rounded-2xl bg-white dark:bg-zinc-900 px-3.5 py-2.5 mb-2.5 border border-slate-200 dark:border-zinc-800">
-                <Search size={16} color="#9ca3af" />
+              <View
+                style={{ borderCurve: 'continuous' }}
+                className="flex-row items-center rounded-2xl bg-white dark:bg-zinc-900 px-3.5 py-2.5 mb-2.5 border border-slate-200 dark:border-zinc-800"
+              >
+                <NativeIcon
+                  sfSymbol="magnifyingglass"
+                  materialName="search"
+                  FallbackIcon={Search}
+                  size={16}
+                  color="#9ca3af"
+                />
                 <TextInput
                   value={donorSearch}
                   onChangeText={setDonorSearch}
-                  placeholder="ကျောင်းသားအမည် ရိုက်ထည့်ရှာပါ..."
+                  placeholder={t.events.searchDonors}
                   placeholderTextColor="#9ca3af"
                   className="ml-2 flex-1 text-xs text-zinc-900 dark:text-zinc-50 p-0"
                 />
                 {donorSearch ? (
                   <TouchableOpacity onPress={() => setDonorSearch('')}>
-                    <X size={14} color="#9ca3af" />
+                    <NativeIcon
+                      sfSymbol="xmark.circle.fill"
+                      materialName="clear"
+                      FallbackIcon={X}
+                      size={14}
+                      color="#9ca3af"
+                    />
                   </TouchableOpacity>
                 ) : null}
               </View>
 
               {/* Students list picker */}
-              <View className="mb-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-2 max-h-56 overflow-hidden">
-                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={true}>
+              <View
+                style={{ borderCurve: 'continuous' }}
+                className="mb-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-2 max-h-56 overflow-hidden"
+              >
+                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled">
                   {students
                     .filter((s) =>
                       donorSearch.trim()
@@ -348,27 +411,51 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                         <TouchableOpacity
                           key={s.id}
                           onPress={() => setSelectedStudentId(s.id)}
+                          style={{
+                            backgroundColor: isSelected
+                              ? themeColor.primary
+                              : isDark
+                              ? '#27272a'
+                              : '#f4f4f5',
+                            borderCurve: 'continuous',
+                          }}
                           className={`flex-row items-center justify-between px-3.5 py-3 rounded-xl mb-1 ${
                             isSelected
-                              ? 'bg-indigo-600'
-                              : 'bg-slate-50 dark:bg-zinc-800/60 active:bg-slate-100 dark:active:bg-zinc-800'
+                              ? ''
+                              : 'active:bg-zinc-100 dark:active:bg-zinc-800'
                           }`}
                         >
                           <View className="flex-row items-center">
-                            <User size={14} color={isSelected ? '#ffffff' : '#71717a'} />
+                            <NativeIcon
+                              sfSymbol="person.fill"
+                              materialName="person"
+                              FallbackIcon={User}
+                              size={14}
+                              color={isSelected ? themeColor.onPrimary : (isDark ? '#a1a1aa' : '#71717a')}
+                            />
                             <Text
-                              className={`ml-2 text-xs font-bold ${
-                                isSelected ? 'text-white' : 'text-zinc-800 dark:text-zinc-200'
-                              }`}
+                              style={{
+                                color: isSelected
+                                  ? themeColor.onPrimary
+                                  : isDark
+                                  ? '#f4f4f5'
+                                  : '#27272a',
+                              }}
+                              className="ml-2 text-xs font-bold"
                             >
                               {s.name}
                             </Text>
                           </View>
                           {s.rollNumber ? (
                             <Text
-                              className={`text-[11px] ${
-                                isSelected ? 'text-indigo-200' : 'text-zinc-400'
-                              }`}
+                              style={{
+                                color: isSelected
+                                  ? 'rgba(255, 255, 255, 0.85)'
+                                  : isDark
+                                  ? '#a1a1aa'
+                                  : '#71717a',
+                              }}
+                              className="text-[11px]"
                             >
                               {s.rollNumber}
                             </Text>
@@ -378,7 +465,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                     })}
                   {students.length === 0 ? (
                     <Text className="text-center text-xs text-zinc-400 py-6">
-                      ကျောင်းသားစာရင်း မရှိသေးပါ
+                      {t.roster.emptyStudentsTitle}
                     </Text>
                   ) : null}
                 </ScrollView>
@@ -386,15 +473,20 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
 
               {/* Step 2: Amount Input */}
               <Text className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
-                ၂။ လှူဒါန်းငွေ ပမာဏ (MMK)
+                {t.modals.eventDetail.donorAmountLabel}
               </Text>
               <TextInput
                 value={donorAmount}
                 onChangeText={setDonorAmount}
-                placeholder="e.g. 5000"
-                placeholderTextColor="#9ca3af"
+                placeholder="5000"
+                placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
                 keyboardType="numeric"
-                className="w-full rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 px-4 py-3.5 text-base font-bold text-zinc-900 dark:text-zinc-50 mb-3"
+                style={{
+                  color: isDark ? '#f4f4f5' : '#18181b',
+                  borderCurve: 'continuous',
+                  fontVariant: ['tabular-nums'],
+                }}
+                className="w-full rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 px-4 py-3.5 text-base font-bold mb-3"
               />
 
               {/* Quick amount chips */}
@@ -405,16 +497,31 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                     <TouchableOpacity
                       key={chip}
                       onPress={() => setDonorAmount(String(chip))}
-                      className={`flex-1 items-center justify-center py-2.5 rounded-xl border ${
-                        isSelectedChip
-                          ? 'bg-indigo-600 border-indigo-600'
-                          : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800'
-                      }`}
+                      style={{
+                        backgroundColor: isSelectedChip
+                          ? themeColor.primary
+                          : isDark
+                          ? '#18181b'
+                          : '#ffffff',
+                        borderColor: isSelectedChip
+                          ? themeColor.primary
+                          : isDark
+                          ? '#27272a'
+                          : '#e4e4e7',
+                        borderCurve: 'continuous',
+                      }}
+                      className="flex-1 items-center justify-center py-2.5 rounded-xl border"
                     >
                       <Text
-                        className={`text-xs font-bold ${
-                          isSelectedChip ? 'text-white' : 'text-zinc-700 dark:text-zinc-300'
-                        }`}
+                        style={{
+                          color: isSelectedChip
+                            ? themeColor.onPrimary
+                            : isDark
+                            ? '#d4d4d8'
+                            : '#3f3f46',
+                          fontVariant: ['tabular-nums'],
+                        }}
+                        className="text-xs font-bold"
                       >
                         +{chip.toLocaleString()}
                       </Text>
@@ -428,18 +535,29 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                 onPress={handleAddDonorSubmit}
                 disabled={!selectedStudentId}
                 activeOpacity={0.85}
+                style={{
+                  backgroundColor: selectedStudentId
+                    ? themeColor.primary
+                    : isDark
+                    ? '#27272a'
+                    : '#e4e4e7',
+                  borderCurve: 'continuous',
+                }}
                 className={`w-full rounded-full py-4 items-center justify-center ${
-                  selectedStudentId
-                    ? 'bg-indigo-600 active:bg-indigo-700 shadow-sm'
-                    : 'bg-zinc-200 dark:bg-zinc-800'
+                  selectedStudentId ? 'active:opacity-90 shadow-sm' : ''
                 }`}
               >
                 <Text
-                  className={`text-sm font-bold ${
-                    selectedStudentId ? 'text-white' : 'text-zinc-400 dark:text-zinc-500'
-                  }`}
+                  style={{
+                    color: selectedStudentId
+                      ? themeColor.onPrimary
+                      : isDark
+                      ? '#71717a'
+                      : '#9ca3af',
+                  }}
+                  className="text-sm font-bold"
                 >
-                  အလှူငွေ ထည့်သွင်းမည်
+                  {t.modals.eventDetail.submitDonor}
                 </Text>
               </TouchableOpacity>
             </ScrollView>
@@ -447,80 +565,150 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
             <ScrollView
               style={{ flex: 1 }}
               contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 }}
+              keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={true}
             >
               {/* Hero MMK Banner */}
-              <View className="rounded-3xl bg-indigo-600 p-5 mb-5 shadow-sm">
-                <Text className="text-xs font-semibold text-indigo-100 uppercase tracking-wider mb-1">
-                  ရရှိပြီး စုစုပေါင်း အလှူငွေ / ကောက်ခံငွေ
+              <View
+                style={{
+                  backgroundColor: themeColor.primary,
+                  borderCurve: 'continuous',
+                }}
+                className="rounded-3xl p-5 mb-5 shadow-sm"
+              >
+                <Text
+                  style={{ color: 'rgba(255, 255, 255, 0.85)' }}
+                  className="text-xs font-semibold uppercase tracking-wider mb-1"
+                >
+                  {t.events.totalCollected}
                 </Text>
-                <Text className="text-3xl font-extrabold text-white tracking-tight">
+                <Text
+                  selectable
+                  style={{
+                    color: themeColor.onPrimary,
+                    fontVariant: ['tabular-nums'],
+                  }}
+                  className="text-3xl font-extrabold tracking-tight"
+                >
                   {formatMMK(stats.totalCollected)}
                 </Text>
 
                 {event.type === 'fixed_fee' ? (
                   <View className="mt-3 pt-3 border-t border-indigo-500/60 flex-row justify-between items-center">
                     <Text className="text-xs text-indigo-100">
-                      ပေးချေပြီး ကျောင်းသား: <Text className="font-bold text-white">{stats.totalPaidCount} / {students.length} ဦး</Text>
+                      {t.common.paid}: <Text className="font-bold text-white">{stats.totalPaidCount} / {students.length}</Text>
                     </Text>
                     <Text className="text-xs text-indigo-100">
-                      ကျန်: <Text className="font-bold text-amber-200">{stats.totalUnpaidCount} ဦး</Text>
+                      {t.common.unpaid}: <Text className="font-bold text-amber-200">{stats.totalUnpaidCount}</Text>
                     </Text>
                   </View>
                 ) : (
                   <View className="mt-2 flex-row items-center">
                     <Text className="text-xs text-indigo-100">
-                      ပါဝင်လှူဒါန်းသူ အလှူရှင် စုစုပေါင်း: <Text className="font-bold text-white">{stats.totalDonors} ဦး</Text>
+                      {t.events.donorsCount(stats.totalDonors)}
                     </Text>
                   </View>
                 )}
               </View>
 
-              {/* 1-Tap Burmese Announcement Action Chips */}
+              {/* Announcements Action Chips */}
               <View className="mb-5">
                 <View className="flex-row items-center mb-2.5 ml-1">
-                  <Share2 size={13} color="#6366f1" />
+                  <NativeIcon
+                    sfSymbol="square.and.arrow.up"
+                    materialName="share"
+                    FallbackIcon={Share2}
+                    size={13}
+                    color="#6366f1"
+                  />
                   <Text className="ml-1.5 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                    Viber / Telegram သို့ စာရင်းထုတ်ပြန်ရန်
+                    {t.modals.eventDetail.announcements}
                   </Text>
                 </View>
                 <View className="flex-row gap-2.5">
                   <TouchableOpacity
                     onPress={handleCopyInitialAnnouncement}
+                    style={{ borderCurve: 'continuous' }}
                     className="flex-1 flex-row items-center justify-center rounded-full bg-white dark:bg-zinc-900 py-3 px-3 shadow-none active:bg-indigo-50 dark:active:bg-zinc-800"
                   >
-                    <Copy size={14} color="#4f46e5" />
+                    <NativeIcon
+                      sfSymbol="doc.on.doc"
+                      materialName="content-copy"
+                      FallbackIcon={Copy}
+                      size={14}
+                      color="#4f46e5"
+                    />
                     <Text className="ml-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                      အစောပိုင်း ကြေညာချက်
+                      {t.modals.eventDetail.initialNotice}
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     onPress={handleCopyClosingAnnouncement}
+                    style={{ borderCurve: 'continuous' }}
                     className="flex-1 flex-row items-center justify-center rounded-full bg-white dark:bg-zinc-900 py-3 px-3 shadow-none active:bg-indigo-50 dark:active:bg-zinc-800"
                   >
-                    <Copy size={14} color="#059669" />
+                    <NativeIcon
+                      sfSymbol="doc.on.doc"
+                      materialName="content-copy"
+                      FallbackIcon={Copy}
+                      size={14}
+                      color="#059669"
+                    />
                     <Text className="ml-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      စာရင်းပိတ် ကြေညာချက်
+                      {t.modals.eventDetail.finalNotice}
                     </Text>
                   </TouchableOpacity>
                 </View>
+
+                {/* Aesthetic Table Image Export Button */}
+                <TouchableOpacity
+                  onPress={() => setShowAestheticExport(true)}
+                  style={{ borderCurve: 'continuous' }}
+                  className="mt-2.5 w-full flex-row items-center justify-center rounded-full bg-rose-50 dark:bg-rose-950/40 py-2.5 px-4 border border-rose-200 dark:border-rose-900/40"
+                >
+                  <NativeIcon
+                    sfSymbol="photo.artframe"
+                    materialName="image"
+                    FallbackIcon={ImageIcon}
+                    size={14}
+                    color="#e11d48"
+                  />
+                  <Text className="ml-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">
+                    {t.reports.imageExport} (PNG)
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               {/* List Section Header & Search */}
               <View className="mb-3">
                 <View className="flex-row items-center justify-between mb-2">
                   <Text className="text-base font-extrabold text-zinc-900 dark:text-zinc-50">
-                    {event.type === 'donation' ? 'အလှူရှင်များ စာရင်း' : 'အတန်းသားများ ပေးချေမှု အခြေအနေ'}
+                    {event.type === 'donation' ? t.events.donorsList : t.events.collectionRoster}
                   </Text>
 
                   {event.type === 'donation' ? (
                     <TouchableOpacity
                       onPress={() => setViewMode('add_donor')}
-                      className="flex-row items-center rounded-full bg-indigo-600 px-3.5 py-1.5 shadow-sm active:bg-indigo-700"
+                      style={{
+                        backgroundColor: themeColor.primary,
+                        borderCurve: 'continuous',
+                      }}
+                      className="flex-row items-center rounded-full px-3.5 py-1.5 shadow-xs active:opacity-90"
                     >
-                      <Plus size={14} color="#ffffff" />
-                      <Text className="ml-1 text-xs font-bold text-white">Add Donor</Text>
+                      <NativeIcon
+                        sfSymbol="plus"
+                        materialName="add"
+                        FallbackIcon={Plus}
+                        size={14}
+                        color={themeColor.onPrimary}
+                      />
+                      <Text
+                        style={{ color: themeColor.onPrimary }}
+                        className="ml-1 text-xs font-bold"
+                      >
+                        {t.events.addDonor}
+                      </Text>
                     </TouchableOpacity>
                   ) : null}
                 </View>
@@ -528,47 +716,89 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                 {/* Fixed Fee Filter Chips */}
                 {event.type === 'fixed_fee' ? (
                   <View className="flex-row gap-2 mb-3">
-                    {(['all', 'unpaid', 'paid'] as const).map((mode) => (
-                      <TouchableOpacity
-                        key={mode}
-                        onPress={() => setFixedFilter(mode)}
-                        className={`rounded-full px-3.5 py-1.5 ${
-                          fixedFilter === mode
-                            ? 'bg-zinc-900 dark:bg-white'
-                            : 'bg-white dark:bg-zinc-900'
-                        }`}
-                      >
-                        <Text
-                          className={`text-xs font-bold ${
+                    {(['all', 'unpaid', 'paid'] as const).map((mode) => {
+                      const count =
+                        mode === 'all'
+                          ? students.length
+                          : mode === 'unpaid'
+                          ? stats.totalUnpaidCount
+                          : stats.totalPaidCount;
+                      const label =
+                        mode === 'all'
+                          ? `${t.common.all} (${count})`
+                          : mode === 'unpaid'
+                          ? `${t.common.unpaid} (${count})`
+                          : `${t.common.paid} (${count})`;
+                      return (
+                        <TouchableOpacity
+                          key={mode}
+                          onPress={() => setFixedFilter(mode)}
+                          style={{
+                            backgroundColor:
+                              fixedFilter === mode
+                                ? themeColor.primary
+                                : isDark
+                                ? '#18181b'
+                                : '#ffffff',
+                            borderCurve: 'continuous',
+                          }}
+                          className={`rounded-full px-3.5 py-1.5 border ${
                             fixedFilter === mode
-                              ? 'text-white dark:text-zinc-900'
-                              : 'text-zinc-600 dark:text-zinc-400'
+                              ? 'border-transparent shadow-xs'
+                              : 'border-zinc-200/70 dark:border-zinc-800/80'
                           }`}
                         >
-                          {mode === 'all'
-                            ? `အားလုံး (${students.length})`
-                            : mode === 'unpaid'
-                            ? `မပေးရသေး (${stats.totalUnpaidCount})`
-                            : `ပေးချေပြီး (${stats.totalPaidCount})`}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                          <Text
+                            style={{
+                              color:
+                                fixedFilter === mode
+                                  ? themeColor.onPrimary
+                                  : isDark
+                                  ? '#e4e4e7'
+                                  : '#52525b',
+                            }}
+                            className="text-xs font-bold"
+                          >
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 ) : null}
 
                 {/* Search input */}
-                <View className="flex-row items-center rounded-2xl bg-white dark:bg-zinc-900 px-3.5 py-2.5 mb-3">
-                  <Search size={16} color="#9ca3af" />
+                <View
+                  style={{
+                    backgroundColor: isDark ? '#18181b' : '#ffffff',
+                    borderCurve: 'continuous',
+                  }}
+                  className="flex-row items-center rounded-2xl px-3.5 py-2.5 mb-3 border border-zinc-200/70 dark:border-zinc-800/80"
+                >
+                  <NativeIcon
+                    sfSymbol="magnifyingglass"
+                    materialName="search"
+                    FallbackIcon={Search}
+                    size={16}
+                    color={isDark ? '#71717a' : '#9ca3af'}
+                  />
                   <TextInput
                     value={searchQuery}
                     onChangeText={setSearchQuery}
-                    placeholder="ကျောင်းသားအမည် ရှာရန်..."
-                    placeholderTextColor="#9ca3af"
-                    className="ml-2 flex-1 text-xs text-zinc-900 dark:text-zinc-50 p-0"
+                    placeholder={t.events.searchDonors}
+                    placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
+                    style={{ color: isDark ? '#f4f4f5' : '#18181b' }}
+                    className="ml-2 flex-1 text-xs p-0"
                   />
                   {searchQuery ? (
                     <TouchableOpacity onPress={() => setSearchQuery('')}>
-                      <X size={14} color="#9ca3af" />
+                      <NativeIcon
+                        sfSymbol="xmark.circle.fill"
+                        materialName="clear"
+                        FallbackIcon={X}
+                        size={14}
+                        color="#9ca3af"
+                      />
                     </TouchableOpacity>
                   ) : null}
                 </View>
@@ -577,21 +807,42 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               {/* List Body */}
               {event.type === 'donation' ? (
                 filteredDonors.length === 0 ? (
-                  <View className="items-center justify-center py-12 rounded-3xl bg-white dark:bg-zinc-900 mb-8 p-6">
-                    <View className="h-14 w-14 rounded-full bg-rose-50 dark:bg-rose-950/60 items-center justify-center mb-3">
-                      <HeartHandshake size={28} color="#e11d48" />
+                  <View
+                    style={{ borderCurve: 'continuous' }}
+                    className="items-center justify-center py-12 rounded-3xl bg-white dark:bg-zinc-900 mb-8 p-6 border border-zinc-200/70 dark:border-zinc-800/80"
+                  >
+                    <View
+                      style={{ backgroundColor: themeColor.surface }}
+                      className="h-14 w-14 rounded-full items-center justify-center mb-3"
+                    >
+                      <NativeIcon
+                        sfSymbol="sparkles"
+                        materialName="favorite"
+                        FallbackIcon={HeartHandshake}
+                        size={28}
+                        color={themeColor.primary}
+                      />
                     </View>
                     <Text className="text-sm font-bold text-zinc-800 dark:text-zinc-200 mb-1">
-                      အလှူရှင် မှတ်တမ်း မရှိသေးပါ
+                      {language === 'en' ? 'No donations yet' : 'အလှူရှင် မှတ်တမ်း မရှိသေးပါ'}
                     </Text>
                     <Text className="text-xs text-zinc-500 dark:text-zinc-400 text-center mb-4">
-                      အလှူငွေထည့်သွင်းသူများကို Add Donor ခလုတ်ဖြင့် စာရင်းသွင်းနိုင်ပါသည်
+                      {language === 'en' ? 'Add student donations to get started' : 'အလှူငွေထည့်သွင်းသူများကို စာရင်းသွင်းနိုင်ပါသည်'}
                     </Text>
                     <TouchableOpacity
                       onPress={() => setViewMode('add_donor')}
-                      className="rounded-full bg-indigo-600 px-5 py-2.5 active:bg-indigo-700"
+                      style={{
+                        backgroundColor: themeColor.primary,
+                        borderCurve: 'continuous',
+                      }}
+                      className="rounded-full px-5 py-2.5 active:opacity-90"
                     >
-                      <Text className="text-xs font-bold text-white">အလှူရှင် ထည့်မည်</Text>
+                      <Text
+                        style={{ color: themeColor.onPrimary }}
+                        className="text-xs font-bold"
+                      >
+                        {t.events.addDonor}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
@@ -601,35 +852,62 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                       return (
                         <View
                           key={record.id}
-                          className="rounded-2xl bg-white dark:bg-zinc-900 p-4 flex-row items-center justify-between"
+                          style={{ borderCurve: 'continuous' }}
+                          className="rounded-2xl bg-white dark:bg-zinc-900 p-4 border border-zinc-200/70 dark:border-zinc-800/80 flex-row items-center justify-between"
                         >
                           <View className="flex-row items-center flex-1 mr-2">
-                            <View className="h-8 w-8 rounded-full bg-indigo-50 dark:bg-indigo-950/60 items-center justify-center mr-3">
-                              <Text className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                            <View
+                              style={{
+                                backgroundColor: themeColor.surface,
+                                borderColor: themeColor.border,
+                                borderCurve: 'continuous',
+                              }}
+                              className="h-8 w-8 rounded-full border items-center justify-center mr-3"
+                            >
+                              <Text
+                                style={{
+                                  color: themeColor.text,
+                                  fontVariant: ['tabular-nums'],
+                                }}
+                                className="text-xs font-bold"
+                              >
                                 {index + 1}
                               </Text>
                             </View>
                             <View className="flex-1">
-                              <Text className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
-                                {student?.name || 'ကျောင်းသား'}
+                              <Text
+                                selectable
+                                className="text-sm font-bold text-zinc-900 dark:text-zinc-50"
+                              >
+                                {student?.name || t.common.name}
                               </Text>
                               {student?.rollNumber ? (
-                                <Text className="text-[11px] text-zinc-400">
-                                  Roll: {student.rollNumber}
+                                <Text selectable className="text-[11px] text-zinc-400">
+                                  {student.rollNumber}
                                 </Text>
                               ) : null}
                             </View>
                           </View>
 
                           <View className="flex-row items-center gap-3">
-                            <Text className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
+                            <Text
+                              selectable
+                              style={{ fontVariant: ['tabular-nums'] }}
+                              className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400"
+                            >
                               {formatMMK(record.amount)}
                             </Text>
                             <TouchableOpacity
                               onPress={() => deleteEventRecord(record.id)}
                               className="p-1 rounded-full active:bg-rose-50"
                             >
-                              <Trash2 size={15} color="#9ca3af" />
+                              <NativeIcon
+                                sfSymbol="trash"
+                                materialName="delete-outline"
+                                FallbackIcon={Trash2}
+                                size={15}
+                                color="#9ca3af"
+                              />
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -638,9 +916,12 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                   </View>
                 )
               ) : fixedStudentsList.length === 0 ? (
-                <View className="items-center justify-center py-12 rounded-3xl bg-white dark:bg-zinc-900 mb-8 p-6">
+                <View
+                  style={{ borderCurve: 'continuous' }}
+                  className="items-center justify-center py-12 rounded-3xl bg-white dark:bg-zinc-900 mb-8 p-6"
+                >
                   <Text className="text-sm font-bold text-zinc-800 dark:text-zinc-200">
-                    ကျောင်းသား မတွေ့ပါ
+                    {t.roster.emptyStudentsTitle}
                   </Text>
                 </View>
               ) : (
@@ -648,19 +929,27 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                   {fixedStudentsList.map((item) => (
                     <View
                       key={item.student.id}
+                      style={{ borderCurve: 'continuous' }}
                       className="rounded-2xl bg-white dark:bg-zinc-900 p-4 flex-row items-center justify-between"
                     >
                       <View className="flex-1 mr-3">
-                        <Text className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
+                        <Text
+                          selectable
+                          className="text-sm font-bold text-zinc-900 dark:text-zinc-50"
+                        >
                           {item.student.name}
                         </Text>
                         <View className="flex-row items-center gap-2 mt-0.5">
                           {item.student.rollNumber ? (
-                            <Text className="text-[11px] text-zinc-400">
-                              Roll: {item.student.rollNumber}
+                            <Text selectable className="text-[11px] text-zinc-400">
+                              {item.student.rollNumber}
                             </Text>
                           ) : null}
-                          <Text className="text-[11px] font-semibold text-zinc-500">
+                          <Text
+                            selectable
+                            style={{ fontVariant: ['tabular-nums'] }}
+                            className="text-[11px] font-semibold text-zinc-500"
+                          >
                             {formatMMK(item.amount)}
                           </Text>
                         </View>
@@ -677,25 +966,43 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                           )
                         }
                         activeOpacity={0.8}
+                        style={{ borderCurve: 'continuous' }}
                         className={`flex-row items-center rounded-full px-3.5 py-1.5 ${
                           item.isPaid
-                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                            : 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+                            ? 'bg-emerald-500/15'
+                            : 'bg-rose-500/15'
                         }`}
                       >
                         {item.isPaid ? (
-                          <CheckCircle2 size={14} color="#059669" />
+                          <NativeIcon
+                            sfSymbol="checkmark.circle.fill"
+                            materialName="check-circle"
+                            FallbackIcon={CheckCircle2}
+                            size={14}
+                            color="#059669"
+                          />
                         ) : (
-                          <Clock size={14} color="#e11d48" />
+                          <NativeIcon
+                            sfSymbol="clock.fill"
+                            materialName="schedule"
+                            FallbackIcon={Clock}
+                            size={14}
+                            color="#e11d48"
+                          />
                         )}
                         <Text
-                          className={`ml-1.5 text-xs font-bold ${
-                            item.isPaid
-                              ? 'text-emerald-700 dark:text-emerald-300'
-                              : 'text-rose-700 dark:text-rose-300'
-                          }`}
+                          style={{
+                            color: item.isPaid
+                              ? isDark
+                                ? '#6ee7b7'
+                                : '#047857'
+                              : isDark
+                              ? '#fca5a5'
+                              : '#b91c1c',
+                          }}
+                          className="ml-1.5 text-xs font-bold"
                         >
-                          {item.isPaid ? 'Paid' : 'Unpaid'}
+                          {item.isPaid ? t.common.paid : t.common.unpaid}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -704,8 +1011,18 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               )}
             </ScrollView>
           )}
-        </View>
-      </View>
-    </Modal>
+      </DragDismissSheet>
+
+      {/* Aesthetic Table Image Report Modal */}
+      {event && (
+        <AestheticReportModal
+          visible={showAestheticExport}
+          onClose={() => setShowAestheticExport(false)}
+          onShowToast={onShowToast}
+          initialReportType="event_donors"
+          initialEventId={event.id}
+        />
+      )}
+    </>
   );
 };

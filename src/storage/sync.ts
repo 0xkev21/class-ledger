@@ -46,14 +46,34 @@ export async function pushLocalToCloud(
 ): Promise<SyncResult> {
   try {
     // 1. Settings (if user is authenticated)
-    if (userId && (local.settings.ecKbzpayName || local.settings.ecKbzpayPhone)) {
-      const { error: settingsError } = await client.from('settings').upsert({
-        user_id: userId,
-        ec_kbzpay_name: local.settings.ecKbzpayName,
-        ec_kbzpay_phone: local.settings.ecKbzpayPhone,
-        updated_at: new Date().toISOString(),
-      });
-      if (settingsError) throw new Error(formatSyncError('settings', settingsError));
+    if (userId) {
+      try {
+        const payload: Record<string, any> = {
+          user_id: userId,
+          ec_kbzpay_name: local.settings.ecKbzpayName || '',
+          ec_kbzpay_phone: local.settings.ecKbzpayPhone || '',
+          updated_at: new Date().toISOString(),
+        };
+        if (local.settings.themeColorId) {
+          payload.theme_color_id = local.settings.themeColorId;
+        }
+        if (local.settings.language) {
+          payload.language = local.settings.language;
+        }
+
+        const { error: settingsError } = await client.from('settings').upsert(payload);
+        if (settingsError) {
+          // If remote schema does not have theme_color_id or language columns yet, fallback gracefully
+          await client.from('settings').upsert({
+            user_id: userId,
+            ec_kbzpay_name: local.settings.ecKbzpayName || '',
+            ec_kbzpay_phone: local.settings.ecKbzpayPhone || '',
+            updated_at: new Date().toISOString(),
+          });
+        }
+      } catch (settingsErr) {
+        console.warn('Non-fatal settings sync warning:', settingsErr);
+      }
     }
 
     // 2. Students
@@ -148,7 +168,8 @@ export async function pushLocalToCloud(
  */
 export async function pullCloudToLocal(
   client: SupabaseClient,
-  userId?: string
+  userId?: string,
+  currentSettings?: AppSettings
 ): Promise<SyncResult> {
   try {
     let stuQuery = client.from('students').select('*').order('name', { ascending: true });
@@ -179,7 +200,8 @@ export async function pullCloudToLocal(
     if (recRes.error) throw new Error(formatSyncError('event_records', recRes.error));
     if (fineRes.error) throw new Error(formatSyncError('fines', fineRes.error));
 
-    let settings: AppSettings = { ecKbzpayName: '', ecKbzpayPhone: '' };
+    let cloudSettings: Partial<AppSettings> = {};
+
     if (userId) {
       try {
         const { data: settingsData } = await client
@@ -189,15 +211,25 @@ export async function pullCloudToLocal(
           .maybeSingle();
 
         if (settingsData) {
-          settings = {
+          const rawTheme = settingsData.theme_color_id;
+          cloudSettings = {
             ecKbzpayName: settingsData.ec_kbzpay_name || '',
             ecKbzpayPhone: settingsData.ec_kbzpay_phone || '',
+            ...(rawTheme && rawTheme !== 'custom' ? { themeColorId: rawTheme as any } : {}),
+            ...(settingsData.language ? { language: settingsData.language as any } : {}),
           };
         }
       } catch {
         // Non-fatal if settings table is not yet created
       }
     }
+
+    const settings: AppSettings = {
+      ecKbzpayName: cloudSettings.ecKbzpayName ?? currentSettings?.ecKbzpayName ?? '',
+      ecKbzpayPhone: cloudSettings.ecKbzpayPhone ?? currentSettings?.ecKbzpayPhone ?? '',
+      themeColorId: currentSettings?.themeColorId ?? cloudSettings.themeColorId ?? 'indigo',
+      language: currentSettings?.language ?? cloudSettings.language ?? 'my',
+    };
 
     const students: Student[] = (stuRes.data || []).map((row: any) => ({
       id: row.id,

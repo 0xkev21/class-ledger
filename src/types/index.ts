@@ -1,6 +1,13 @@
+import { ThemeColorId } from '../theme/themeColors';
+import { AppLanguage } from '../i18n/translations';
+
+export type { ThemeColorId, AppLanguage };
+
 export interface AppSettings {
   ecKbzpayName: string;
   ecKbzpayPhone: string;
+  themeColorId?: ThemeColorId;
+  language?: AppLanguage;
 }
 
 export interface Student {

@@ -7,6 +7,8 @@ const LEGACY_STORAGE_KEY = '@ec_treasury_app_db_v1';
 export const INITIAL_SETTINGS: AppSettings = {
   ecKbzpayName: '',
   ecKbzpayPhone: '',
+  themeColorId: 'indigo',
+  language: 'my',
 };
 
 export const INITIAL_STATE: AppDatabaseState = {
@@ -35,6 +37,8 @@ export async function loadDatabase(): Promise<AppDatabaseState> {
       settings: {
         ecKbzpayName: parsed.settings?.ecKbzpayName || '',
         ecKbzpayPhone: parsed.settings?.ecKbzpayPhone || '',
+        themeColorId: parsed.settings?.themeColorId === 'custom' ? 'indigo' : (parsed.settings?.themeColorId || 'indigo'),
+        language: parsed.settings?.language === 'en' ? 'en' : 'my',
       },
       students: Array.isArray(parsed.students) ? parsed.students : [],
       subjects: Array.isArray(parsed.subjects) ? parsed.subjects : [],

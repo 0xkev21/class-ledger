@@ -1,21 +1,13 @@
 import {
-  AlertCircle,
-  BookOpen,
   Calendar,
   Check,
-  CheckSquare,
   Gavel,
   Plus,
   Search,
-  Square,
   X,
 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -24,8 +16,11 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTreasury } from '../context/TreasuryContext';
+import { useAppTheme, useTreasury } from '../context/TreasuryContext';
 import { formatMMK, getTodayFormatted } from '../utils/formatters';
+import { DragDismissSheet } from './animated/DragDismissSheet';
+import { PressableScale } from './animated/PressableScale';
+import { NativeIcon } from './NativeIcon';
 
 interface BatchFineModalProps {
   visible: boolean;
@@ -38,7 +33,8 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { subjects, students, batchCreateFines, addSubject } = useTreasury();
+  const { subjects, students, batchCreateFines, addSubject, language, t } = useTreasury();
+  const { isDark, themeColor } = useAppTheme();
   const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
@@ -50,7 +46,7 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
   const [searchStudent, setSearchStudent] = useState('');
   const [error, setError] = useState('');
 
-  // Inline Add Subject state (no nested modal!)
+  // Inline Add Subject state
   const [isAddingSubject, setIsAddingSubject] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
 
@@ -68,7 +64,6 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
     }
   }, [visible, subjects]);
 
-  // Quick fine amount chips
   const amountNumber = parseInt(amount, 10) || 0;
   const totalFineMMK = selectedStudentIds.length * amountNumber;
 
@@ -82,14 +77,16 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
     );
   }, [students, searchStudent]);
 
-  const toggleSelectStudent = (id: string) => {
+  const toggleSelectStudent = (studentId: string) => {
     setSelectedStudentIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(studentId)
+        ? prev.filter((id) => id !== studentId)
+        : [...prev, studentId]
     );
   };
 
   const handleSelectAll = () => {
-    if (selectedStudentIds.length === filteredStudents.length) {
+    if (selectedStudentIds.length === filteredStudents.length && filteredStudents.length > 0) {
       setSelectedStudentIds([]);
     } else {
       setSelectedStudentIds(filteredStudents.map((s) => s.id));
@@ -104,25 +101,25 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
       setNewSubjectName('');
       setIsAddingSubject(false);
     } catch (err: any) {
-      setError('ဘာသာရပ်ထည့်ရာတွင် အမှားဖြစ်ပေါ်ပါသည်');
+      setError(t.common.error);
     }
   };
 
   const handleSubmit = async () => {
     if (!selectedSubjectId) {
-      setError('ဘာသာရပ်တစ်ခု ရွေးချယ်ပေးပါရန်');
+      setError(t.modals.batchFine.errorSelectSubject);
       return;
     }
     if (!reason.trim()) {
-      setError('ဒဏ်ကြေးချမှတ်ရသည့် အကြောင်းပြချက် ရိုက်ထည့်ပါ');
+      setError(t.modals.batchFine.errorReason);
       return;
     }
     if (amountNumber <= 0) {
-      setError('ဒဏ်ကြေးပမာဏ ထည့်သွင်းပေးပါရန်');
+      setError(t.modals.batchFine.errorAmount);
       return;
     }
     if (selectedStudentIds.length === 0) {
-      setError('အနည်းဆုံး ကျောင်းသား ၁ ဦး ရွေးချယ်ပေးပါရန်');
+      setError(t.modals.batchFine.errorNoStudent);
       return;
     }
 
@@ -138,61 +135,76 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
       onClose();
       onSuccess(count);
     } catch (err: any) {
-      setError(err.message || 'ဒဏ်ကြေးမှတ်တမ်း ချမှတ်ရာတွင် အမှားဖြစ်ပေါ်ပါသည်');
+      setError(err.message || t.common.error);
     }
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1 justify-end md:justify-center items-center bg-black/40"
-      >
-        <Pressable className="absolute inset-0" onPress={onClose} />
-
-        <View
+    <DragDismissSheet
+      visible={visible}
+      onClose={onClose}
+      maxHeight={windowHeight * 0.92}
+      isDark={isDark}
+      sheetClassName="p-0 overflow-hidden"
+    >
+      {/* Header */}
+      <View className="px-6 py-4 flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800">
+        <View className="flex-row items-center">
+          <View
+            style={{ backgroundColor: themeColor.surface }}
+            className="h-10 w-10 rounded-full items-center justify-center mr-3"
+          >
+            <NativeIcon
+              sfSymbol="exclamationmark.triangle.fill"
+              materialName="gavel"
+              FallbackIcon={Gavel}
+              size={20}
+              color={themeColor.primary}
+            />
+          </View>
+          <View>
+            <Text className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
+              {t.modals.batchFine.title}
+            </Text>
+            <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+              {t.modals.batchFine.subtitle}
+            </Text>
+          </View>
+        </View>
+        <PressableScale
+          onPress={onClose}
           style={{
-            maxHeight: windowHeight * 0.92,
-            height: Platform.OS === 'web' ? 'auto' : Math.min(windowHeight * 0.88, 720),
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: isDark ? '#27272a' : '#f4f4f5',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
-          className="w-full md:max-w-2xl bg-white dark:bg-zinc-900 rounded-t-[32px] md:rounded-[28px] flex flex-col shadow-2xl overflow-hidden"
+          className="h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center"
         >
-          {/* Top Drag Handle Indicator (mobile only) */}
-          <View className="items-center pt-3 pb-1 md:hidden">
-            <View className="h-1.5 w-12 rounded-full bg-slate-200 dark:bg-zinc-700" />
-          </View>
-
-          {/* Header */}
-          <View className="px-6 py-4 flex-row items-center justify-between border-b border-slate-100 dark:border-zinc-800">
-            <View className="flex-row items-center">
-              <View className="h-10 w-10 rounded-full bg-rose-50 dark:bg-rose-950/60 items-center justify-center mr-3">
-                <Gavel size={20} color="#e11d48" />
-              </View>
-              <View>
-                <Text className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
-                  ဒဏ်ကြေး အစုလိုက် ချမှတ်ရန်
-                </Text>
-                <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Batch Fine Generator
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              onPress={onClose}
-              className="h-8 w-8 rounded-full bg-slate-100 dark:bg-zinc-800 items-center justify-center"
-            >
-              <X size={16} color="#71717a" />
-            </TouchableOpacity>
-          </View>
+          <NativeIcon
+            sfSymbol="xmark"
+            materialName="close"
+            FallbackIcon={X}
+            size={16}
+            color="#71717a"
+          />
+        </PressableScale>
+      </View>
 
           {error ? (
-            <View className="mx-6 mt-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 p-3">
+            <View
+              style={{ borderCurve: 'continuous' }}
+              className="mx-6 mt-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 p-3"
+            >
               <Text className="text-xs text-rose-600 dark:text-rose-300 font-medium">{error}</Text>
             </View>
           ) : null}
 
           <ScrollView
             style={{ flex: 1 }}
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 32 }}
             showsVerticalScrollIndicator={true}
           >
@@ -201,10 +213,19 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
               {/* Date */}
               <View className="flex-1">
                 <Text className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1.5 ml-1">
-                  ရက်စွဲ (Date)
+                  {t.modals.batchFine.dateLabel}
                 </Text>
-                <View className="flex-row items-center rounded-2xl bg-slate-100 dark:bg-zinc-800 px-3.5 py-3">
-                  <Calendar size={16} color="#71717a" />
+                <View
+                  style={{ borderCurve: 'continuous' }}
+                  className="flex-row items-center rounded-2xl bg-slate-100 dark:bg-zinc-800 px-3.5 py-3"
+                >
+                  <NativeIcon
+                    sfSymbol="calendar"
+                    materialName="calendar-today"
+                    FallbackIcon={Calendar}
+                    size={16}
+                    color="#71717a"
+                  />
                   <TextInput
                     value={date}
                     onChangeText={setDate}
@@ -219,16 +240,25 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
               <View className="flex-1">
                 <View className="flex-row items-center justify-between mb-1.5 ml-1">
                   <Text className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-                    ဘာသာရပ် (Subject)
+                    {t.modals.batchFine.subjectLabel}
                   </Text>
                   {!isAddingSubject ? (
                     <TouchableOpacity
                       onPress={() => setIsAddingSubject(true)}
                       className="flex-row items-center"
                     >
-                      <Plus size={12} color="#4f46e5" />
-                      <Text className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 ml-0.5">
-                        New
+                      <NativeIcon
+                        sfSymbol="plus"
+                        materialName="add"
+                        FallbackIcon={Plus}
+                        size={12}
+                        color={themeColor.primary}
+                      />
+                      <Text
+                        style={{ color: themeColor.primary }}
+                        className="text-[11px] font-bold ml-0.5"
+                      >
+                        {t.common.add}
                       </Text>
                     </TouchableOpacity>
                   ) : null}
@@ -239,36 +269,61 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
                     <TextInput
                       value={newSubjectName}
                       onChangeText={setNewSubjectName}
-                      placeholder="ဘာသာရပ် အသစ်..."
+                      placeholder={t.modals.addSubject.namePlaceholder}
                       placeholderTextColor="#9ca3af"
                       autoFocus
                       onSubmitEditing={handleCreateSubjectInline}
-                      className="flex-1 rounded-xl bg-slate-100 dark:bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-50 border border-indigo-500"
+                      style={{ borderCurve: 'continuous', borderColor: themeColor.primary }}
+                      className="flex-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-50 border"
                     />
                     <TouchableOpacity
                       onPress={handleCreateSubjectInline}
                       disabled={!newSubjectName.trim()}
-                      className="rounded-xl bg-indigo-600 px-3 py-2 active:bg-indigo-700"
+                      style={{
+                        backgroundColor: themeColor.primary,
+                        borderCurve: 'continuous',
+                      }}
+                      className="rounded-xl px-3 py-2 active:opacity-90"
                     >
-                      <Text className="text-xs font-bold text-white">ထည့်မည်</Text>
+                      <Text
+                        style={{ color: themeColor.onPrimary }}
+                        className="text-xs font-bold"
+                      >
+                        {t.common.add}
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => {
                         setIsAddingSubject(false);
                         setNewSubjectName('');
                       }}
-                      className="rounded-xl bg-slate-200 dark:bg-zinc-800 p-2"
+                      style={{ borderCurve: 'continuous' }}
+                      className="rounded-xl bg-zinc-200 dark:bg-zinc-800 p-2"
                     >
-                      <X size={14} color="#71717a" />
+                      <NativeIcon
+                        sfSymbol="xmark"
+                        materialName="close"
+                        FallbackIcon={X}
+                        size={14}
+                        color="#71717a"
+                      />
                     </TouchableOpacity>
                   </View>
                 ) : subjects.length === 0 ? (
                   <TouchableOpacity
                     onPress={() => setIsAddingSubject(true)}
-                    className="rounded-2xl border border-dashed border-indigo-300 dark:border-indigo-800 p-2.5 items-center justify-center"
+                    style={{
+                      borderCurve: 'continuous',
+                      borderColor: themeColor.border,
+                      backgroundColor: themeColor.surface,
+                    }}
+                    className="rounded-2xl border border-dashed p-2.5 items-center justify-center"
                   >
-                    <Text className="text-xs text-indigo-600 dark:text-indigo-400 font-bold">
-                      ဘာသာရပ် အသစ်ထည့်ပါ
+                    <Text
+                      style={{ color: themeColor.text }}
+                      className="text-xs font-bold"
+                    >
+                      {t.roster.addSubject}
                     </Text>
                   </TouchableOpacity>
                 ) : (
@@ -283,16 +338,27 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
                         <TouchableOpacity
                           key={sub.id}
                           onPress={() => setSelectedSubjectId(sub.id)}
+                          style={{
+                            backgroundColor: isSelected
+                              ? themeColor.primary
+                              : isDark
+                              ? '#27272a'
+                              : '#f4f4f5',
+                            borderCurve: 'continuous',
+                          }}
                           className={`rounded-full px-3 py-2 ${
-                            isSelected
-                              ? 'bg-indigo-600'
-                              : 'bg-slate-100 dark:bg-zinc-800'
+                            isSelected ? 'shadow-xs' : ''
                           }`}
                         >
                           <Text
-                            className={`text-xs font-bold ${
-                              isSelected ? 'text-white' : 'text-zinc-700 dark:text-zinc-300'
-                            }`}
+                            style={{
+                              color: isSelected
+                                ? themeColor.onPrimary
+                                : isDark
+                                ? '#d4d4d8'
+                                : '#3f3f46',
+                            }}
+                            className="text-xs font-bold"
                           >
                             {sub.name}
                           </Text>
@@ -307,16 +373,17 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
             {/* 2. Reason */}
             <View className="mb-4">
               <Text className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1.5 ml-1">
-                ဒဏ်ကြေး အကြောင်းပြချက် (Reason) <Text className="text-rose-500">*</Text>
+                {t.modals.batchFine.reasonLabel} <Text className="text-rose-500">*</Text>
               </Text>
               <TextInput
                 value={reason}
-                onChangeText={(t) => {
-                  setReason(t);
+                onChangeText={(rVal) => {
+                  setReason(rVal);
                   setError('');
                 }}
-                placeholder="e.g. didn't draw system architecture, အိမ်စာမတင်, နောက်ကျ"
+                placeholder={t.modals.batchFine.reasonPlaceholder}
                 placeholderTextColor="#9ca3af"
+                style={{ borderCurve: 'continuous' }}
                 className="w-full rounded-2xl bg-slate-100 dark:bg-zinc-800 px-4 py-3.5 text-sm text-zinc-900 dark:text-zinc-50"
               />
             </View>
@@ -324,7 +391,7 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
             {/* 3. Amount Per Student */}
             <View className="mb-5">
               <Text className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1.5 ml-1">
-                တစ်ဦးလျှင် ဒဏ်ကြေးပမာဏ (MMK) <Text className="text-rose-500">*</Text>
+                {t.modals.batchFine.amountLabel} <Text className="text-rose-500">*</Text>
               </Text>
               <TextInput
                 value={amount}
@@ -332,6 +399,7 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
                 placeholder="1000"
                 placeholderTextColor="#9ca3af"
                 keyboardType="numeric"
+                style={{ borderCurve: 'continuous', fontVariant: ['tabular-nums'] }}
                 className="w-full rounded-2xl bg-slate-100 dark:bg-zinc-800 px-4 py-3.5 text-sm font-bold text-zinc-900 dark:text-zinc-50 mb-2"
               />
               <View className="flex-row gap-2">
@@ -339,9 +407,13 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
                   <TouchableOpacity
                     key={preset}
                     onPress={() => setAmount(String(preset))}
+                    style={{ borderCurve: 'continuous' }}
                     className="rounded-full bg-slate-200/80 dark:bg-zinc-700/80 px-3 py-1"
                   >
-                    <Text className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300">
+                    <Text
+                      style={{ fontVariant: ['tabular-nums'] }}
+                      className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300"
+                    >
                       {preset.toLocaleString()} K
                     </Text>
                   </TouchableOpacity>
@@ -353,36 +425,55 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
             <View className="mb-4">
               <View className="flex-row items-center justify-between mb-2">
                 <Text className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 ml-1">
-                  ဒဏ်ကြေးချမှတ်မည့် ကျောင်းသားများ ({selectedStudentIds.length} ဦး ရွေးထားသည်)
+                  {t.modals.batchFine.selectedCount(selectedStudentIds.length, filteredStudents.length)}
                 </Text>
                 <TouchableOpacity onPress={handleSelectAll}>
-                  <Text className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                  <Text
+                    style={{ color: themeColor.primary }}
+                    className="text-xs font-bold"
+                  >
                     {selectedStudentIds.length === filteredStudents.length &&
                     filteredStudents.length > 0
-                      ? 'Deselect All'
-                      : 'Select All'}
+                      ? (language === 'en' ? 'Deselect All' : 'အားလုံး ပယ်ဖျက်')
+                      : t.modals.batchFine.selectAll}
                   </Text>
                 </TouchableOpacity>
               </View>
 
               {/* Search students input */}
-              <View className="flex-row items-center rounded-2xl bg-slate-100 dark:bg-zinc-800 px-3.5 py-2.5 mb-2.5">
-                <Search size={16} color="#9ca3af" />
+              <View
+                style={{
+                  backgroundColor: isDark ? '#27272a' : '#f4f4f5',
+                  borderCurve: 'continuous',
+                }}
+                className="flex-row items-center rounded-2xl px-3.5 py-2.5 mb-2.5"
+              >
+                <NativeIcon
+                  sfSymbol="magnifyingglass"
+                  materialName="search"
+                  FallbackIcon={Search}
+                  size={16}
+                  color={isDark ? '#71717a' : '#9ca3af'}
+                />
                 <TextInput
                   value={searchStudent}
                   onChangeText={setSearchStudent}
-                  placeholder="ကျောင်းသားအမည် ရှာရန်..."
-                  placeholderTextColor="#9ca3af"
-                  className="ml-2 flex-1 text-xs text-zinc-900 dark:text-zinc-50 p-0"
+                  placeholder={t.modals.batchFine.searchStudentPlaceholder}
+                  placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
+                  style={{ color: isDark ? '#f4f4f5' : '#18181b' }}
+                  className="ml-2 flex-1 text-xs p-0"
                 />
               </View>
 
               {/* Student Checklist Container */}
-              <View className="rounded-2xl bg-slate-50 dark:bg-zinc-800/60 p-2 max-h-56">
-                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+              <View
+                style={{ borderCurve: 'continuous' }}
+                className="rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 p-2 max-h-56 border border-zinc-200/60 dark:border-zinc-700/60"
+              >
+                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator keyboardShouldPersistTaps="handled">
                   {filteredStudents.length === 0 ? (
                     <Text className="text-center text-xs text-zinc-400 py-6">
-                      ကျောင်းသားစာရင်း မရှိသေးပါ (Roster Tab တွင် အရင်ထည့်ပါ)
+                      {t.roster.emptyStudentsTitle}
                     </Text>
                   ) : (
                     filteredStudents.map((s) => {
@@ -391,28 +482,45 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
                         <TouchableOpacity
                           key={s.id}
                           onPress={() => toggleSelectStudent(s.id)}
-                          className={`flex-row items-center justify-between p-3 rounded-xl mb-1 ${
-                            isSelected
-                              ? 'bg-indigo-50 dark:bg-indigo-950/70'
-                              : 'bg-white dark:bg-zinc-800'
+                          style={{
+                            backgroundColor: isSelected
+                              ? themeColor.surface
+                              : isDark
+                              ? '#18181b'
+                              : '#ffffff',
+                            borderCurve: 'continuous',
+                          }}
+                          className={`flex-row items-center justify-between p-3 rounded-xl mb-1 border ${
+                            isSelected ? 'border-transparent' : 'border-zinc-200/70 dark:border-zinc-800/80'
                           }`}
                         >
                           <View className="flex-row items-center flex-1 mr-2">
                             <View
-                              className={`h-5 w-5 rounded-md items-center justify-center mr-3 ${
-                                isSelected
-                                  ? 'bg-indigo-600'
-                                  : 'border border-slate-300 dark:border-zinc-600'
-                              }`}
+                              style={{
+                                backgroundColor: isSelected ? themeColor.primary : 'transparent',
+                                borderColor: isSelected ? themeColor.primary : (isDark ? '#52525b' : '#d4d4d8'),
+                              }}
+                              className="h-5 w-5 rounded-md items-center justify-center mr-3 border"
                             >
-                              {isSelected ? <Check size={14} color="#ffffff" /> : null}
+                              {isSelected ? (
+                                <NativeIcon
+                                  sfSymbol="checkmark"
+                                  materialName="check"
+                                  FallbackIcon={Check}
+                                  size={14}
+                                  color={themeColor.onPrimary}
+                                />
+                              ) : null}
                             </View>
                             <Text
-                              className={`text-xs font-bold ${
-                                isSelected
-                                  ? 'text-indigo-950 dark:text-indigo-100'
-                                  : 'text-zinc-800 dark:text-zinc-200'
-                              }`}
+                              style={{
+                                color: isSelected
+                                  ? themeColor.text
+                                  : isDark
+                                  ? '#f4f4f5'
+                                  : '#18181b',
+                              }}
+                              className="text-xs font-bold"
                             >
                               {s.name}
                             </Text>
@@ -435,40 +543,55 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
           {/* Sticky Live Footer Summary & Action */}
           <View
             style={{ paddingBottom: Math.max(insets.bottom, 16) }}
-            className="p-5 bg-white dark:bg-zinc-900 border-t border-slate-100 dark:border-zinc-800"
+            className="p-5 bg-white dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800"
           >
             <View className="flex-row items-center justify-between mb-3 px-1">
               <Text className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                {selectedStudentIds.length} students selected • {formatMMK(amountNumber)} each
+                {selectedStudentIds.length} {language === 'en' ? 'students' : 'ဦး'} • {formatMMK(amountNumber)}
               </Text>
-              <Text className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50">
+              <Text
+                style={{ fontVariant: ['tabular-nums'] }}
+                className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50"
+              >
                 = {formatMMK(totalFineMMK)}
               </Text>
             </View>
 
-            <TouchableOpacity
+            <PressableScale
               onPress={handleSubmit}
               disabled={selectedStudentIds.length === 0}
-              activeOpacity={0.85}
-              className={`w-full rounded-full py-3.5 items-center justify-center ${
-                selectedStudentIds.length > 0
-                  ? 'bg-indigo-600 active:bg-indigo-700 shadow-sm'
-                  : 'bg-zinc-200 dark:bg-zinc-800'
-              }`}
+              style={{
+                backgroundColor:
+                  selectedStudentIds.length > 0
+                    ? themeColor.primary
+                    : isDark
+                    ? '#27272a'
+                    : '#e4e4e7',
+                borderRadius: 9999,
+                paddingVertical: 14,
+                width: '100%',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderCurve: 'continuous',
+                marginBottom: 4,
+              }}
+              className="w-full rounded-full py-3.5 items-center justify-center"
             >
               <Text
-                className={`text-sm font-bold ${
-                  selectedStudentIds.length > 0
-                    ? 'text-white'
-                    : 'text-zinc-400 dark:text-zinc-500'
-                }`}
+                style={{
+                  color:
+                    selectedStudentIds.length > 0
+                      ? themeColor.onPrimary
+                      : isDark
+                      ? '#71717a'
+                      : '#9ca3af',
+                }}
+                className="text-sm font-bold"
               >
-                ဒဏ်ကြေး မှတ်တမ်းတင်မည် ({selectedStudentIds.length} မှု)
+                {t.modals.batchFine.submit} ({selectedStudentIds.length})
               </Text>
-            </TouchableOpacity>
+            </PressableScale>
           </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </DragDismissSheet>
   );
 };

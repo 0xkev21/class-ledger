@@ -1,11 +1,9 @@
 import {
-  AlertCircle,
-  BookOpen,
   Calendar,
   CheckCircle2,
   Clock,
-  Filter,
   Gavel,
+  Image as ImageIcon,
   Plus,
   Search,
   Trash2,
@@ -14,17 +12,19 @@ import {
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
-  Platform,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AestheticReportModal } from '@/src/components/AestheticReportModal';
 import { BatchFineModal } from '@/src/components/BatchFineModal';
+import { NativeIcon } from '@/src/components/NativeIcon';
 import { ToastNotification } from '@/src/components/ToastNotification';
-import { useTreasury } from '@/src/context/TreasuryContext';
+import { useAppTheme, useTreasury } from '@/src/context/TreasuryContext';
+import { Fine } from '@/src/types';
 import { formatMMK } from '@/src/utils/formatters';
 
 export default function FinesScreen() {
@@ -32,29 +32,39 @@ export default function FinesScreen() {
     fines,
     students,
     subjects,
+    finesSummary,
     toggleFinePaid,
     deleteFine,
-    finesSummary,
+    t,
   } = useTreasury();
+  const { isDark, themeColor } = useAppTheme();
+  const insets = useSafeAreaInsets();
 
-  // Filters & Search
+  // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'unpaid' | 'paid'>('all');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('all');
 
-  // Modals & Toasts
+  // Modals state
   const [showBatchModal, setShowBatchModal] = useState(false);
+  const [showAestheticModal, setShowAestheticModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const studentMap = new Map(students.map((s) => [s.id, s]));
-  const subjectMap = new Map(subjects.map((s) => [s.id, s]));
+  // Fast lookups
+  const studentMap = useMemo(() => {
+    return new Map(students.map((s) => [s.id, s]));
+  }, [students]);
 
-  // Filtered fines
+  const subjectMap = useMemo(() => {
+    return new Map(subjects.map((s) => [s.id, s]));
+  }, [subjects]);
+
+  // Filtered fines list
   const filteredFines = useMemo(() => {
     return fines.filter((fine) => {
       // Status filter
-      if (statusFilter === 'paid' && !fine.isPaid) return false;
       if (statusFilter === 'unpaid' && fine.isPaid) return false;
+      if (statusFilter === 'paid' && !fine.isPaid) return false;
 
       // Subject filter
       if (selectedSubjectId !== 'all' && fine.subjectId !== selectedSubjectId) {
@@ -77,16 +87,16 @@ export default function FinesScreen() {
 
   const handleDeleteFine = (fineId: string, studentName: string) => {
     Alert.alert(
-      'ဒဏ်ကြေး ဖျက်မည်',
-      `"${studentName}" ၏ ဒဏ်ကြေးမှတ်တမ်းကို ဖျက်ရန် သေချာပါသလား?`,
+      t.fines.deleteTitle,
+      t.fines.deleteMsg(studentName),
       [
-        { text: 'မဖျက်ပါ', style: 'cancel' },
+        { text: t.common.cancel, style: 'cancel' },
         {
-          text: 'ဖျက်မည်',
+          text: t.common.delete,
           style: 'destructive',
           onPress: async () => {
             await deleteFine(fineId);
-            setToastMessage('ဒဏ်ကြေးမှတ်တမ်းကို ဖျက်ပစ်လိုက်ပါပြီ');
+            setToastMessage(t.fines.deleteToast);
           },
         },
       ]
@@ -94,17 +104,16 @@ export default function FinesScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, height: '100%', minHeight: 0 }}
-      className="flex-1 bg-slate-50 dark:bg-zinc-950"
-    >
+    <View className="flex-1 bg-zinc-50 dark:bg-zinc-950">
       <ToastNotification message={toastMessage} onHide={() => setToastMessage(null)} />
 
       <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
         style={{ flex: 1, height: '100%' }}
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingTop: 16,
+          paddingTop: Math.max(insets.top, 16),
           paddingBottom: 120,
           flexGrow: 1,
         }}
@@ -112,43 +121,87 @@ export default function FinesScreen() {
       >
         <View className="w-full max-w-4xl mx-auto">
           {/* Screen Header */}
-          <View className="mb-5 pt-2">
-            <Text className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-50 tracking-tight leading-relaxed py-0.5">
-              ဘာသာရပ်ဆိုင်ရာ ဒဏ်ကြေးများ
-            </Text>
-            <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-              နောက်ကျ၊ အိမ်စာမတင်၊ အခန်းတွင်းစည်းကမ်းဖောက်ဖျက်မှု ဒဏ်ကြေးများ
-            </Text>
+          <View className="mb-5 pt-2 flex-row items-center justify-between">
+            <View className="flex-1 mr-2">
+              <Text
+                selectable
+                className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-50 tracking-tight leading-relaxed py-0.5"
+              >
+                {t.fines.title}
+              </Text>
+              <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                {t.fines.subtitle}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowAestheticModal(true)}
+              style={{ borderCurve: 'continuous' }}
+              className="flex-row items-center bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 px-3.5 py-2.5 rounded-full shadow-xs active:bg-zinc-100 dark:active:bg-zinc-800"
+            >
+              <NativeIcon
+                sfSymbol="photo.artframe"
+                materialName="image"
+                FallbackIcon={ImageIcon}
+                size={14}
+                color={themeColor.primary}
+              />
+              <Text className="ml-1.5 text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                {t.fines.imageExport}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Hero Fine Summary Card */}
-          <View className="rounded-3xl bg-white dark:bg-zinc-900 p-5 mb-5 shadow-none">
+          <View
+            style={{ borderCurve: 'continuous' }}
+            className="rounded-3xl bg-white dark:bg-zinc-900 p-5 mb-5 border border-zinc-200/70 dark:border-zinc-800/80 shadow-none"
+          >
             <View className="flex-row items-center justify-between mb-3">
               <Text className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                ဒဏ်ကြေး စာရင်းချုပ် (Fine Summary)
+                {t.fines.summaryTitle}
               </Text>
               <View className="h-7 w-7 rounded-full bg-rose-50 dark:bg-rose-950/60 items-center justify-center">
-                <Gavel size={14} color="#e11d48" />
+                <NativeIcon
+                  sfSymbol="exclamationmark.triangle.fill"
+                  materialName="gavel"
+                  FallbackIcon={Gavel}
+                  size={14}
+                  color="#e11d48"
+                />
               </View>
             </View>
 
             <View className="flex-row gap-3">
               {/* Collected (Paid) */}
-              <View className="flex-1 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 p-4">
+              <View
+                style={{ borderCurve: 'continuous' }}
+                className="flex-1 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 p-4 border border-emerald-100 dark:border-emerald-900/30"
+              >
                 <Text className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 mb-0.5">
-                  ကောက်ခံရရှိပြီး (Paid)
+                  {t.fines.paidTotal}
                 </Text>
-                <Text className="text-lg font-extrabold text-emerald-700 dark:text-emerald-300 tracking-tight">
+                <Text
+                  selectable
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className="text-lg font-extrabold text-emerald-700 dark:text-emerald-300 tracking-tight"
+                >
                   {formatMMK(finesSummary.totalPaid)}
                 </Text>
               </View>
 
               {/* Pending (Unpaid) */}
-              <View className="flex-1 rounded-2xl bg-rose-50 dark:bg-rose-950/40 p-4">
+              <View
+                style={{ borderCurve: 'continuous' }}
+                className="flex-1 rounded-2xl bg-rose-50 dark:bg-rose-950/40 p-4 border border-rose-100 dark:border-rose-900/30"
+              >
                 <Text className="text-[11px] font-bold text-rose-700 dark:text-rose-300 mb-0.5">
-                  ကောက်ခံရန်ကျန် (Unpaid)
+                  {t.fines.unpaidTotal}
                 </Text>
-                <Text className="text-lg font-extrabold text-rose-700 dark:text-rose-300 tracking-tight">
+                <Text
+                  selectable
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className="text-lg font-extrabold text-rose-700 dark:text-rose-300 tracking-tight"
+                >
                   {formatMMK(finesSummary.totalUnpaid)}
                 </Text>
               </View>
@@ -161,28 +214,49 @@ export default function FinesScreen() {
             <View className="flex-row gap-2 mb-3">
               {(['all', 'unpaid', 'paid'] as const).map((st) => {
                 const isSelected = statusFilter === st;
+                const count =
+                  st === 'all'
+                    ? fines.length
+                    : st === 'unpaid'
+                    ? fines.filter((f) => !f.isPaid).length
+                    : fines.filter((f) => f.isPaid).length;
+
+                const label =
+                  st === 'all'
+                    ? `${t.common.all} (${count})`
+                    : st === 'unpaid'
+                    ? `${t.common.unpaid} (${count})`
+                    : `${t.common.paid} (${count})`;
+
                 return (
                   <TouchableOpacity
                     key={st}
                     onPress={() => setStatusFilter(st)}
-                    className={`rounded-full px-4 py-2 ${
+                    style={{
+                      backgroundColor: isSelected
+                        ? themeColor.primary
+                        : isDark
+                        ? '#18181b'
+                        : '#ffffff',
+                      borderCurve: 'continuous',
+                    }}
+                    className={`rounded-full px-4 py-2 border ${
                       isSelected
-                        ? 'bg-zinc-900 dark:bg-white'
-                        : 'bg-white dark:bg-zinc-900'
+                        ? 'border-transparent shadow-xs'
+                        : 'border-zinc-200/70 dark:border-zinc-800/80'
                     }`}
                   >
                     <Text
-                      className={`text-xs font-bold ${
-                        isSelected
-                          ? 'text-white dark:text-zinc-900'
-                          : 'text-zinc-600 dark:text-zinc-400'
-                      }`}
+                      style={{
+                        color: isSelected
+                          ? themeColor.onPrimary
+                          : isDark
+                          ? '#e4e4e7'
+                          : '#52525b',
+                      }}
+                      className="text-xs font-bold"
                     >
-                      {st === 'all'
-                        ? `အားလုံး (${fines.length})`
-                        : st === 'unpaid'
-                        ? `မပေးရသေး (${fines.filter((f) => !f.isPaid).length})`
-                        : `ပေးပြီး (${fines.filter((f) => f.isPaid).length})`}
+                      {label}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -198,20 +272,33 @@ export default function FinesScreen() {
               >
                 <TouchableOpacity
                   onPress={() => setSelectedSubjectId('all')}
-                  className={`rounded-full px-3.5 py-1.5 ${
+                  style={{
+                    backgroundColor:
+                      selectedSubjectId === 'all'
+                        ? themeColor.primary
+                        : isDark
+                        ? '#18181b'
+                        : '#ffffff',
+                    borderCurve: 'continuous',
+                  }}
+                  className={`rounded-full px-3.5 py-1.5 border ${
                     selectedSubjectId === 'all'
-                      ? 'bg-indigo-600'
-                      : 'bg-white dark:bg-zinc-900'
+                      ? 'border-transparent shadow-xs'
+                      : 'border-zinc-200/70 dark:border-zinc-800/80'
                   }`}
                 >
                   <Text
-                    className={`text-[11px] font-bold ${
-                      selectedSubjectId === 'all'
-                        ? 'text-white'
-                        : 'text-zinc-600 dark:text-zinc-400'
-                    }`}
+                    style={{
+                      color:
+                        selectedSubjectId === 'all'
+                          ? themeColor.onPrimary
+                          : isDark
+                          ? '#e4e4e7'
+                          : '#52525b',
+                    }}
+                    className="text-[11px] font-bold"
                   >
-                    All Subjects
+                    {t.fines.allSubjects}
                   </Text>
                 </TouchableOpacity>
                 {subjects.map((sub) => {
@@ -220,18 +307,29 @@ export default function FinesScreen() {
                     <TouchableOpacity
                       key={sub.id}
                       onPress={() => setSelectedSubjectId(sub.id)}
-                      className={`rounded-full px-3.5 py-1.5 ${
+                      style={{
+                        backgroundColor: isSelected
+                          ? themeColor.primary
+                          : isDark
+                          ? '#18181b'
+                          : '#ffffff',
+                        borderCurve: 'continuous',
+                      }}
+                      className={`rounded-full px-3.5 py-1.5 border ${
                         isSelected
-                          ? 'bg-indigo-600'
-                          : 'bg-white dark:bg-zinc-900'
+                          ? 'border-transparent shadow-xs'
+                          : 'border-zinc-200/70 dark:border-zinc-800/80'
                       }`}
                     >
                       <Text
-                        className={`text-[11px] font-bold ${
-                          isSelected
-                            ? 'text-white'
-                            : 'text-zinc-600 dark:text-zinc-400'
-                        }`}
+                        style={{
+                          color: isSelected
+                            ? themeColor.onPrimary
+                            : isDark
+                            ? '#e4e4e7'
+                            : '#52525b',
+                        }}
+                        className="text-[11px] font-bold"
                       >
                         {sub.name}
                       </Text>
@@ -242,18 +340,37 @@ export default function FinesScreen() {
             ) : null}
 
             {/* Search Bar */}
-            <View className="flex-row items-center rounded-2xl bg-white dark:bg-zinc-900 px-4 py-3">
-              <Search size={16} color="#9ca3af" />
+            <View
+              style={{
+                backgroundColor: isDark ? '#18181b' : '#ffffff',
+                borderCurve: 'continuous',
+              }}
+              className="flex-row items-center rounded-2xl px-4 py-3 border border-zinc-200/70 dark:border-zinc-800/80"
+            >
+              <NativeIcon
+                sfSymbol="magnifyingglass"
+                materialName="search"
+                FallbackIcon={Search}
+                size={16}
+                color={isDark ? '#71717a' : '#9ca3af'}
+              />
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="ကျောင်းသားအမည် သို့မဟုတ် အကြောင်းပြချက်ဖြင့် ရှာရန်..."
-                placeholderTextColor="#9ca3af"
-                className="ml-2.5 flex-1 text-xs text-zinc-900 dark:text-zinc-50 p-0"
+                placeholder={t.fines.searchPlaceholder}
+                placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
+                style={{ color: isDark ? '#f4f4f5' : '#18181b' }}
+                className="ml-2.5 flex-1 text-xs p-0"
               />
               {searchQuery ? (
                 <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <X size={15} color="#9ca3af" />
+                  <NativeIcon
+                    sfSymbol="xmark.circle.fill"
+                    materialName="clear"
+                    FallbackIcon={X}
+                    size={15}
+                    color={isDark ? '#71717a' : '#9ca3af'}
+                  />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -261,22 +378,49 @@ export default function FinesScreen() {
 
           {/* Fines Feed */}
           {filteredFines.length === 0 ? (
-            <View className="items-center justify-center py-16 px-6 rounded-3xl bg-white dark:bg-zinc-900 mt-2">
-              <View className="h-16 w-16 rounded-full bg-rose-50 dark:bg-rose-950/60 items-center justify-center mb-3">
-                <Gavel size={32} color="#e11d48" />
+            <View
+              style={{ borderCurve: 'continuous' }}
+              className="items-center justify-center py-16 px-6 rounded-3xl bg-white dark:bg-zinc-900 mt-2 border border-zinc-200/70 dark:border-zinc-800/80"
+            >
+              <View
+                style={{ backgroundColor: themeColor.surface }}
+                className="h-16 w-16 rounded-full items-center justify-center mb-3"
+              >
+                <NativeIcon
+                  sfSymbol="exclamationmark.triangle.fill"
+                  materialName="gavel"
+                  FallbackIcon={Gavel}
+                  size={32}
+                  color={themeColor.primary}
+                />
               </View>
               <Text className="text-base font-bold text-zinc-900 dark:text-zinc-50 mb-1">
-                ဒဏ်ကြေး မှတ်တမ်း မရှိသေးပါ
+                {t.fines.emptyTitle}
               </Text>
               <Text className="text-xs text-zinc-500 dark:text-zinc-400 text-center mb-5 max-w-xs leading-relaxed">
-                နောက်ကျ သို့မဟုတ် အိမ်စာမတင်သည့် ကျောင်းသားများကို + Batch Fine ခလုတ်ဖြင့် အစုလိုက် မှတ်တမ်းတင်ပါ
+                {t.fines.emptyDesc}
               </Text>
               <TouchableOpacity
                 onPress={() => setShowBatchModal(true)}
-                className="flex-row items-center rounded-full bg-indigo-600 px-6 py-3 active:bg-indigo-700 shadow-sm"
+                style={{
+                  backgroundColor: themeColor.primary,
+                  borderCurve: 'continuous',
+                }}
+                className="flex-row items-center rounded-full px-6 py-3 active:opacity-90 shadow-sm"
               >
-                <Plus size={16} color="#ffffff" />
-                <Text className="ml-1.5 text-xs font-bold text-white">+ Batch Fine ထည့်မည်</Text>
+                <NativeIcon
+                  sfSymbol="plus"
+                  materialName="add"
+                  FallbackIcon={Plus}
+                  size={16}
+                  color={themeColor.onPrimary}
+                />
+                <Text
+                  style={{ color: themeColor.onPrimary }}
+                  className="ml-1.5 text-xs font-bold"
+                >
+                  {t.fines.batchFine}
+                </Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -288,18 +432,35 @@ export default function FinesScreen() {
                 return (
                   <View
                     key={fine.id}
-                    className="rounded-3xl bg-white dark:bg-zinc-900 p-4 shadow-none flex-row items-center justify-between"
+                    style={{ borderCurve: 'continuous' }}
+                    className="rounded-3xl bg-white dark:bg-zinc-900 p-4 border border-zinc-200/70 dark:border-zinc-800/80 shadow-none flex-row items-center justify-between"
                   >
                     <View className="flex-1 mr-3">
                       {/* Subject badge & date */}
                       <View className="flex-row items-center gap-2 mb-1">
-                        <View className="rounded-full bg-slate-100 dark:bg-zinc-800 px-2.5 py-0.5">
-                          <Text className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                        <View
+                          style={{
+                            backgroundColor: themeColor.surface,
+                            borderColor: themeColor.border,
+                            borderCurve: 'continuous',
+                          }}
+                          className="rounded-full px-2.5 py-0.5 border"
+                        >
+                          <Text
+                            style={{ color: themeColor.text }}
+                            className="text-[10px] font-bold"
+                          >
                             {subject?.name || 'General'}
                           </Text>
                         </View>
                         <View className="flex-row items-center">
-                          <Calendar size={11} color="#9ca3af" />
+                          <NativeIcon
+                            sfSymbol="calendar"
+                            materialName="calendar-today"
+                            FallbackIcon={Calendar}
+                            size={11}
+                            color="#9ca3af"
+                          />
                           <Text className="ml-1 text-[10px] text-zinc-400">
                             {fine.date}
                           </Text>
@@ -307,7 +468,10 @@ export default function FinesScreen() {
                       </View>
 
                       {/* Student Name */}
-                      <Text className="text-sm font-bold text-zinc-900 dark:text-zinc-50 leading-relaxed py-0.5">
+                      <Text
+                        selectable
+                        className="text-sm font-bold text-zinc-900 dark:text-zinc-50 leading-relaxed py-0.5"
+                      >
                         {student?.name || 'Unknown Student'}
                         {student?.rollNumber ? (
                           <Text className="text-xs font-normal text-zinc-400">
@@ -317,49 +481,83 @@ export default function FinesScreen() {
                       </Text>
 
                       {/* Reason */}
-                      <Text className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                      <Text
+                        selectable
+                        className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed"
+                      >
                         {fine.reason}
                       </Text>
                     </View>
 
                     <View className="items-end gap-2">
                       {/* Amount */}
-                      <Text className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50">
+                      <Text
+                        selectable
+                        style={{ fontVariant: ['tabular-nums'] }}
+                        className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50"
+                      >
                         {formatMMK(fine.amount)}
                       </Text>
 
-                      {/* 1-Tap Tactile M3 Pill Toggle */}
+                      {/* 1-Tap Tactile Pill Toggle */}
                       <View className="flex-row items-center gap-2">
                         <TouchableOpacity
                           onPress={() => toggleFinePaid(fine.id)}
                           activeOpacity={0.8}
+                          style={{ borderCurve: 'continuous' }}
                           className={`flex-row items-center rounded-full px-3.5 py-1.5 ${
                             fine.isPaid
-                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                              : 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+                              ? 'bg-emerald-500/15'
+                              : 'bg-rose-500/15'
                           }`}
                         >
                           {fine.isPaid ? (
-                            <CheckCircle2 size={14} color="#059669" />
+                            <NativeIcon
+                              sfSymbol="checkmark.circle.fill"
+                              materialName="check-circle"
+                              FallbackIcon={CheckCircle2}
+                              size={14}
+                              color="#059669"
+                            />
                           ) : (
-                            <Clock size={14} color="#e11d48" />
+                            <NativeIcon
+                              sfSymbol="clock.fill"
+                              materialName="schedule"
+                              FallbackIcon={Clock}
+                              size={14}
+                              color="#e11d48"
+                            />
                           )}
                           <Text
-                            className={`ml-1.5 text-xs font-bold ${
-                              fine.isPaid
-                                ? 'text-emerald-700 dark:text-emerald-300'
-                                : 'text-rose-700 dark:text-rose-300'
-                            }`}
+                            style={{
+                              color: fine.isPaid
+                                ? isDark
+                                  ? '#34d399'
+                                  : '#059669'
+                                : isDark
+                                ? '#fb7185'
+                                : '#e11d48',
+                            }}
+                            className="ml-1.5 text-[11px] font-bold"
                           >
-                            {fine.isPaid ? 'Paid' : 'Unpaid'}
+                            {fine.isPaid ? t.common.paid : t.common.unpaid}
                           </Text>
                         </TouchableOpacity>
 
+                        {/* Delete Fine Button */}
                         <TouchableOpacity
-                          onPress={() => handleDeleteFine(fine.id, student?.name || 'ကျောင်းသား')}
-                          className="p-1 rounded-full active:bg-rose-50"
+                          onPress={() =>
+                            handleDeleteFine(fine.id, student?.name || 'Unknown')
+                          }
+                          className="h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center active:bg-rose-50 dark:active:bg-rose-950/40"
                         >
-                          <Trash2 size={15} color="#9ca3af" />
+                          <NativeIcon
+                            sfSymbol="trash"
+                            materialName="delete"
+                            FallbackIcon={Trash2}
+                            size={14}
+                            color="#a1a1aa"
+                          />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -371,15 +569,36 @@ export default function FinesScreen() {
         </View>
       </ScrollView>
 
-      {/* Prominent M3 Extended FAB */}
-      <View className="absolute bottom-6 right-6">
+      {/* Prominent Floating Action Button with Safe Inset Positioning */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: Math.max(insets.bottom, 16) + 16,
+          right: 20,
+        }}
+      >
         <TouchableOpacity
           onPress={() => setShowBatchModal(true)}
           activeOpacity={0.85}
-          className="flex-row items-center rounded-full bg-rose-600 px-5 py-4 shadow-lg active:bg-rose-700"
+          style={{
+            backgroundColor: themeColor.primary,
+            borderCurve: 'continuous',
+          }}
+          className="flex-row items-center rounded-full px-5 py-4 shadow-lg active:opacity-90"
         >
-          <Plus size={18} color="#ffffff" />
-          <Text className="ml-2 text-sm font-bold text-white">Batch Fine</Text>
+          <NativeIcon
+            sfSymbol="plus"
+            materialName="add"
+            FallbackIcon={Plus}
+            size={18}
+            color={themeColor.onPrimary}
+          />
+          <Text
+            style={{ color: themeColor.onPrimary }}
+            className="ml-2 text-sm font-bold"
+          >
+            {t.fines.batchFine}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -388,9 +607,17 @@ export default function FinesScreen() {
         visible={showBatchModal}
         onClose={() => setShowBatchModal(false)}
         onSuccess={(count) => {
-          setToastMessage(`ကျောင်းသား ${count} ဦး အတွက် ဒဏ်ကြေး ချမှတ်ပြီးပါပြီ!`);
+          setToastMessage(t.fines.batchCountToast(count));
         }}
       />
-    </SafeAreaView>
+
+      {/* Aesthetic Table Image Report Modal */}
+      <AestheticReportModal
+        visible={showAestheticModal}
+        onClose={() => setShowAestheticModal(false)}
+        onShowToast={(msg) => setToastMessage(msg)}
+        initialReportType="student_fines"
+      />
+    </View>
   );
 }

@@ -3,28 +3,39 @@ import {
   HeartHandshake,
   Plus,
   Search,
-  Tag,
   X,
 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
-  Platform,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { CreateEventModal } from '@/src/components/CreateEventModal';
 import { EventDetailModal } from '@/src/components/EventDetailModal';
+import { NativeIcon } from '@/src/components/NativeIcon';
 import { ToastNotification } from '@/src/components/ToastNotification';
-import { useTreasury } from '@/src/context/TreasuryContext';
+import { PressableScale } from '@/src/components/animated/PressableScale';
+import { StaggeredRow } from '@/src/components/animated/StaggeredRow';
+import { useAppTheme, useTreasury } from '@/src/context/TreasuryContext';
 import { Event, EventType } from '@/src/types';
 import { formatMMK } from '@/src/utils/formatters';
 
 export default function EventsScreen() {
-  const { events, eventRecords, getEventStats } = useTreasury();
+  const { events, eventRecords, getEventStats, t } = useTreasury();
+  const { isDark, themeColor } = useAppTheme();
+  const insets = useSafeAreaInsets();
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,19 +65,77 @@ export default function EventsScreen() {
     });
   }, [events, typeFilter, searchQuery]);
 
+  // Scroll driven header animations
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    scrollY.set(e.contentOffset.y);
+  });
+
+  const largeTitleStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.get(), [0, 50], [1, 0], Extrapolation.CLAMP),
+    transform: [
+      {
+        translateY: interpolate(scrollY.get(), [0, 50], [0, -10], Extrapolation.CLAMP),
+      },
+    ],
+  }));
+
+  const compactHeaderStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.get(), [35, 65], [0, 1], Extrapolation.CLAMP),
+    transform: [
+      {
+        translateY: interpolate(scrollY.get(), [35, 65], [-6, 0], Extrapolation.CLAMP),
+      },
+    ],
+  }));
+
   return (
-    <SafeAreaView
-      style={{ flex: 1, height: '100%', minHeight: 0 }}
-      className="flex-1 bg-slate-50 dark:bg-zinc-950"
-    >
+    <View className="flex-1 bg-zinc-50 dark:bg-zinc-950">
       <ToastNotification message={toastMessage} onHide={() => setToastMessage(null)} />
 
-      {/* Main Content */}
-      <ScrollView
+      {/* Pinned Compact Header Bar synced with scroll */}
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 30,
+            paddingTop: insets.top,
+            backgroundColor: isDark ? 'rgba(9, 9, 11, 0.92)' : 'rgba(250, 250, 250, 0.92)',
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: isDark ? '#27272a' : '#e4e4e7',
+          },
+          compactHeaderStyle,
+        ]}
+        pointerEvents="none"
+      >
+        <View className="h-12 px-5 flex-row items-center justify-between">
+          <Text className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
+            {t.events.title}
+          </Text>
+          <View
+            style={{ backgroundColor: themeColor.surface, borderCurve: 'continuous' }}
+            className="rounded-full px-2.5 py-0.5"
+          >
+            <Text style={{ color: themeColor.text }} className="text-[10px] font-bold">
+              {t.events.eventsCount(events.length)}
+            </Text>
+          </View>
+        </View>
+      </Animated.View>
+
+      {/* Main Content with Native Inset Adjustment & Scrollable Keyboard Dismiss */}
+      <Animated.ScrollView
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
         style={{ flex: 1, height: '100%' }}
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingTop: 16,
+          paddingTop: Math.max(insets.top, 16),
           paddingBottom: 120,
           flexGrow: 1,
         }}
@@ -74,27 +143,55 @@ export default function EventsScreen() {
       >
         <View className="w-full max-w-4xl mx-auto">
           {/* Screen Header */}
-          <View className="mb-5 pt-2">
-            <Text className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-50 tracking-tight leading-relaxed py-0.5">
-              အခမ်းအနား & အလှူငွေများ
+          <Animated.View style={[{ marginBottom: 20, paddingTop: 8 }, largeTitleStyle]}>
+            <Text
+              selectable
+              className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-50 tracking-tight leading-relaxed py-0.5"
+            >
+              {t.events.title}
             </Text>
             <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-              ဆရာကန်တော့ပွဲ၊ ကထိန်၊ ကြိုဆိုပွဲနှင့် အခန်းရန်ပုံငွေ ကောက်ခံမှုများ
+              {t.events.subtitle}
             </Text>
-          </View>
+          </Animated.View>
 
-          {/* Hero Overall Collected Card */}
-          <View className="rounded-3xl bg-indigo-600 p-6 mb-5 shadow-sm">
-            <Text className="text-xs font-semibold uppercase tracking-wider text-indigo-100 mb-2">
-              စုစုပေါင်း ကောက်ခံရရှိငွေ (All Events)
+          {/* Hero Overall Collected Card with Themed Background */}
+          <View
+            style={{
+              backgroundColor: themeColor.primary,
+              borderCurve: 'continuous',
+            }}
+            className="rounded-3xl p-6 mb-5 shadow-sm"
+          >
+            <Text
+              style={{ color: 'rgba(255, 255, 255, 0.85)' }}
+              className="text-xs font-semibold uppercase tracking-wider mb-2"
+            >
+              {t.events.totalCollected}
             </Text>
-            <Text className="text-3xl font-extrabold text-white tracking-tight">
+            <Text
+              selectable
+              style={{
+                color: themeColor.onPrimary,
+                fontVariant: ['tabular-nums'],
+              }}
+              className="text-3xl font-extrabold tracking-tight"
+            >
               {formatMMK(overallTotalCollected)}
             </Text>
             <View className="mt-3 flex-row items-center">
-              <View className="rounded-full bg-indigo-700/80 px-3 py-1">
-                <Text className="text-[11px] font-semibold text-indigo-100">
-                  {events.length} အခမ်းအနား စာရင်းသွင်းထားသည်
+              <View
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.22)',
+                  borderCurve: 'continuous',
+                }}
+                className="rounded-full px-3 py-1"
+              >
+                <Text
+                  style={{ color: themeColor.onPrimary }}
+                  className="text-[11px] font-semibold"
+                >
+                  {t.events.eventsCount(events.length)}
                 </Text>
               </View>
             </View>
@@ -105,14 +202,14 @@ export default function EventsScreen() {
             {/* Horizontal Filter Chips */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2 mb-3">
               {[
-                { id: 'all', label: `အားလုံး (${events.length})` },
+                { id: 'all', label: t.events.filterAll(events.length) },
                 {
                   id: 'donation',
-                  label: `စေတနာအလှူ (${events.filter((e) => e.type === 'donation').length})`,
+                  label: t.events.filterDonation(events.filter((e) => e.type === 'donation').length),
                 },
                 {
                   id: 'fixed_fee',
-                  label: `သတ်မှတ်ကြေး (${events.filter((e) => e.type === 'fixed_fee').length})`,
+                  label: t.events.filterFixed(events.filter((e) => e.type === 'fixed_fee').length),
                 },
               ].map((chip) => {
                 const isSelected = typeFilter === chip.id;
@@ -120,18 +217,29 @@ export default function EventsScreen() {
                   <TouchableOpacity
                     key={chip.id}
                     onPress={() => setTypeFilter(chip.id as any)}
-                    className={`rounded-full px-4 py-2 ${
+                    style={{
+                      backgroundColor: isSelected
+                        ? themeColor.primary
+                        : isDark
+                        ? '#18181b'
+                        : '#ffffff',
+                      borderCurve: 'continuous',
+                    }}
+                    className={`rounded-full px-4 py-2 border ${
                       isSelected
-                        ? 'bg-zinc-900 dark:bg-white'
-                        : 'bg-white dark:bg-zinc-900'
+                        ? 'border-transparent shadow-xs'
+                        : 'border-zinc-200/70 dark:border-zinc-800/80'
                     }`}
                   >
                     <Text
-                      className={`text-xs font-bold ${
-                        isSelected
-                          ? 'text-white dark:text-zinc-900'
-                          : 'text-zinc-600 dark:text-zinc-400'
-                      }`}
+                      style={{
+                        color: isSelected
+                          ? themeColor.onPrimary
+                          : isDark
+                          ? '#e4e4e7'
+                          : '#52525b',
+                      }}
+                      className="text-xs font-bold"
                     >
                       {chip.label}
                     </Text>
@@ -140,19 +248,38 @@ export default function EventsScreen() {
               })}
             </ScrollView>
 
-            {/* Search Input */}
-            <View className="flex-row items-center rounded-2xl bg-white dark:bg-zinc-900 px-4 py-3">
-              <Search size={16} color="#9ca3af" />
+            {/* Search Input with Native Platform Icons */}
+            <View
+              style={{
+                backgroundColor: isDark ? '#18181b' : '#ffffff',
+                borderCurve: 'continuous',
+              }}
+              className="flex-row items-center rounded-2xl px-4 py-3 border border-zinc-200/70 dark:border-zinc-800/80"
+            >
+              <NativeIcon
+                sfSymbol="magnifyingglass"
+                materialName="search"
+                FallbackIcon={Search}
+                size={16}
+                color={isDark ? '#71717a' : '#9ca3af'}
+              />
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="အခမ်းအနား အမည်ဖြင့် ရှာရန်..."
-                placeholderTextColor="#9ca3af"
-                className="ml-2.5 flex-1 text-xs text-zinc-900 dark:text-zinc-50 p-0"
+                placeholder={t.events.searchEvents}
+                placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
+                style={{ color: isDark ? '#f4f4f5' : '#18181b' }}
+                className="ml-2.5 flex-1 text-xs p-0"
               />
               {searchQuery ? (
                 <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <X size={15} color="#9ca3af" />
+                  <NativeIcon
+                    sfSymbol="xmark.circle.fill"
+                    materialName="clear"
+                    FallbackIcon={X}
+                    size={16}
+                    color={isDark ? '#71717a' : '#9ca3af'}
+                  />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -160,113 +287,210 @@ export default function EventsScreen() {
 
           {/* Events Feed */}
           {filteredEvents.length === 0 ? (
-            <View className="items-center justify-center py-16 px-6 rounded-3xl bg-white dark:bg-zinc-900 mt-2">
-              <View className="h-16 w-16 rounded-full bg-indigo-50 dark:bg-indigo-950/60 items-center justify-center mb-3">
-                <HeartHandshake size={32} color="#4f46e5" />
+            <View
+              style={{ borderCurve: 'continuous' }}
+              className="items-center justify-center py-16 px-6 rounded-3xl bg-white dark:bg-zinc-900 mt-2 border border-zinc-200/70 dark:border-zinc-800/80"
+            >
+              <View
+                style={{ backgroundColor: themeColor.surface }}
+                className="h-16 w-16 rounded-full items-center justify-center mb-3"
+              >
+                <NativeIcon
+                  sfSymbol="sparkles"
+                  materialName="event"
+                  FallbackIcon={HeartHandshake}
+                  size={32}
+                  color={themeColor.primary}
+                />
               </View>
               <Text className="text-base font-bold text-zinc-900 dark:text-zinc-50 mb-1">
-                အခမ်းအနား မှတ်တမ်း မရှိသေးပါ
+                {t.events.emptyTitle}
               </Text>
               <Text className="text-xs text-zinc-500 dark:text-zinc-400 text-center mb-5 max-w-xs leading-relaxed">
-                ဆရာကန်တော့ပွဲ၊ ကထိန် သို့မဟုတ် အတန်းရန်ပုံငွေအတွက် အသစ်စတင်ရန် အောက်ပါခလုတ်ကို နှိပ်ပါ
+                {t.events.emptyDesc}
               </Text>
               <TouchableOpacity
                 onPress={() => setShowCreateModal(true)}
-                className="flex-row items-center rounded-full bg-indigo-600 px-6 py-3 active:bg-indigo-700 shadow-sm"
+                style={{
+                  backgroundColor: themeColor.primary,
+                  borderCurve: 'continuous',
+                }}
+                className="flex-row items-center rounded-full px-6 py-3 active:opacity-90 shadow-sm"
               >
-                <Plus size={16} color="#ffffff" />
-                <Text className="ml-1.5 text-xs font-bold text-white">အခမ်းအနား အသစ်ဖန်တီးမည်</Text>
+                <NativeIcon
+                  sfSymbol="plus"
+                  materialName="add"
+                  FallbackIcon={Plus}
+                  size={16}
+                  color={themeColor.onPrimary}
+                />
+                <Text
+                  style={{ color: themeColor.onPrimary }}
+                  className="ml-1.5 text-xs font-bold"
+                >
+                  {t.events.newEvent}
+                </Text>
               </TouchableOpacity>
             </View>
           ) : (
             <View className="gap-3.5">
-              {filteredEvents.map((ev) => {
+              {filteredEvents.map((ev, index) => {
                 const stats = getEventStats(ev.id);
                 return (
-                  <TouchableOpacity
-                    key={ev.id}
-                    onPress={() => setSelectedEvent(ev)}
-                    activeOpacity={0.85}
-                    className="rounded-3xl bg-white dark:bg-zinc-900 p-5 shadow-none"
-                  >
+                  <StaggeredRow key={ev.id} index={index}>
+                    <TouchableOpacity
+                      onPress={() => setSelectedEvent(ev)}
+                      activeOpacity={0.85}
+                      style={{ borderCurve: 'continuous' }}
+                      className="rounded-3xl bg-white dark:bg-zinc-900 p-5 border border-zinc-200/70 dark:border-zinc-800/80 shadow-none"
+                    >
                     <View className="flex-row items-start justify-between mb-3">
                       <View className="flex-1 mr-2">
                         <View className="flex-row items-center gap-2 mb-1.5">
                           <View
-                            className={`rounded-full px-2.5 py-0.5 ${
-                              ev.type === 'donation'
-                                ? 'bg-rose-50 dark:bg-rose-950/60'
-                                : 'bg-indigo-50 dark:bg-indigo-950/60'
-                            }`}
+                            style={{
+                              backgroundColor:
+                                ev.type === 'donation'
+                                  ? isDark
+                                    ? 'rgba(244, 63, 94, 0.20)'
+                                    : '#fff1f2'
+                                  : themeColor.surface,
+                              borderCurve: 'continuous',
+                            }}
+                            className="rounded-full px-2.5 py-0.5"
                           >
                             <Text
-                              className={`text-[10px] font-bold ${
-                                ev.type === 'donation'
-                                  ? 'text-rose-600 dark:text-rose-300'
-                                  : 'text-indigo-600 dark:text-indigo-300'
-                              }`}
+                              style={{
+                                color:
+                                  ev.type === 'donation'
+                                    ? isDark
+                                      ? '#fecdd3'
+                                      : '#e11d48'
+                                    : themeColor.text,
+                              }}
+                              className="text-[10px] font-bold"
                             >
-                              {ev.type === 'donation' ? 'စေတနာအလှူ' : 'သတ်မှတ်ကြေး'}
+                              {ev.type === 'donation' ? t.events.donation : t.events.fixedFee}
                             </Text>
                           </View>
 
                           {ev.dueDate ? (
-                            <View className="flex-row items-center rounded-full bg-slate-100 dark:bg-zinc-800 px-2.5 py-0.5">
-                              <CalendarDays size={11} color="#71717a" />
-                              <Text className="ml-1 text-[10px] font-medium text-zinc-600 dark:text-zinc-400">
+                            <View
+                              style={{
+                                backgroundColor: isDark ? '#27272a' : '#f4f4f5',
+                                borderCurve: 'continuous',
+                              }}
+                              className="flex-row items-center rounded-full px-2.5 py-0.5"
+                            >
+                              <NativeIcon
+                                sfSymbol="calendar"
+                                materialName="calendar-today"
+                                FallbackIcon={CalendarDays}
+                                size={11}
+                                color={isDark ? '#a1a1aa' : '#71717a'}
+                              />
+                              <Text
+                                style={{ color: isDark ? '#d4d4d8' : '#52525b' }}
+                                className="ml-1 text-[10px] font-medium"
+                              >
                                 {ev.dueDate}
                               </Text>
                             </View>
                           ) : null}
                         </View>
 
-                        <Text className="text-base font-extrabold text-zinc-900 dark:text-zinc-50 leading-relaxed py-0.5">
+                        <Text
+                          selectable
+                          className="text-base font-extrabold text-zinc-900 dark:text-zinc-50 leading-relaxed py-0.5"
+                        >
                           {ev.name}
                         </Text>
                       </View>
                     </View>
 
                     {/* MMK Amount */}
-                    <View className="pt-2 border-t border-slate-100 dark:border-zinc-800/80 flex-row items-end justify-between">
+                    <View className="pt-2 border-t border-zinc-100 dark:border-zinc-800/80 flex-row items-end justify-between">
                       <View>
-                        <Text className="text-[11px] font-medium text-zinc-400">
-                          {ev.type === 'donation' ? 'ကောက်ခံရရှိငွေ' : 'ပေးသွင်းပြီး စုစုပေါင်း'}
+                        <Text
+                          style={{ color: isDark ? '#a1a1aa' : '#71717a' }}
+                          className="text-[11px] font-medium"
+                        >
+                          {ev.type === 'donation' ? t.events.collected : t.events.amountPaidTotal}
                         </Text>
-                        <Text className="text-xl font-extrabold text-zinc-900 dark:text-zinc-50 tracking-tight">
+                        <Text
+                          selectable
+                          style={{ fontVariant: ['tabular-nums'] }}
+                          className="text-xl font-extrabold text-zinc-900 dark:text-zinc-50 tracking-tight"
+                        >
                           {formatMMK(stats.totalCollected)}
                         </Text>
                       </View>
 
                       <View className="items-end">
                         {ev.type === 'donation' ? (
-                          <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                            {stats.totalDonors} ဦး လှူဒါန်းပြီး
+                          <Text
+                            style={{ color: isDark ? themeColor.primaryLight : themeColor.primary }}
+                            className="text-xs font-semibold"
+                          >
+                            {t.events.donorsCount(stats.totalDonors)}
                           </Text>
                         ) : (
                           <Text className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                            {stats.totalPaidCount} ဦး ပေးချေပြီး
+                            {t.events.paidCount(stats.totalPaidCount)}
                           </Text>
                         )}
                       </View>
                     </View>
                   </TouchableOpacity>
-                );
-              })}
+                </StaggeredRow>
+              );
+            })}
             </View>
           )}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
-      {/* Prominent M3 Extended FAB */}
-      <View className="absolute bottom-6 right-6">
-        <TouchableOpacity
+      {/* Prominent Floating Action Button with Safe Inset Positioning */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: Math.max(insets.bottom, 16) + 16,
+          right: 20,
+        }}
+      >
+        <PressableScale
           onPress={() => setShowCreateModal(true)}
-          activeOpacity={0.85}
-          className="flex-row items-center rounded-full bg-indigo-600 px-5 py-4 shadow-lg active:bg-indigo-700"
+          style={{
+            backgroundColor: themeColor.primary,
+            borderRadius: 9999,
+            paddingHorizontal: 20,
+            paddingVertical: 14,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderCurve: 'continuous',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 8,
+            elevation: 6,
+          }}
+          className="flex-row items-center rounded-full px-5 py-3.5 shadow-lg"
         >
-          <Plus size={18} color="#ffffff" />
-          <Text className="ml-2 text-sm font-bold text-white">New Event</Text>
-        </TouchableOpacity>
+          <NativeIcon
+            sfSymbol="plus"
+            materialName="add"
+            FallbackIcon={Plus}
+            size={18}
+            color={themeColor.onPrimary}
+          />
+          <Text
+            style={{ color: themeColor.onPrimary }}
+            className="ml-2 text-sm font-bold"
+          >
+            {t.events.newEvent}
+          </Text>
+        </PressableScale>
       </View>
 
       {/* Create Event Modal */}
@@ -274,7 +498,7 @@ export default function EventsScreen() {
         visible={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onEventCreated={(id) => {
-          setToastMessage('အခမ်းအနား အသစ်ကို အောင်မြင်စွာ ဖန်တီးပြီးပါပြီ!');
+          setToastMessage(t.events.eventCreatedToast);
           const created = events.find((e) => e.id === id);
           if (created) setSelectedEvent(created);
         }}
@@ -289,6 +513,6 @@ export default function EventsScreen() {
           onShowToast={(msg) => setToastMessage(msg)}
         />
       ) : null}
-    </SafeAreaView>
+    </View>
   );
 }

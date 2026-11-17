@@ -8,11 +8,13 @@
 -- Enable uuid-ossp extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. Settings Table (Per user KBZPay EC Details)
+-- 1. Settings Table (Per user KBZPay EC Details & Preferences)
 CREATE TABLE IF NOT EXISTS settings (
     user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     ec_kbzpay_name TEXT DEFAULT '',
     ec_kbzpay_phone TEXT DEFAULT '',
+    theme_color_id TEXT DEFAULT 'indigo',
+    language TEXT DEFAULT 'my',
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 

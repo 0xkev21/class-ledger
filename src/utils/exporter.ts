@@ -36,7 +36,7 @@ export function generateInitialEventAnnouncement(
       `အားလုံးကို ကျေးဇူးတင်ပါတယ်ခင်ဗျာ။`;
   } else {
     const feeStr = event.fixedAmount ? formatMMK(event.fixedAmount) : '';
-    const dueStr = event.dueDate ? `📅 နောက်ဆုံးရက် (Due Date): ${event.dueDate}\n` : '';
+    const dueStr = event.dueDate ? `📅 နောက်ဆုံးရက်: ${event.dueDate}\n` : '';
 
     return `${event.name}အတွက် တစ်ဦးလျှင် ${feeStr} နှုန်းဖြင့် အောက်ပါ KBZPay အကောင့်သို့ ပေးသွင်းနိုင်ပါပြီခင်ဗျာ\n` +
       `KBZPay: ${phone}\n` +
@@ -84,11 +84,11 @@ export function generateEndOfYearFineSummary({
 }): string {
   const today = getTodayFormatted();
 
-  let text = `📢 【 အတန်း ဒဏ်ကြေး စုစုပေါင်း အစီရင်ခံစာ (End-of-Year Fine Summary) 】\n`;
+  let text = `📢 【 အတန်း ဒဏ်ကြေး စုစုပေါင်း အစီရင်ခံစာ 】\n`;
   text += `📅 ရက်စွဲ: ${today}\n`;
   text += `----------------------------------------\n`;
-  text += `💰 ကောက်ခံရရှိပြီး (Paid): ${formatMMK(totalPaid)}\n`;
-  text += `⚠️ ကောက်ခံရန်ကျန် (Unpaid): ${formatMMK(totalUnpaid)}\n`;
+  text += `💰 ကောက်ခံရရှိပြီး: ${formatMMK(totalPaid)}\n`;
+  text += `⚠️ ပေးသွင်းရန်ကျန်: ${formatMMK(totalUnpaid)}\n`;
   text += `🎯 စုစုပေါင်း ဒဏ်ကြေး: ${formatMMK(totalAll)}\n`;
   text += `----------------------------------------\n\n`;
 
