@@ -5,10 +5,6 @@ description = "Class Ledger & Student Management App"
 authors = ["Class Ledger Team"]
 edition = "2021"
 
-[lib]
-name = "ec_treasury_app_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
-
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

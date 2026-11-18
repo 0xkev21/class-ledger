@@ -38,6 +38,9 @@ jobs:
       - name: Expo Prebuild (Generate native Android)
         env:
           EXPO_NO_TELEMETRY: '1'
+          EXPO_OFFLINE: '1'
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL || 'https://fqmfelauoufzdpvlvhqx.supabase.co' }}
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_nBGDAWeGZP4YpSD-ewlulg_aeOlKXPu' }}
         run: npx expo prebuild --platform android --clean --no-install
 
       - name: Build Android Release APK
@@ -75,6 +78,7 @@ jobs:
   build-desktop:
     name: Build Linux Desktop (Tauri)
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -100,6 +104,8 @@ jobs:
         env:
           EXPO_NO_TELEMETRY: '1'
           EXPO_OFFLINE: '1'
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL || 'https://fqmfelauoufzdpvlvhqx.supabase.co' }}
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_nBGDAWeGZP4YpSD-ewlulg_aeOlKXPu' }}
         run: npm run export:web
 
       - name: Build Tauri Desktop Binaries
@@ -121,6 +127,7 @@ jobs:
   publish-release:
     name: Create GitHub Release
     needs: [build-android, build-desktop]
+    if: always() && needs.build-android.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -133,6 +140,7 @@ jobs:
           path: release-assets
 
       - name: Download Desktop Artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: linux-desktop
