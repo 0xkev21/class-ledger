@@ -127,7 +127,7 @@ export default function SettingsScreen() {
   const handleExportJSON = async () => {
     const json = getDatabaseJSON();
     if (Platform.OS === 'web') {
-      downloadFileWeb(`ec_treasury_backup_${Date.now()}.json`, json, 'application/json');
+      downloadFileWeb(`class_ledger_backup_${Date.now()}.json`, json, 'application/json');
       setToastMessage(t.reports.jsonSuccess);
     } else {
       await copyReportToClipboard(json);

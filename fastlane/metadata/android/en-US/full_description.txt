@@ -1,0 +1,11 @@
+Class Ledger is an offline-first, privacy-focused student treasury and financial management system designed specifically for university class representatives, student councils, and student treasurers.
+
+Key Features:
+• Class Dues & Events: Bulk-assess event contributions and voluntary donations across student rosters with 1-tap tracking.
+• Subject-wise Fines: Manage attendance, homework, and classroom discipline fines categorized by academic subjects.
+• Offline-First with Cloud Sync: All data is stored locally on device storage using SQLite/AsyncStorage with optional multi-tenant cloud sync via Supabase.
+• Aesthetic Image Reports & Invoices: Generate and share beautifully styled high-resolution report cards, dues breakdowns, and donor summaries.
+• Data Portability: Export and import complete ledger backups in JSON and CSV formats protected against formula injection.
+• Local Payment Ready: Built-in support for Myanmar KBZPay payment details in broadcast announcements.
+• Multi-language: Full native support for English and Myanmar (Burmese) languages with dynamic switching.
+• Expressive Theme Engine: Modern Material 3 UI with dark mode support.

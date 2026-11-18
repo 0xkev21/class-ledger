@@ -132,7 +132,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
     if (reportType === 'student_fines') {
       const title1 = customWord1.trim() || 'FINES';
       const title2 = customWord2.trim() || 'ASSESSMENT';
-      const metaLeft = customMetaLeft.trim() || 'Class: EC Treasury (2025-2026)';
+      const metaLeft = customMetaLeft.trim() || 'Class: Class Ledger (2025-2026)';
 
       const getStudentRowData = (stat: StudentFineStat) => {
         if (stat.totalAll === 0) {
@@ -232,7 +232,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
             { label: 'Total Owed', value: formatMMK(totalUnpaid), color: '#991B1B' },
             { label: 'Overall Total', value: formatMMK(totalAll) },
           ],
-          footerNote: 'EC Class Treasury • Student Fine Assessment Sheet',
+          footerNote: 'Class Ledger • Student Fine Assessment Sheet',
         };
       } else {
         // Summary Table layout for students
@@ -266,7 +266,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
             { label: 'Total Owed', value: formatMMK(totalUnpaid), color: '#991B1B' },
             { label: 'Overall Total', value: formatMMK(totalAll) },
           ],
-          footerNote: 'EC Class Treasury • Detailed Student Dues Ledger',
+          footerNote: 'Class Ledger • Detailed Student Dues Ledger',
         };
       }
     }
@@ -325,7 +325,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
             { label: 'Unpaid Fines', value: formatMMK(finesSummary.totalUnpaid), color: '#991B1B' },
             { label: 'Total Fine Pool', value: formatMMK(finesSummary.totalAll) },
           ],
-          footerNote: 'EC Class Treasury • Subject Fine Summary',
+          footerNote: 'Class Ledger • Subject Fine Summary',
         };
       } else {
         const tableRows: SummaryTableRow[] = subjectFineStats.map((st, idx) => ({
@@ -359,7 +359,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
             { label: 'Unpaid Fines', value: formatMMK(finesSummary.totalUnpaid), color: '#991B1B' },
             { label: 'Total Fine Pool', value: formatMMK(finesSummary.totalAll) },
           ],
-          footerNote: 'EC Class Treasury • End of Year Subject Analysis',
+          footerNote: 'Class Ledger • End of Year Subject Analysis',
         };
       }
     }
@@ -424,7 +424,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
             { label: 'Total Donors', value: `${records.length} Persons` },
             { label: 'Total Collected', value: formatMMK(totalCollected), color: '#166534' },
           ],
-          footerNote: `EC Treasury • ${evName} Participation Record`,
+          footerNote: `Class Ledger • ${evName} Participation Record`,
         };
       } else {
         const tableRows: SummaryTableRow[] = records.map((rec, idx) => {
@@ -460,7 +460,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
             { label: 'Total Contributors', value: `${records.length} Persons` },
             { label: 'Total Amount', value: formatMMK(totalCollected), color: '#166534' },
           ],
-          footerNote: `EC Treasury • ${evName} Donor List`,
+          footerNote: `Class Ledger • ${evName} Donor List`,
         };
       }
     }
@@ -468,7 +468,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
     // 4. Complete Fines Ledger (Chronological)
     const title1 = customWord1.trim() || 'FINES';
     const title2 = customWord2.trim() || 'LEDGER';
-    const metaLeft = customMetaLeft.trim() || 'EC Treasury Complete Fines Log';
+    const metaLeft = customMetaLeft.trim() || 'Class Ledger Complete Fines Log';
 
     const recentFines = [...fines].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -508,7 +508,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
         { label: 'Unpaid Fines', value: formatMMK(finesSummary.totalUnpaid), color: '#991B1B' },
         { label: 'Overall', value: formatMMK(finesSummary.totalAll) },
       ],
-      footerNote: 'EC Treasury • Class Fines Ledger Records',
+      footerNote: 'Class Ledger • Class Fines Ledger Records',
     };
   }, [
     reportType,
@@ -1085,7 +1085,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
                   />
                 </View>
                 <TextInput
-                  placeholder="Subtitle e.g. Class: EC Treasury (2025-2026)"
+                  placeholder="Subtitle e.g. Class: Class Ledger (2025-2026)"
                   placeholderTextColor="#9ca3af"
                   value={customMetaLeft}
                   onChangeText={setCustomMetaLeft}

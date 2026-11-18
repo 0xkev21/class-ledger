@@ -1,0 +1,1 @@
+University class treasury, dues tracking, and student fine management ledger.

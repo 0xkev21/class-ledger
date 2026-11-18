@@ -637,7 +637,7 @@ export const AestheticSvgReport = forwardRef<any, AestheticSvgReportProps>(
           textAnchor="middle"
         >
           {model.footerNote ||
-            'EC Treasury Management System • Confidential Class Report'}
+            'Class Ledger Management System • Confidential Class Report'}
         </SvgText>
       </Svg>
     );

@@ -438,7 +438,7 @@ export async function renderAestheticReportToCanvas(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const footerText =
-    model.footerNote || 'EC Treasury Management System • Confidential Class Report';
+    model.footerNote || 'Class Ledger Management System • Confidential Class Report';
   ctx.fillText(footerText, cardX + cardW / 2, footerNoteY);
   ctx.restore();
 
@@ -516,7 +516,7 @@ export async function shareAestheticReportImage(
         await navigator.share({
           files: [file],
           title: 'Aesthetic Report',
-          text: 'EC Treasury Report',
+          text: 'Class Ledger Report',
         });
         return true;
       }
@@ -682,7 +682,7 @@ export function generateAestheticReportSVG(model: AestheticReportModel): string 
 
   // Footer Note
   const footerNoteY = cardY + cardH - 30;
-  svg += `  <text class="footer-text" x="${cardX + cardW / 2}" y="${footerNoteY}">${escapeXML(model.footerNote || 'EC Treasury Management System • Confidential Class Report')}</text>\n`;
+  svg += `  <text class="footer-text" x="${cardX + cardW / 2}" y="${footerNoteY}">${escapeXML(model.footerNote || 'Class Ledger Management System • Confidential Class Report')}</text>\n`;
 
   svg += `</svg>`;
   return svg;

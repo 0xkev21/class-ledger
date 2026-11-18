@@ -620,7 +620,7 @@ export const AestheticReportView: React.FC<AestheticReportViewProps> = ({
               className="text-[9px] md:text-[10px] italic text-center font-medium"
             >
               {model.footerNote ||
-                'EC Treasury Management System • Confidential Class Report'}
+                'Class Ledger Management System • Confidential Class Report'}
             </Text>
           </View>
         </View>

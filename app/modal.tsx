@@ -1,9 +1,11 @@
-import { BookOpen, CheckCircle } from 'lucide-react-native';
+import { BookOpen, CheckCircle, ExternalLink, Globe } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, ScrollView, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useTreasury } from '../src/context/TreasuryContext';
 
 export default function ModalScreen() {
+  const router = useRouter();
   const { language, themeColor } = useTreasury();
 
   const isEn = language === 'en';
@@ -86,6 +88,21 @@ export default function ModalScreen() {
           </View>
         </View>
       </View>
+
+      <TouchableOpacity
+        onPress={() => {
+          router.dismiss();
+          router.push('/landing' as any);
+        }}
+        style={{ borderCurve: 'continuous', borderColor: themeColor.primary }}
+        className="mt-5 flex-row items-center justify-center rounded-2xl border bg-zinc-50 dark:bg-zinc-800/80 p-3.5"
+      >
+        <Globe size={16} color={themeColor.primary} />
+        <Text style={{ color: themeColor.primary }} className="ml-2 text-xs font-bold">
+          {isEn ? 'View Product Website & Overview' : 'ဝဘ်ဆိုက်နှင့် မိတ်ဆက်စာမျက်နှာကြည့်ရှုရန်'}
+        </Text>
+        <ExternalLink size={13} color={themeColor.primary} className="ml-1.5" />
+      </TouchableOpacity>
 
       <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
     </ScrollView>

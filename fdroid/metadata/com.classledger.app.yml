@@ -1,0 +1,39 @@
+Categories:
+  - Education
+  - Office
+License: MIT
+AuthorName: Class Ledger Team
+SourceCode: https://github.com/0xkev21/ec-treasury
+IssueTracker: https://github.com/0xkev21/ec-treasury/issues
+
+AutoName: Class Ledger
+Summary: Class treasury, dues tracking, and student fine management system
+Description: |-
+  Class Ledger is an offline-first, privacy-focused student treasury and financial management system designed specifically for university class representatives, student councils, and student treasurers.
+
+  Key Features:
+  * Class Dues & Events: Bulk-assess event contributions and voluntary donations.
+  * Subject-wise Fines: Manage attendance, assignment, and classroom fines by subject.
+  * Offline-First: Stores records locally with optional user-isolated cloud sync.
+  * Aesthetic Image Reports: Generate shareable high-resolution report cards.
+  * Data Portability: Complete JSON and sanitized CSV backup import/export.
+  * Multi-language: English and Myanmar (Burmese) language support.
+
+RepoType: git
+Repo: https://github.com/0xkev21/ec-treasury.git
+
+Builds:
+  - versionName: 1.0.0
+    versionCode: 1
+    commit: v1.0.0
+    prebuild:
+      - npm ci
+      - npx expo prebuild --platform android --clean --no-install
+    subdir: android
+    gradle:
+      - assembleRelease
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 1.0.0
+CurrentVersionCode: 1

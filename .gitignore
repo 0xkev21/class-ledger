@@ -1,5 +1,5 @@
 # ==============================================================================
-# EC Treasury Application - Comprehensive .gitignore
+# Class Ledger Application - Comprehensive .gitignore
 # Stack: Expo SDK 58, React Native, Expo Router, NativeWind, Supabase, Tauri v2 (Rust)
 # ==============================================================================
 
@@ -247,3 +247,16 @@ $RECYCLE.BIN/
 *.orig.*
 *.patch
 *.diff
+
+# ------------------------------------------------------------------------------
+# Helper, Guide & Scratch Files
+# ------------------------------------------------------------------------------
+RELEASE.md
+release.md
+[Nn]otes.md
+[Tt]odo.md
+scratch/
+.scratch/
+keystore_base64.txt
+*.keystore
+*.jks

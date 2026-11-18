@@ -1,5 +1,5 @@
 -- =========================================================================
--- University Class Representative (EC) Treasury Database Schema
+-- Class Ledger - Student & Financial Management Database Schema
 -- Material 3 Expressive & Simplified Architecture
 -- Multi-Tenant & User-Isolated (Sign in with Google / Email)
 -- Run this script in your Supabase SQL Editor: https://supabase.com/dashboard

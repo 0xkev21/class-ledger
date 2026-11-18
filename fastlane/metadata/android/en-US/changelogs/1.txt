@@ -1,0 +1,6 @@
+Initial v1.0.0 release of Class Ledger:
+- Complete class treasury and student dues tracking
+- Subject-wise fines and attendance logs
+- Offline-first local storage and multi-tenant cloud sync
+- High-resolution SVG/Canvas aesthetic report export
+- English and Myanmar language support
