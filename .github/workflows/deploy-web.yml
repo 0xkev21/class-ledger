@@ -38,6 +38,7 @@ jobs:
         env:
           EXPO_NO_TELEMETRY: '1'
           EXPO_OFFLINE: '1'
+          EXPO_BASE_URL: '/ec-treasury'
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL || 'https://fqmfelauoufzdpvlvhqx.supabase.co' }}
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_nBGDAWeGZP4YpSD-ewlulg_aeOlKXPu' }}
         run: npm run export:web
