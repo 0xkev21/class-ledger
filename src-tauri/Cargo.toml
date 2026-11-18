@@ -1,8 +1,8 @@
 [package]
-name = "ec-treasury-app"
+name = "class-ledger-app"
 version = "1.0.0"
-description = "University Class Representative Treasury App"
-authors = ["EC Team"]
+description = "Class Ledger & Student Management App"
+authors = ["Class Ledger Team"]
 edition = "2021"
 
 [lib]

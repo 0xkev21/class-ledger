@@ -10,6 +10,7 @@ import {
   ThemeColorId,
 } from '../theme/themeColors';
 import {
+  clearLastSyncedAt,
   createSessionFromUrl,
   getCurrentUser,
   getLastSyncedAt,
@@ -417,6 +418,8 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (u && isMounted) {
             setUser(u);
           }
+        } else if (res.error) {
+          console.warn('[TreasuryContext] Deep link authentication rejected:', res.error);
         }
       }
     };
@@ -437,6 +440,8 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (u && isMounted) {
             setUser(u);
           }
+        } else if (res.error) {
+          console.warn('[TreasuryContext] Cold start deep link authentication rejected:', res.error);
         }
       }
     });
@@ -977,10 +982,20 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const resetPasswordForEmail = async (email: string) => apiResetPasswordForEmail(email);
   const updateUserPassword = async (newPassword: string) => apiUpdateUserPassword(newPassword);
   const signOut = async () => {
-    await apiSignOutUser();
-    setUser(null);
-    setSyncStatus('idle');
-    setSyncMessage('Signed out');
+    try {
+      await apiSignOutUser();
+    } catch (err) {
+      console.error('Failed to revoke session:', err);
+    } finally {
+      setUser(null);
+      await resetDatabaseToDefaults();
+      setState(INITIAL_STATE);
+      stateRef.current = INITIAL_STATE;
+      setLastSyncedAt(null);
+      await clearLastSyncedAt();
+      setSyncStatus('idle');
+      setSyncMessage('Signed out');
+    }
   };
 
   const syncNow = async (mode: 'push' | 'pull' = 'pull'): Promise<SyncResult> => {
@@ -989,15 +1004,22 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: false, message: 'Cloud database is not configured.' };
     }
 
+    if (!user) {
+      setSyncStatus('error');
+      const msg = 'Cloud synchronization requires an authenticated account. Please sign in.';
+      setSyncMessage(msg);
+      return { success: false, message: msg };
+    }
+
     setSyncStatus('syncing');
     setSyncMessage(mode === 'push' ? 'Pushing data to cloud...' : 'Pulling data from cloud...');
 
     try {
       if (mode === 'push') {
-        const res = await pushLocalToCloud(state, client, user?.id);
+        const res = await pushLocalToCloud(state, client, user.id);
         if (res.success) {
           setSyncStatus('synced');
-          setSyncMessage(user ? `Successfully pushed to ${user.email}` : 'Successfully pushed to Supabase');
+          setSyncMessage(`Successfully pushed to ${user.email}`);
           const now = new Date().toISOString();
           setLastSyncedAt(now);
           await saveLastSyncedAt(now);
@@ -1007,7 +1029,7 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
         return res;
       } else {
-        const res = await pullCloudToLocal(client, user?.id, stateRef.current.settings);
+        const res = await pullCloudToLocal(client, user.id, stateRef.current.settings);
         if (res.success && res.updatedState) {
           await applyCloudState(
             res.updatedState,

@@ -108,6 +108,19 @@ export function generateEndOfYearFineSummary({
 }
 
 /**
+ * Safely escapes a CSV cell to prevent formula injection (=, +, -, @, \t, \r)
+ * and properly escape internal quotation marks.
+ */
+export function escapeCSVCell(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return '""';
+  let str = String(value);
+  if (/^[=+@\t\r-]/.test(str)) {
+    str = "'" + str;
+  }
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
+/**
  * Generates CSV string for fine records.
  */
 export function generateFinesCSV(
@@ -133,14 +146,14 @@ export function generateFinesCSV(
   const rows = fines.map((f) => {
     const s = studentMap.get(f.studentId);
     return [
-      `"${f.id}"`,
-      `"${s?.name || 'Unknown'}"`,
-      `"${s?.rollNumber || ''}"`,
-      `"${s?.phone || ''}"`,
-      `"${subjectMap.get(f.subjectId) || ''}"`,
-      `"${f.reason.replace(/"/g, '""')}"`,
-      `"${f.date}"`,
-      f.amount,
+      escapeCSVCell(f.id),
+      escapeCSVCell(s?.name || 'Unknown'),
+      escapeCSVCell(s?.rollNumber || ''),
+      escapeCSVCell(s?.phone || ''),
+      escapeCSVCell(subjectMap.get(f.subjectId) || ''),
+      escapeCSVCell(f.reason),
+      escapeCSVCell(f.date),
+      typeof f.amount === 'number' ? f.amount : escapeCSVCell(f.amount),
       f.isPaid ? '"Paid"' : '"Unpaid"',
     ].join(',');
   });

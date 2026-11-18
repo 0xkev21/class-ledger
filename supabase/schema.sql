@@ -95,28 +95,28 @@ DROP POLICY IF EXISTS "Allow user isolation for fines" ON fines;
 
 -- User Isolation Policies: Users can only see and modify their own class data
 CREATE POLICY "Allow user isolation for settings" ON settings
-    FOR ALL USING (auth.uid() = user_id OR user_id IS NULL)
-    WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+    FOR ALL USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Allow user isolation for students" ON students
-    FOR ALL USING (auth.uid() = user_id OR user_id IS NULL)
-    WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+    FOR ALL USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Allow user isolation for subjects" ON subjects
-    FOR ALL USING (auth.uid() = user_id OR user_id IS NULL)
-    WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+    FOR ALL USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Allow user isolation for events" ON events
-    FOR ALL USING (auth.uid() = user_id OR user_id IS NULL)
-    WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+    FOR ALL USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Allow user isolation for event_records" ON event_records
-    FOR ALL USING (auth.uid() = user_id OR user_id IS NULL)
-    WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+    FOR ALL USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Allow user isolation for fines" ON fines
-    FOR ALL USING (auth.uid() = user_id OR user_id IS NULL)
-    WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+    FOR ALL USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 
 -- Enable Realtime replication for all tables safely (idempotent)
 DO $$

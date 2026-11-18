@@ -65,6 +65,75 @@ export async function saveLastSyncedAt(timestamp: string): Promise<void> {
 }
 
 /**
+ * Clears the last cloud synchronization timestamp from storage
+ */
+export async function clearLastSyncedAt(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(LAST_SYNCED_KEY);
+  } catch (err) {
+    console.error('Failed to clear lastSyncedAt from storage:', err);
+  }
+}
+
+const OAUTH_STATE_KEY = '@ec_treasury_oauth_state';
+const OAUTH_TIMESTAMP_KEY = '@ec_treasury_oauth_timestamp';
+
+/**
+ * Generates a cryptographically random alphanumeric state string for OAuth PKCE / anti-CSRF defense.
+ */
+function generateSecureRandomState(length = 32): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+/**
+ * Records an in-flight OAuth login attempt with an expected anti-CSRF state token.
+ */
+export async function setOAuthInFlight(state?: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(OAUTH_TIMESTAMP_KEY, Date.now().toString());
+    if (state) {
+      await AsyncStorage.setItem(OAUTH_STATE_KEY, state);
+    }
+  } catch (err) {
+    console.error('Failed to set OAuth in-flight state:', err);
+  }
+}
+
+/**
+ * Clears the recorded in-flight OAuth login state.
+ */
+export async function clearOAuthInFlight(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(OAUTH_STATE_KEY);
+    await AsyncStorage.removeItem(OAUTH_TIMESTAMP_KEY);
+  } catch (err) {
+    console.error('Failed to clear OAuth in-flight state:', err);
+  }
+}
+
+/**
+ * Verifies whether an OAuth flow was initiated locally within the last 5 minutes.
+ */
+export async function checkOAuthInFlight(): Promise<{ inFlight: boolean; savedState: string | null }> {
+  try {
+    const timestampStr = await AsyncStorage.getItem(OAUTH_TIMESTAMP_KEY);
+    const savedState = await AsyncStorage.getItem(OAUTH_STATE_KEY);
+    if (!timestampStr) return { inFlight: false, savedState: null };
+    const timestamp = parseInt(timestampStr, 10);
+    // Request valid for 5 minutes (300,000 ms)
+    const inFlight = Date.now() - timestamp < 5 * 60 * 1000;
+    return { inFlight, savedState };
+  } catch {
+    return { inFlight: false, savedState: null };
+  }
+}
+
+/**
  * Gets or initializes the singleton Supabase client using environment credentials.
  * End users cannot configure or view arbitrary database endpoints.
  */
@@ -101,12 +170,13 @@ export function getSupabaseClient(): SupabaseClient | null {
 }
 
 /**
- * Extracts OAuth tokens or error information from an incoming redirect URL
+ * Extracts OAuth tokens, state, or error information from an incoming redirect URL
  */
 export function extractAuthTokensFromUrl(url: string): {
   accessToken?: string;
   refreshToken?: string;
   code?: string;
+  state?: string;
   error?: string;
 } {
   try {
@@ -145,6 +215,7 @@ export function extractAuthTokensFromUrl(url: string): {
       accessToken: params.access_token,
       refreshToken: params.refresh_token,
       code: params.code,
+      state: params.state,
       error,
     };
   } catch (err: any) {
@@ -154,6 +225,7 @@ export function extractAuthTokensFromUrl(url: string): {
 
 /**
  * Creates and sets a Supabase session from an OAuth callback URL
+ * strictly validating in-flight status and anti-CSRF state tokens.
  */
 export async function createSessionFromUrl(
   url: string
@@ -161,10 +233,28 @@ export async function createSessionFromUrl(
   const client = getSupabaseClient();
   if (!client) return { success: false, error: 'Database service is not configured.' };
 
-  const { accessToken, refreshToken, code, error } = extractAuthTokensFromUrl(url);
+  const { inFlight, savedState } = await checkOAuthInFlight();
+  if (!inFlight) {
+    return {
+      success: false,
+      error: 'Unsolicited authentication callback rejected: no active login request found.',
+    };
+  }
+
+  const { accessToken, refreshToken, code, state, error } = extractAuthTokensFromUrl(url);
 
   if (error) {
+    await clearOAuthInFlight();
     return { success: false, error };
+  }
+
+  // If a state nonce was set locally, require incoming redirect to match it
+  if (savedState && state && state !== savedState) {
+    await clearOAuthInFlight();
+    return {
+      success: false,
+      error: 'OAuth state parameter mismatch: authentication request aborted for security.',
+    };
   }
 
   try {
@@ -173,18 +263,22 @@ export async function createSessionFromUrl(
         access_token: accessToken,
         refresh_token: refreshToken,
       });
+      await clearOAuthInFlight();
       if (sessionError) return { success: false, error: sessionError.message };
       return { success: true };
     }
 
     if (code) {
       const { error: codeError } = await client.auth.exchangeCodeForSession(code);
+      await clearOAuthInFlight();
       if (codeError) return { success: false, error: codeError.message };
       return { success: true };
     }
 
+    await clearOAuthInFlight();
     return { success: false, error: 'No authentication tokens found in redirect URL.' };
   } catch (err: any) {
+    await clearOAuthInFlight();
     return { success: false, error: err.message || 'Failed to establish session from URL.' };
   }
 }
@@ -212,6 +306,9 @@ export async function signInWithGoogle(): Promise<{ success: boolean; error?: st
   }
 
   try {
+    const stateNonce = generateSecureRandomState();
+    await setOAuthInFlight(stateNonce);
+
     if (Platform.OS === 'web') {
       const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
       console.log('[Supabase Auth] Web OAuth redirectTo:', redirectTo);
@@ -219,9 +316,15 @@ export async function signInWithGoogle(): Promise<{ success: boolean; error?: st
         provider: 'google',
         options: {
           redirectTo,
+          queryParams: {
+            state: stateNonce,
+          },
         },
       });
-      if (error) return { success: false, error: error.message };
+      if (error) {
+        await clearOAuthInFlight();
+        return { success: false, error: error.message };
+      }
       return { success: true };
     } else {
       // Mobile / Native: use WebBrowser & custom app scheme
@@ -232,11 +335,20 @@ export async function signInWithGoogle(): Promise<{ success: boolean; error?: st
         options: {
           redirectTo,
           skipBrowserRedirect: true,
+          queryParams: {
+            state: stateNonce,
+          },
         },
       });
 
-      if (error) return { success: false, error: error.message };
-      if (!data?.url) return { success: false, error: 'No OAuth URL returned by provider.' };
+      if (error) {
+        await clearOAuthInFlight();
+        return { success: false, error: error.message };
+      }
+      if (!data?.url) {
+        await clearOAuthInFlight();
+        return { success: false, error: 'No OAuth URL returned by provider.' };
+      }
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
       if (result.type === 'success' && result.url) {
@@ -246,13 +358,16 @@ export async function signInWithGoogle(): Promise<{ success: boolean; error?: st
         // Check if the session was already established by the deep link listener:
         const currentUser = await getCurrentUser();
         if (currentUser) {
+          await clearOAuthInFlight();
           return { success: true };
         }
+        await clearOAuthInFlight();
         return { success: false, error: 'Google sign-in was cancelled or dismissed.' };
       }
       return { success: true };
     }
   } catch (err: any) {
+    await clearOAuthInFlight();
     return { success: false, error: err.message || 'Google sign-in failed.' };
   }
 }

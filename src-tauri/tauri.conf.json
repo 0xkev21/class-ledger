@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "EC Treasury",
+  "productName": "Class Ledger",
   "version": "1.0.0",
-  "identifier": "com.ectreasury.app",
+  "identifier": "com.classledger.app",
   "build": {
     "beforeDevCommand": "npm run web",
     "devUrl": "http://localhost:8081",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "EC Treasury & Student Management",
+        "title": "Class Ledger & Student Management",
         "width": 1100,
         "height": 780,
         "minWidth": 720,
@@ -21,7 +21,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co;"
     }
   },
   "bundle": {

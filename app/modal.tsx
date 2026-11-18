@@ -18,10 +18,10 @@ export default function ModalScreen() {
           <BookOpen size={28} color={themeColor.onPrimary} />
         </View>
         <Text className="mt-3 text-lg font-bold text-slate-900 dark:text-white">
-          EC Treasury
+          Class Ledger
         </Text>
         <Text className="text-xs text-slate-500 dark:text-slate-400">
-          {isEn ? 'Class Treasury Management System v1.0' : 'အတန်းခေါင်းဆောင် ဘဏ္ဍာရေးစီမံခန့်ခွဲမှုစနစ် v1.0'}
+          {isEn ? 'Class Ledger Management System v1.0' : 'အတန်းခေါင်းဆောင် စာရင်းစီမံခန့်ခွဲမှုစနစ် v1.0'}
         </Text>
       </View>
 

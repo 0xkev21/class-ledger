@@ -16,7 +16,7 @@ export default function Root({ children }: PropsWithChildren) {
           name="viewport"
           content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1.00001, viewport-fit=cover"
         />
-        <title>EC Treasury | အတန်းရန်ပုံငွေ</title>
+        <title>Class Ledger | အတန်းရန်ပုံငွေ</title>
 
         {/* Ensures proper reset for React Native Web ScrollViews & full height */}
         <ScrollViewStyleReset />

@@ -1,16 +1,20 @@
 {
   "expo": {
-    "name": "EC Treasury",
-    "slug": "ec-treasury",
+    "name": "Class Ledger",
+    "slug": "class-ledger",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "ectreasury",
+    "scheme": "classledger",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.classledger.app",
+      "buildNumber": "1"
     },
     "android": {
+      "package": "com.classledger.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

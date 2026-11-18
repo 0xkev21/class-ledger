@@ -3,17 +3,14 @@ import {
   ArrowLeft,
   CheckCircle2,
   Cloud,
-  CloudOff,
   Copy,
   KeyRound,
-  Laptop,
   Lock,
   LogIn,
   LogOut,
   Mail,
+  RefreshCw,
   Send,
-  ShieldCheck,
-  Smartphone,
   User as UserIcon,
   X,
 } from 'lucide-react-native';
@@ -22,17 +19,19 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  Modal,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import { useTreasury } from '../context/TreasuryContext';
+import { useAppTheme, useTreasury } from '../context/TreasuryContext';
 import { getMobileAuthRedirectUri } from '../storage/supabase';
+import { DragDismissSheet } from './animated/DragDismissSheet';
+import { PressableScale } from './animated/PressableScale';
+import { NativeIcon } from './NativeIcon';
 
 interface CloudSyncModalProps {
   visible: boolean;
@@ -40,6 +39,8 @@ interface CloudSyncModalProps {
 }
 
 export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose }) => {
+  const { isDark } = useAppTheme();
+  const { height: windowHeight } = useWindowDimensions();
   const {
     user,
     isAuthLoading,
@@ -54,9 +55,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
     syncStatus,
     syncMessage,
     lastSyncedAt,
-    isCloudConnected,
     syncNow,
-    refreshCloudConnection,
     themeColor,
     language,
   } = useTreasury();
@@ -71,7 +70,9 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
   const [otpToken, setOtpToken] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+  const [isManualSyncing, setIsManualSyncing] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
+  const [showDevCallback, setShowDevCallback] = useState(false);
 
   const [feedback, setFeedback] = useState<{ text: string; isError: boolean } | null>(null);
 
@@ -92,7 +93,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
       } else {
         if (Platform.OS !== 'web') {
           setFeedback({
-            text: 'Google Sign-In ဖြင့် အောင်မြင်စွာ ချိတ်ဆက်ပြီးပါပြီ!',
+            text: language === 'en' ? 'Connected with Google account!' : 'Google ဖြင့် အောင်မြင်စွာ ချိတ်ဆက်ပြီးပါပြီ!',
             isError: false,
           });
         }
@@ -107,12 +108,18 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
   // Handle Email & Password Sign In / Sign Up
   const handleEmailAuthSubmit = async () => {
     if (!email.trim() || !password) {
-      setFeedback({ text: 'Email နှင့် Password ကို ဖြည့်စွက်ပေးပါ။', isError: true });
+      setFeedback({
+        text: language === 'en' ? 'Please fill in email and password.' : 'Email နှင့် Password ကို ဖြည့်စွက်ပေးပါ။',
+        isError: true,
+      });
       return;
     }
 
     if (password.length < 6) {
-      setFeedback({ text: 'Password သည် အနည်းဆုံး ၆ လုံး ရှိရပါမည်။', isError: true });
+      setFeedback({
+        text: language === 'en' ? 'Password must be at least 6 characters.' : 'Password သည် အနည်းဆုံး ၆ လုံး ရှိရပါမည်။',
+        isError: true,
+      });
       return;
     }
 
@@ -125,7 +132,10 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
         if (!res.success && res.error) {
           setFeedback({ text: res.error, isError: true });
         } else {
-          setFeedback({ text: 'အောင်မြင်စွာ အကောင့်ဝင်ရောက်ပြီးပါပြီ!', isError: false });
+          setFeedback({
+            text: language === 'en' ? 'Signed in successfully!' : 'အောင်မြင်စွာ အကောင့်ဝင်ရောက်ပြီးပါပြီ!',
+            isError: false,
+          });
         }
       } else {
         const res = await signUpWithEmail(email, password, displayName);
@@ -133,12 +143,15 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
           setFeedback({ text: res.error, isError: true });
         } else if (res.requiresEmailConfirmation) {
           setFeedback({
-            text: 'အကောင့်ဖွင့်ခြင်း အောင်မြင်ပါသည်။ သင့် Email ထဲရှိ ၈ လုံးပါ Code ဖြင့် အတည်ပြုနိုင်ပါသည်။',
+            text: language === 'en' ? 'Account created. Please check your email for the verification code.' : 'အကောင့်ဖွင့်ခြင်း အောင်မြင်ပါသည်။ Email ထဲရှိ Code ဖြင့် အတည်ပြုပေးပါ။',
             isError: false,
           });
           setAuthMode('otp_login');
         } else {
-          setFeedback({ text: 'အကောင့်အသစ် ဖွင့်လှစ်ပြီး အလိုအလျောက် ဝင်ရောက်ပါပြီ!', isError: false });
+          setFeedback({
+            text: language === 'en' ? 'Account created and signed in!' : 'အကောင့်အသစ် ဖွင့်လှစ်ပြီး ဝင်ရောက်ပါပြီ!',
+            isError: false,
+          });
         }
       }
     } catch (err: any) {
@@ -148,10 +161,13 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
     }
   };
 
-  // Handle Forgot Password - Request 8-digit Reset Code
+  // Handle Forgot Password - Request Reset Code
   const handleRequestPasswordReset = async () => {
     if (!email.trim()) {
-      setFeedback({ text: 'ကျေးဇူးပြု၍ သင့် Email လိပ်စာကို ထည့်သွင်းပေးပါ။', isError: true });
+      setFeedback({
+        text: language === 'en' ? 'Please enter your email.' : 'ကျေးဇူးပြု၍ Email လိပ်စာ ထည့်သွင်းပေးပါ။',
+        isError: true,
+      });
       return;
     }
 
@@ -163,7 +179,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
         setFeedback({ text: res.error, isError: true });
       } else {
         setFeedback({
-          text: `စကားဝှက် ပြန်လည်ပြင်ဆင်ရန် ၈ လုံးပါ Code ကို ${email} သို့ ပို့ထားပါပြီ။`,
+          text: language === 'en' ? `Reset code sent to ${email}.` : `စကားဝှက် ပြင်ဆင်ရန် ကုဒ်ကို ${email} သို့ ပို့ထားပါပြီ။`,
           isError: false,
         });
         setAuthMode('verify_recovery');
@@ -178,12 +194,18 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
   // Handle Verify Recovery Code & Set New Password
   const handleConfirmNewPassword = async () => {
     if (!otpToken.trim() || !newPassword) {
-      setFeedback({ text: '၈ လုံးပါ Code နှင့် စကားဝှက်အသစ်ကို ဖြည့်စွက်ပေးပါ။', isError: true });
+      setFeedback({
+        text: language === 'en' ? 'Please fill in code and new password.' : 'ကုဒ်နှင့် စကားဝှက်အသစ်ကို ဖြည့်စွက်ပေးပါ။',
+        isError: true,
+      });
       return;
     }
 
     if (newPassword.length < 6) {
-      setFeedback({ text: 'စကားဝှက်အသစ်သည် အနည်းဆုံး ၆ လုံး ရှိရပါမည်။', isError: true });
+      setFeedback({
+        text: language === 'en' ? 'Password must be at least 6 characters.' : 'စကားဝှက်အသစ်သည် အနည်းဆုံး ၆ လုံး ရှိရပါမည်။',
+        isError: true,
+      });
       return;
     }
 
@@ -201,7 +223,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
         setFeedback({ text: `စကားဝှက် ပြောင်းလဲ၍ မရပါ: ${updateRes.error}`, isError: true });
       } else {
         setFeedback({
-          text: 'စကားဝှက်အသစ် အောင်မြင်စွာ ပြောင်းလဲပြီး ဝင်ရောက်ပါပြီ!',
+          text: language === 'en' ? 'Password updated successfully!' : 'စကားဝှက်အသစ် အောင်မြင်စွာ ပြောင်းလဲပြီးပါပြီ!',
           isError: false,
         });
         setPassword(newPassword);
@@ -216,10 +238,13 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
     }
   };
 
-  // Handle Send One-Time Email Login Code (Passwordless OTP)
+  // Handle Send One-Time Email Login Code
   const handleSendOtpLogin = async () => {
     if (!email.trim()) {
-      setFeedback({ text: 'ကျေးဇူးပြု၍ သင့် Email လိပ်စာကို ထည့်သွင်းပေးပါ။', isError: true });
+      setFeedback({
+        text: language === 'en' ? 'Please enter your email.' : 'ကျေးဇူးပြု၍ Email လိပ်စာ ထည့်သွင်းပေးပါ။',
+        isError: true,
+      });
       return;
     }
 
@@ -231,7 +256,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
         setFeedback({ text: res.error, isError: true });
       } else {
         setFeedback({
-          text: `၈ လုံးပါ Login Code ကို ${email} သို့ ပို့ထားပါပြီ။`,
+          text: language === 'en' ? `Login code sent to ${email}.` : `Login Code ကို ${email} သို့ ပို့ထားပါပြီ။`,
           isError: false,
         });
         setAuthMode('otp_login');
@@ -246,7 +271,10 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
   // Handle Verify One-Time Email Login Code
   const handleVerifyOtpLogin = async () => {
     if (!otpToken.trim()) {
-      setFeedback({ text: '၈ လုံးပါ Verification Code ကို ထည့်သွင်းပေးပါ။', isError: true });
+      setFeedback({
+        text: language === 'en' ? 'Please enter the verification code.' : 'Verification Code ကို ထည့်သွင်းပေးပါ။',
+        isError: true,
+      });
       return;
     }
 
@@ -255,16 +283,21 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
     try {
       const res = await verifyEmailOtp(email, otpToken, 'email');
       if (!res.success && res.error) {
-        // Try fallback with 'signup' type
         const signupFallback = await verifyEmailOtp(email, otpToken, 'signup');
         if (!signupFallback.success && signupFallback.error) {
           setFeedback({ text: `Code မှားယွင်းပါသည်: ${res.error}`, isError: true });
         } else {
-          setFeedback({ text: 'Email အောင်မြင်စွာ အတည်ပြုပြီးပါပြီ!', isError: false });
+          setFeedback({
+            text: language === 'en' ? 'Email verified successfully!' : 'Email အောင်မြင်စွာ အတည်ပြုပြီးပါပြီ!',
+            isError: false,
+          });
           setOtpToken('');
         }
       } else {
-        setFeedback({ text: 'One-Time Code ဖြင့် အောင်မြင်စွာ ဝင်ရောက်ပြီးပါပြီ!', isError: false });
+        setFeedback({
+          text: language === 'en' ? 'Signed in with OTP code!' : 'One-Time Code ဖြင့် အောင်မြင်စွာ ဝင်ရောက်ပါပြီ!',
+          isError: false,
+        });
         setOtpToken('');
       }
     } catch (err: any) {
@@ -278,9 +311,21 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
     setIsSubmittingAuth(true);
     try {
       await signOut();
-      setFeedback({ text: 'အကောင့်မှ ထွက်ပြီးပါပြီ။ Local Offline အနေဖြင့် ဆက်လက်အသုံးပြုနိုင်ပါသည်။', isError: false });
+      setFeedback({
+        text: language === 'en' ? 'Signed out. Working in local offline mode.' : 'အကောင့်မှ ထွက်ပြီးပါပြီ။ Local အနေဖြင့် ဆက်လက်အသုံးပြုနိုင်ပါသည်။',
+        isError: false,
+      });
     } finally {
       setIsSubmittingAuth(false);
+    }
+  };
+
+  const handleManualSync = async () => {
+    setIsManualSyncing(true);
+    try {
+      await syncNow();
+    } finally {
+      setIsManualSyncing(false);
     }
   };
 
@@ -290,663 +335,656 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ visible, onClose
     userMetadata.full_name ||
     userMetadata.name ||
     user?.email?.split('@')[0] ||
-    'EC Representative';
+    'EC Member';
   const userAvatar = userMetadata.avatar_url || userMetadata.picture || null;
 
+  const formattedTime = lastSyncedAt
+    ? new Date(lastSyncedAt).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null;
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable className="flex-1 items-center justify-center bg-black/60 px-4" onPress={onClose}>
-        <Pressable
-          style={{ borderCurve: 'continuous' }}
-          className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl dark:bg-slate-900"
-          onPress={(e) => e.stopPropagation()}
+    <DragDismissSheet
+      visible={visible}
+      onClose={onClose}
+      maxHeight={windowHeight * 0.9}
+      isDark={isDark}
+    >
+      {/* Header - Unified with app sheet design */}
+      <View className="flex-row items-center justify-between mb-4">
+        <View className="flex-row items-center">
+          <View
+            style={{ backgroundColor: themeColor.surface }}
+            className="h-10 w-10 rounded-full items-center justify-center mr-3"
+          >
+            <NativeIcon
+              sfSymbol="icloud.fill"
+              materialName="cloud"
+              FallbackIcon={Cloud}
+              size={20}
+              color={themeColor.primary}
+            />
+          </View>
+          <Text className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
+            {language === 'en' ? 'Cloud Sync' : 'အကောင့် & Cloud Sync'}
+          </Text>
+        </View>
+        <PressableScale
+          onPress={onClose}
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: isDark ? '#27272a' : '#f4f4f5',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          className="h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center"
         >
-          {/* Header */}
-          <View className="flex-row items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-            <View className="flex-row items-center space-x-2">
-              <View
-                style={{ backgroundColor: themeColor.surface }}
-                className="h-9 w-9 items-center justify-center rounded-xl"
-              >
-                <Cloud size={20} color={themeColor.primary} />
+          <NativeIcon
+            sfSymbol="xmark"
+            materialName="close"
+            FallbackIcon={X}
+            size={16}
+            color="#71717a"
+          />
+        </PressableScale>
+      </View>
+
+      <ScrollView
+        style={{ maxHeight: Platform.OS === 'web' ? '70vh' : 520 }}
+        contentContainerStyle={{ paddingVertical: 4 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Feedback / Alert */}
+        {feedback && (
+          <View
+            className={`mb-3 rounded-2xl p-3 flex-row items-center ${
+              feedback.isError
+                ? 'bg-rose-50 border border-rose-200 dark:border-rose-900/60 dark:bg-rose-950/40'
+                : 'bg-emerald-50 border border-emerald-200 dark:border-emerald-900/60 dark:bg-emerald-950/40'
+            }`}
+          >
+            {feedback.isError ? (
+              <AlertCircle size={16} color="#e11d48" className="mr-2" />
+            ) : (
+              <CheckCircle2 size={16} color="#059669" className="mr-2" />
+            )}
+            <Text
+              className={`text-xs font-medium flex-1 ml-2 ${
+                feedback.isError
+                  ? 'text-rose-700 dark:text-rose-300'
+                  : 'text-emerald-700 dark:text-emerald-300'
+              }`}
+            >
+              {feedback.text}
+            </Text>
+          </View>
+        )}
+
+        {/* ============================================================ */}
+        {/* AUTHENTICATED: Consolidated Single Card                      */}
+        {/* ============================================================ */}
+        {user ? (
+          <View className="mb-4">
+            <View className="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-800/50">
+              {/* Profile Row */}
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center flex-1 mr-3">
+                  {userAvatar ? (
+                    <Image
+                      source={{ uri: userAvatar }}
+                      className="h-11 w-11 rounded-full border border-zinc-200 dark:border-zinc-700"
+                    />
+                  ) : (
+                    <View
+                      style={{ backgroundColor: themeColor.primary }}
+                      className="h-11 w-11 items-center justify-center rounded-full"
+                    >
+                      <Text
+                        style={{ color: themeColor.onPrimary }}
+                        className="text-sm font-bold"
+                      >
+                        {userName.slice(0, 2).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <View className="ml-3 flex-1">
+                    <Text
+                      numberOfLines={1}
+                      className="text-sm font-bold text-zinc-900 dark:text-zinc-50"
+                    >
+                      {userName}
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5"
+                    >
+                      {user.email}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Sign Out Button */}
+                <PressableScale
+                  onPress={handleSignOut}
+                  disabled={isSubmittingAuth}
+                  className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 active:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/80"
+                >
+                  <Text className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                    {language === 'en' ? 'Sign Out' : 'ထွက်မည်'}
+                  </Text>
+                </PressableScale>
               </View>
-              <View className="ml-2.5">
-                <Text className="text-base font-bold text-zinc-900 dark:text-zinc-50">
-                  {language === 'en' ? 'Account & Cloud Sync' : 'အကောင့် & Cloud Sync'}
-                </Text>
-                <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {language === 'en' ? 'Cross-device live sync' : 'ဖုန်းနှင့် ကွန်ပျူတာ အချင်းချင်း စာရင်းမျှဝေခြင်း'}
-                </Text>
+
+              {/* Status & Sync Row */}
+              <View className="mt-3.5 pt-3 border-t border-zinc-200/80 dark:border-zinc-700/60 flex-row items-center justify-between">
+                <View className="flex-row items-center flex-1">
+                  {syncStatus === 'syncing' || isManualSyncing ? (
+                    <ActivityIndicator size="small" color={themeColor.primary} className="mr-2" />
+                  ) : (
+                    <View className="h-2.5 w-2.5 rounded-full bg-emerald-500 mr-2" />
+                  )}
+                  <Text className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                    {syncStatus === 'syncing' || isManualSyncing
+                      ? language === 'en'
+                        ? 'Syncing...'
+                        : 'Sync လုပ်နေပါသည်...'
+                      : language === 'en'
+                      ? 'Live Cloud Sync'
+                      : 'Cloud Sync ချိတ်ဆက်ထားသည်'}
+                  </Text>
+                  {formattedTime ? (
+                    <Text className="text-[11px] text-zinc-400 dark:text-zinc-500 ml-1.5">
+                      • {formattedTime}
+                    </Text>
+                  ) : null}
+                </View>
+
+                <PressableScale
+                  onPress={handleManualSync}
+                  disabled={syncStatus === 'syncing' || isManualSyncing}
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                  }}
+                  className="flex-row items-center"
+                >
+                  <RefreshCw
+                    size={13}
+                    color={themeColor.primary}
+                    className={syncStatus === 'syncing' || isManualSyncing ? 'animate-spin' : ''}
+                  />
+                  <Text
+                    style={{ color: themeColor.primary }}
+                    className="ml-1 text-[11px] font-semibold"
+                  >
+                    {language === 'en' ? 'Sync' : 'ပြန်ချိန်မည်'}
+                  </Text>
+                </PressableScale>
               </View>
             </View>
-            <TouchableOpacity
-              onPress={onClose}
-              className="rounded-full p-1.5 active:bg-slate-100 dark:active:bg-slate-800"
-            >
-              <X size={20} color="#64748b" />
-            </TouchableOpacity>
           </View>
+        ) : (
+          /* ============================================================ */
+          /* LOGGED OUT: Clean, Punchy 1-Action Auth Flow                 */
+          /* ============================================================ */
+          <View className="mb-4">
+            {/* Simple Value Proposition (1 concise sentence) */}
+            <View className="mb-4 rounded-2xl bg-zinc-50 p-4 border border-zinc-200 dark:border-zinc-800 dark:bg-zinc-800/40">
+              <Text className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                {language === 'en'
+                  ? 'Sign in to automatically sync attendance and fund records across your phone and PC in realtime.'
+                  : 'Google အကောင့်ဖြင့် ဝင်ရောက်ထားပါက ဖုန်းနှင့် ကွန်ပျူတာ အချင်းချင်း စာရင်းများကို အလိုအလျောက် Realtime သိမ်းဆည်းပေးပါမည်။'}
+              </Text>
+            </View>
 
-          <ScrollView
-            style={{ maxHeight: Platform.OS === 'web' ? '70vh' : 500 }}
-            contentContainerStyle={{ paddingVertical: 12 }}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={true}
-          >
-            {/* Feedback Banner */}
-            {feedback ? (
-              <View
-                className={`mb-3 rounded-2xl p-3.5 ${
-                  feedback.isError
-                    ? 'bg-rose-50 border border-rose-200 dark:border-rose-800 dark:bg-rose-950/60'
-                    : 'bg-emerald-50 border border-emerald-200 dark:border-emerald-800 dark:bg-emerald-950/60'
-                }`}
-              >
-                <Text
-                  className={`text-xs font-semibold ${
-                    feedback.isError
-                      ? 'text-rose-800 dark:text-rose-200'
-                      : 'text-emerald-800 dark:text-emerald-200'
-                  }`}
-                >
-                  {feedback.text}
-                </Text>
-              </View>
-            ) : syncMessage ? (
-              <View
-                className={`mb-3 rounded-2xl p-3 ${
-                  syncStatus === 'error'
-                    ? 'bg-rose-50 border border-rose-200 dark:border-rose-800 dark:bg-rose-950/60'
-                    : syncStatus === 'synced'
-                    ? 'bg-emerald-50 border border-emerald-200 dark:border-emerald-800 dark:bg-emerald-950/60'
-                    : 'bg-slate-100 dark:bg-slate-800'
-                }`}
-              >
-                <Text
-                  className={`text-xs font-semibold ${
-                    syncStatus === 'error'
-                      ? 'text-rose-800 dark:text-rose-200'
-                      : syncStatus === 'synced'
-                      ? 'text-emerald-800 dark:text-emerald-200'
-                      : 'text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  {syncMessage}
-                </Text>
-              </View>
-            ) : null}
+            {/* Google 1-Tap Sign-In Button */}
+            <PressableScale
+              disabled={isSubmittingAuth}
+              onPress={handleGoogleSignIn}
+              style={{
+                borderRadius: 16,
+              }}
+              className="mb-3 flex-row items-center justify-center border border-zinc-300 bg-white py-3.5 px-4 shadow-sm active:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"
+            >
+              {isSubmittingAuth ? (
+                <ActivityIndicator size="small" color="#4f46e5" />
+              ) : (
+                <View className="mr-2.5 h-5 w-5 items-center justify-center rounded-full bg-red-500">
+                  <Text className="text-xs font-black text-white">G</Text>
+                </View>
+              )}
+              <Text className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
+                {language === 'en'
+                  ? 'Continue with Google'
+                  : 'Google ဖြင့် ဆက်လက်လုပ်ဆောင်မည်'}
+              </Text>
+            </PressableScale>
 
-            {/* If Authenticated: Show Profile & Sync Status */}
-            {user ? (
-              <View className="mb-4">
-                {/* User Profile Card */}
-                <View className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 p-4">
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center space-x-3">
-                      {userAvatar ? (
-                        <Image
-                          source={{ uri: userAvatar }}
-                          className="h-12 w-12 rounded-full border border-indigo-200"
-                        />
-                      ) : (
-                        <View
-                          style={{ backgroundColor: themeColor.primary }}
-                          className="h-12 w-12 items-center justify-center rounded-full"
-                        >
-                          <Text
-                            style={{ color: themeColor.onPrimary }}
-                            className="text-base font-bold"
-                          >
-                            {userName.slice(0, 2).toUpperCase()}
-                          </Text>
-                        </View>
-                      )}
-                      <View className="ml-3 flex-1">
-                        <View className="flex-row items-center">
-                          <Text className="text-sm font-bold text-slate-900 dark:text-white">
-                            {userName}
-                          </Text>
-                          <View className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 dark:bg-emerald-950">
-                            <Text className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                              Active
-                            </Text>
-                          </View>
-                        </View>
-                        <Text className="text-xs text-slate-500 dark:text-slate-400">
-                          {user.email}
-                        </Text>
-                      </View>
-                    </View>
+            {/* Email Form Toggle or Divider */}
+            {!showEmailForm ? (
+              <View className="items-center mt-1">
+                <TouchableOpacity
+                  onPress={() => setShowEmailForm(true)}
+                  className="py-2 active:opacity-75"
+                >
+                  <Text className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                    {language === 'en'
+                      ? 'Or use Email & Password'
+                      : 'သို့မဟုတ် Email ဖြင့် ဝင်မည်'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View className="mt-1 rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-800/40">
+                {/* Auth Mode Tabs */}
+                {authMode === 'signin' || authMode === 'signup' ? (
+                  <View className="mb-3 flex-row rounded-xl bg-zinc-200/70 p-1 dark:bg-zinc-800">
+                    <TouchableOpacity
+                      onPress={() => setAuthMode('signin')}
+                      className={`flex-1 items-center justify-center rounded-lg py-1.5 ${
+                        authMode === 'signin' ? 'bg-white shadow-sm dark:bg-zinc-900' : ''
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs font-bold ${
+                          authMode === 'signin'
+                            ? 'text-indigo-600 dark:text-indigo-400'
+                            : 'text-zinc-500 dark:text-zinc-400'
+                        }`}
+                      >
+                        {language === 'en' ? 'Sign In' : 'ဝင်ရောက်မည်'}
+                      </Text>
+                    </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={handleSignOut}
-                      disabled={isSubmittingAuth}
-                      className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 active:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40"
+                      onPress={() => setAuthMode('signup')}
+                      className={`flex-1 items-center justify-center rounded-lg py-1.5 ${
+                        authMode === 'signup' ? 'bg-white shadow-sm dark:bg-zinc-900' : ''
+                      }`}
                     >
-                      <Text className="text-xs font-bold text-rose-700 dark:text-rose-300">
-                        {language === 'en' ? 'Sign Out' : 'ထွက်မည်'}
+                      <Text
+                        className={`text-xs font-bold ${
+                          authMode === 'signup'
+                            ? 'text-indigo-600 dark:text-indigo-400'
+                            : 'text-zinc-500 dark:text-zinc-400'
+                        }`}
+                      >
+                        {language === 'en' ? 'Sign Up' : 'အကောင့်ဖွင့်မည်'}
                       </Text>
                     </TouchableOpacity>
                   </View>
-
-                  <View className="mt-3.5 flex-row items-center border-t border-indigo-100/60 pt-3 dark:border-slate-700">
-                    <ShieldCheck size={14} color="#059669" />
-                    <Text className="ml-1.5 text-xs text-emerald-700 dark:text-emerald-400">
-                      သင့်အတန်းစာရင်းများကို ဤအကောင့်ထဲသို့ အလိုအလျောက် sync လုပ်နေပါသည်
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Automatic Cloud Sync Status Card */}
-                <View className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/40">
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center">
-                      {syncStatus === 'syncing' ? (
-                        <ActivityIndicator size="small" color="#4f46e5" />
-                      ) : (
-                        <View className="h-2.5 w-2.5 rounded-full bg-emerald-500 mr-2" />
-                      )}
-                      <Text className="ml-1 text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {syncStatus === 'syncing'
-                          ? 'အလိုအလျောက် Sync လုပ်နေပါသည်...'
-                          : 'အလိုအလျောက် Cloud Sync စနစ်ဖွင့်ထားပါသည်'}
-                      </Text>
-                    </View>
-
-                    <View className="rounded-full bg-emerald-100 px-2 py-0.5 dark:bg-emerald-950">
-                      <Text className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                        Auto Realtime
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                    စာရင်းအသစ်များ၊ ငွေပေးချေမှုများနှင့် ပြင်ဆင်ချက်များကို ထည့်သွင်းလိုက်သည်နှင့် ဖုန်းနှင့် ကွန်ပျူတာ အချင်းချင်း အလိုအလျောက် Realtime သိမ်းဆည်းပေးနေပါသည်။ ခလုတ်များ နှိပ်ရန် မလိုအပ်ပါ။
-                  </Text>
-
-                  {lastSyncedAt ? (
-                    <View className="mt-3 flex-row items-center justify-between border-t border-slate-200/70 pt-2.5 dark:border-slate-700/60">
-                      <Text className="text-[11px] text-slate-400">
-                        နောက်ဆုံး အလိုအလျောက် sync ပြီးချိန်:
-                      </Text>
-                      <Text className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                        {new Date(lastSyncedAt).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                        })}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-              </View>
-            ) : (
-              /* If Logged Out: Show Frictionless Google Sign In & Email Form */
-              <View className="mb-4">
-                {/* Friendly Value Proposition Card */}
-                <View
-                  style={{
-                    backgroundColor: themeColor.surface,
-                    borderColor: themeColor.border,
-                  }}
-                  className="mb-4 rounded-2xl border p-4"
-                >
-                  <View className="flex-row items-center">
-                    <ShieldCheck size={16} color={themeColor.primary} />
-                    <Text
-                      style={{ color: themeColor.text }}
-                      className="ml-2 text-xs font-bold"
-                    >
-                      မည်သည့် Setup မှ ပြုလုပ်ရန် မလိုပါ
-                    </Text>
-                  </View>
-                  <Text className="mt-1 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Google ဖြင့် ၁ ချက်နှိပ် Sign In ဝင်ရုံဖြင့် သင့်အတန်းရန်ပုံငွေစာရင်းများကို
-                    ဖုန်း၊ Tablet နှင့် Laptop များအချင်းချင်း အလိုအလျောက် တစ်ပြိုင်နက်
-                    သိမ်းဆည်းပေးမည် ဖြစ်ပါသည်။
-                  </Text>
-
-                  <View className="mt-3 flex-row items-center space-x-3 text-[11px] text-slate-500">
-                    <View className="flex-row items-center mr-3">
-                      <Smartphone size={12} color="#6366f1" />
-                      <Text className="ml-1 text-[11px] text-slate-500 dark:text-slate-400">Mobile</Text>
-                    </View>
-                    <View className="flex-row items-center mr-3">
-                      <Laptop size={12} color="#6366f1" />
-                      <Text className="ml-1 text-[11px] text-slate-500 dark:text-slate-400">Web / Desktop</Text>
-                    </View>
-                    <View className="flex-row items-center">
-                      <ShieldCheck size={12} color="#059669" />
-                      <Text className="ml-1 text-[11px] text-emerald-600 dark:text-emerald-400">Encrypted Cloud</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Big Google 1-Tap Sign-In Button */}
-                <TouchableOpacity
-                  disabled={isSubmittingAuth}
-                  onPress={handleGoogleSignIn}
-                  className="mb-2 flex-row items-center justify-center rounded-2xl border border-slate-300 bg-white py-3.5 px-4 shadow-sm active:bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
-                >
-                  {isSubmittingAuth ? (
-                    <ActivityIndicator size="small" color="#4f46e5" />
-                  ) : (
-                    <View className="mr-3 h-5 w-5 items-center justify-center rounded-full bg-red-500">
-                      <Text className="text-xs font-black text-white">G</Text>
-                    </View>
-                  )}
-                  <Text className="text-sm font-bold text-slate-800 dark:text-white">
-                    Google ဖြင့် ဆက်လက်လုပ်ဆောင်မည် (Continue with Google)
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Mobile OAuth Callback Helper */}
-                {Platform.OS !== 'web' ? (
-                  <TouchableOpacity
-                    onPress={async () => {
-                      const uri = getMobileAuthRedirectUri();
-                      await Clipboard.setStringAsync(uri);
-                      setFeedback({
-                        text: `Callback URI Copied:\n${uri}\n\nAdd this into your Supabase Dashboard > Authentication > URL Configuration > Redirect URLs.`,
-                        isError: false,
-                      });
-                    }}
-                    className="mb-3 px-2 py-1 items-center flex-row justify-center"
-                  >
-                    <Copy size={11} color="#6366f1" />
-                    <Text className="ml-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 text-center">
-                      Copy Mobile Callback URI for Supabase Allowlist
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
-
-                {/* Divider */}
-                <View className="my-2 flex-row items-center justify-center">
-                  <View className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-800" />
-                  <Text className="mx-3 text-[11px] font-semibold text-slate-400">သို့မဟုတ်</Text>
-                  <View className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-800" />
-                </View>
-
-                {/* Email Sign In / Sign Up Toggle */}
-                {!showEmailForm ? (
-                  <TouchableOpacity
-                    onPress={() => setShowEmailForm(true)}
-                    className="flex-row items-center justify-center rounded-xl py-2 active:opacity-75"
-                  >
-                    <Mail size={14} color="#6366f1" />
-                    <Text className="ml-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                      Email & Password ဖြင့် အသုံးပြုမည်
-                    </Text>
-                  </TouchableOpacity>
                 ) : (
-                  <View className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/40">
-                    {/* Header / Tab navigation depending on mode */}
-                    {authMode === 'signin' || authMode === 'signup' ? (
-                      <View className="mb-3 flex-row rounded-xl bg-slate-200/70 p-1 dark:bg-slate-800">
-                        <TouchableOpacity
-                          onPress={() => setAuthMode('signin')}
-                          className={`flex-1 items-center justify-center rounded-lg py-1.5 ${
-                            authMode === 'signin' ? 'bg-white shadow-sm dark:bg-slate-900' : ''
-                          }`}
-                        >
-                          <Text
-                            className={`text-xs font-bold ${
-                              authMode === 'signin'
-                                ? 'text-indigo-600 dark:text-indigo-400'
-                                : 'text-slate-500 dark:text-slate-400'
-                            }`}
-                          >
-                            ဝင်ရောက်မည် (Sign In)
-                          </Text>
-                        </TouchableOpacity>
+                  <View className="mb-3 flex-row items-center justify-between border-b border-zinc-200 pb-2.5 dark:border-zinc-700">
+                    <TouchableOpacity
+                      onPress={() => setAuthMode('signin')}
+                      className="flex-row items-center"
+                    >
+                      <ArrowLeft size={16} color="#6366f1" />
+                      <Text className="ml-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                        {language === 'en' ? 'Back' : 'နောက်သို့'}
+                      </Text>
+                    </TouchableOpacity>
+                    <Text className="text-xs font-bold text-zinc-700 dark:text-zinc-200">
+                      {authMode === 'forgot'
+                        ? 'စကားဝှက်မေ့နေပါက'
+                        : authMode === 'verify_recovery'
+                        ? 'စကားဝှက်အသစ်သတ်မှတ်ခြင်း'
+                        : 'Email OTP'}
+                    </Text>
+                  </View>
+                )}
 
-                        <TouchableOpacity
-                          onPress={() => setAuthMode('signup')}
-                          className={`flex-1 items-center justify-center rounded-lg py-1.5 ${
-                            authMode === 'signup' ? 'bg-white shadow-sm dark:bg-slate-900' : ''
-                          }`}
-                        >
-                          <Text
-                            className={`text-xs font-bold ${
-                              authMode === 'signup'
-                                ? 'text-indigo-600 dark:text-indigo-400'
-                                : 'text-slate-500 dark:text-slate-400'
-                            }`}
-                          >
-                            အကောင့်အသစ်ဖွင့်မည် (Sign Up)
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <View className="mb-3 flex-row items-center justify-between border-b border-slate-200 pb-2.5 dark:border-slate-700">
-                        <TouchableOpacity
-                          onPress={() => setAuthMode('signin')}
-                          className="flex-row items-center"
-                        >
-                          <ArrowLeft size={16} color="#6366f1" />
-                          <Text className="ml-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                            နောက်သို့ (Back)
-                          </Text>
-                        </TouchableOpacity>
-                        <Text className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                          {authMode === 'forgot'
-                            ? 'စကားဝှက်မေ့နေပါက'
-                            : authMode === 'verify_recovery'
-                            ? 'စကားဝှက်အသစ်သတ်မှတ်ခြင်း'
-                            : 'Email OTP ဖြင့် ဝင်မည်'}
+                {/* Form Fields for Sign In or Sign Up */}
+                {(authMode === 'signin' || authMode === 'signup') && (
+                  <View>
+                    {authMode === 'signup' && (
+                      <View className="mb-2.5">
+                        <Text className="mb-1 text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+                          {language === 'en' ? 'Full Name' : 'အမည်'}
                         </Text>
+                        <TextInput
+                          placeholder="Ko Ko"
+                          placeholderTextColor="#94a3b8"
+                          value={displayName}
+                          onChangeText={setDisplayName}
+                          className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+                        />
                       </View>
                     )}
 
-                    {/* Form for Sign In or Sign Up */}
-                    {(authMode === 'signin' || authMode === 'signup') && (
-                      <View>
-                        {authMode === 'signup' && (
-                          <View className="mb-2.5">
-                            <Text className="mb-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                              အမည် (Full Name)
+                    <View className="mb-2.5">
+                      <Text className="mb-1 text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+                        Email
+                      </Text>
+                      <TextInput
+                        placeholder="ec.class@gmail.com"
+                        placeholderTextColor="#94a3b8"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        value={email}
+                        onChangeText={setEmail}
+                        className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+                      />
+                    </View>
+
+                    <View className="mb-3">
+                      <View className="mb-1 flex-row items-center justify-between">
+                        <Text className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+                          {language === 'en' ? 'Password' : 'စကားဝှက်'}
+                        </Text>
+                        {authMode === 'signin' && (
+                          <TouchableOpacity onPress={() => setAuthMode('forgot')}>
+                            <Text className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
+                              {language === 'en' ? 'Forgot?' : 'မေ့နေပါသလား?'}
                             </Text>
-                            <TextInput
-                              placeholder="မောင်မောင် (EC)"
-                              placeholderTextColor="#94a3b8"
-                              value={displayName}
-                              onChangeText={setDisplayName}
-                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                            />
-                          </View>
+                          </TouchableOpacity>
                         )}
-
-                        <View className="mb-2.5">
-                          <Text className="mb-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                            Email လိပ်စာ
-                          </Text>
-                          <TextInput
-                            placeholder="ec.class@gmail.com"
-                            placeholderTextColor="#94a3b8"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            value={email}
-                            onChangeText={setEmail}
-                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                          />
-                        </View>
-
-                        <View className="mb-3">
-                          <View className="mb-1 flex-row items-center justify-between">
-                            <Text className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                              စကားဝှက် (Password)
-                            </Text>
-                            {authMode === 'signin' && (
-                              <TouchableOpacity onPress={() => setAuthMode('forgot')}>
-                                <Text className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
-                                  စကားဝှက်မေ့နေပါသလား?
-                                </Text>
-                              </TouchableOpacity>
-                            )}
-                          </View>
-                          <TextInput
-                            secureTextEntry
-                            placeholder="••••••••"
-                            placeholderTextColor="#94a3b8"
-                            autoCapitalize="none"
-                            value={password}
-                            onChangeText={setPassword}
-                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                          />
-                        </View>
-
-                        <TouchableOpacity
-                          disabled={isSubmittingAuth}
-                          onPress={handleEmailAuthSubmit}
-                          style={{ backgroundColor: themeColor.primary }}
-                          className="flex-row items-center justify-center rounded-xl py-2.5 active:opacity-90"
-                        >
-                          {isSubmittingAuth ? (
-                            <ActivityIndicator size="small" color={themeColor.onPrimary} />
-                          ) : (
-                            <LogIn size={15} color={themeColor.onPrimary} />
-                          )}
-                          <Text
-                            style={{ color: themeColor.onPrimary }}
-                            className="ml-1.5 text-xs font-bold"
-                          >
-                            {authMode === 'signin' ? 'Sign In ဝင်မည်' : 'အကောင့်သစ်ဖွင့်မည်'}
-                          </Text>
-                        </TouchableOpacity>
-
-                        {/* Extra helper links */}
-                        <View className="mt-3 flex-row items-center justify-between border-t border-slate-200 pt-2.5 dark:border-slate-700">
-                          <TouchableOpacity
-                            onPress={() => setAuthMode('otp_login')}
-                            className="flex-row items-center"
-                          >
-                            <KeyRound size={13} color="#6366f1" />
-                            <Text className="ml-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
-                              ၈ လုံးပါ OTP Code ဖြင့် ဝင်မည်
-                            </Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity onPress={() => setShowEmailForm(false)}>
-                            <Text className="text-[11px] text-slate-400">
-                              {language === 'en' ? 'Close' : 'ပိတ်မည်'}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
                       </View>
-                    )}
+                      <TextInput
+                        secureTextEntry
+                        placeholder="••••••••"
+                        placeholderTextColor="#94a3b8"
+                        autoCapitalize="none"
+                        value={password}
+                        onChangeText={setPassword}
+                        className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+                      />
+                    </View>
 
-                    {/* Mode: Forgot Password (Request 8-digit Recovery Code) */}
-                    {authMode === 'forgot' && (
-                      <View>
-                        <Text className="mb-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                          သင့်အကောင့်ဖွင့်ထားသော Email လိပ်စာကို ထည့်ပါ။ စကားဝှက် ပြင်ဆင်ရန် ၈ လုံးပါ Recovery Code ပို့ပေးပါမည်။
+                    <PressableScale
+                      disabled={isSubmittingAuth}
+                      onPress={handleEmailAuthSubmit}
+                      style={{
+                        backgroundColor: themeColor.primary,
+                        borderRadius: 12,
+                      }}
+                      className="flex-row items-center justify-center py-2.5"
+                    >
+                      {isSubmittingAuth ? (
+                        <ActivityIndicator size="small" color={themeColor.onPrimary} />
+                      ) : (
+                        <LogIn size={15} color={themeColor.onPrimary} />
+                      )}
+                      <Text
+                        style={{ color: themeColor.onPrimary }}
+                        className="ml-1.5 text-xs font-bold"
+                      >
+                        {authMode === 'signin'
+                          ? language === 'en'
+                            ? 'Sign In'
+                            : 'Sign In ဝင်မည်'
+                          : language === 'en'
+                          ? 'Sign Up'
+                          : 'အကောင့်ဖွင့်မည်'}
+                      </Text>
+                    </PressableScale>
+
+                    <View className="mt-3 flex-row items-center justify-between border-t border-zinc-200 pt-2 dark:border-zinc-700">
+                      <TouchableOpacity
+                        onPress={() => setAuthMode('otp_login')}
+                        className="flex-row items-center"
+                      >
+                        <KeyRound size={12} color="#6366f1" />
+                        <Text className="ml-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
+                          {language === 'en' ? 'Login with OTP code' : 'OTP Code ဖြင့် ဝင်မည်'}
                         </Text>
+                      </TouchableOpacity>
 
-                        <View className="mb-3">
-                          <Text className="mb-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                            Email လိပ်စာ
-                          </Text>
-                          <TextInput
-                            placeholder="ec.class@gmail.com"
-                            placeholderTextColor="#94a3b8"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            value={email}
-                            onChangeText={setEmail}
-                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                          />
-                        </View>
-
-                        <TouchableOpacity
-                          disabled={isSubmittingAuth}
-                          onPress={handleRequestPasswordReset}
-                          style={{ backgroundColor: themeColor.primary }}
-                          className="flex-row items-center justify-center rounded-xl py-2.5 active:opacity-90"
-                        >
-                          {isSubmittingAuth ? (
-                            <ActivityIndicator size="small" color={themeColor.onPrimary} />
-                          ) : (
-                            <Send size={14} color={themeColor.onPrimary} />
-                          )}
-                          <Text
-                            style={{ color: themeColor.onPrimary }}
-                            className="ml-1.5 text-xs font-bold"
-                          >
-                            Recovery Code (၈ လုံး) ပို့ပါ
-                          </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          onPress={() => setAuthMode('verify_recovery')}
-                          className="mt-3 items-center py-1"
-                        >
-                          <Text className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
-                            ကုဒ် ၈ လုံး ရရှိထားပြီးဖြစ်ပါက ဤနေရာကို နှိပ်ပါ
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-
-                    {/* Mode: Verify Recovery Code & Set New Password */}
-                    {authMode === 'verify_recovery' && (
-                      <View>
-                        <Text className="mb-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                          သင့် Email သို့ ရောက်ရှိလာသော ၈ လုံးပါ Code နှင့် စကားဝှက်အသစ်ကို ထည့်သွင်းပေးပါ။
+                      <TouchableOpacity onPress={() => setShowEmailForm(false)}>
+                        <Text className="text-[11px] text-zinc-400">
+                          {language === 'en' ? 'Cancel' : 'ပိတ်မည်'}
                         </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
 
-                        <View className="mb-2.5">
-                          <Text className="mb-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                            Email လိပ်စာ
-                          </Text>
-                          <TextInput
-                            placeholder="ec.class@gmail.com"
-                            placeholderTextColor="#94a3b8"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            value={email}
-                            onChangeText={setEmail}
-                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                          />
-                        </View>
+                {/* Forgot Password Mode */}
+                {authMode === 'forgot' && (
+                  <View>
+                    <Text className="mb-3 text-xs text-zinc-600 dark:text-zinc-300">
+                      {language === 'en'
+                        ? 'Enter your email to receive an 8-digit password reset code.'
+                        : 'စကားဝှက် ပြင်ဆင်ရန် Email သို့ ၈ လုံးပါ Recovery Code ပို့ပေးပါမည်။'}
+                    </Text>
 
-                        <View className="mb-2.5">
-                          <Text className="mb-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                            ၈ လုံးပါ Recovery Code (OTP)
-                          </Text>
-                          <TextInput
-                            placeholder="12345678"
-                            placeholderTextColor="#94a3b8"
-                            keyboardType="number-pad"
-                            autoComplete="one-time-code"
-                            textContentType="oneTimeCode"
-                            maxLength={8}
-                            value={otpToken}
-                            onChangeText={setOtpToken}
-                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-sm font-bold tracking-widest text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                          />
-                        </View>
+                    <View className="mb-3">
+                      <Text className="mb-1 text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+                        Email
+                      </Text>
+                      <TextInput
+                        placeholder="ec.class@gmail.com"
+                        placeholderTextColor="#94a3b8"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        value={email}
+                        onChangeText={setEmail}
+                        className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+                      />
+                    </View>
 
-                        <View className="mb-3.5">
-                          <Text className="mb-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                            စကားဝှက်အသစ် (New Password)
-                          </Text>
-                          <TextInput
-                            secureTextEntry
-                            placeholder="အနည်းဆုံး ၆ လုံး"
-                            placeholderTextColor="#94a3b8"
-                            autoCapitalize="none"
-                            value={newPassword}
-                            onChangeText={setNewPassword}
-                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                          />
-                        </View>
+                    <PressableScale
+                      disabled={isSubmittingAuth}
+                      onPress={handleRequestPasswordReset}
+                      style={{
+                        backgroundColor: themeColor.primary,
+                        borderRadius: 12,
+                      }}
+                      className="flex-row items-center justify-center py-2.5"
+                    >
+                      {isSubmittingAuth ? (
+                        <ActivityIndicator size="small" color={themeColor.onPrimary} />
+                      ) : (
+                        <Send size={14} color={themeColor.onPrimary} />
+                      )}
+                      <Text
+                        style={{ color: themeColor.onPrimary }}
+                        className="ml-1.5 text-xs font-bold"
+                      >
+                        {language === 'en' ? 'Send Code' : 'Recovery Code ပို့ပါ'}
+                      </Text>
+                    </PressableScale>
 
-                        <TouchableOpacity
-                          disabled={isSubmittingAuth}
-                          onPress={handleConfirmNewPassword}
-                          style={{ backgroundColor: themeColor.primary }}
-                          className="flex-row items-center justify-center rounded-xl py-2.5 active:opacity-90"
-                        >
-                          {isSubmittingAuth ? (
-                            <ActivityIndicator size="small" color={themeColor.onPrimary} />
-                          ) : (
-                            <Lock size={14} color={themeColor.onPrimary} />
-                          )}
-                          <Text
-                            style={{ color: themeColor.onPrimary }}
-                            className="ml-1.5 text-xs font-bold"
-                          >
-                            စကားဝှက်အသစ် သိမ်းဆည်းပြီး ဝင်မည်
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
+                    <TouchableOpacity
+                      onPress={() => setAuthMode('verify_recovery')}
+                      className="mt-2.5 items-center py-1"
+                    >
+                      <Text className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
+                        {language === 'en'
+                          ? 'Already have the 8-digit code?'
+                          : 'ကုဒ် ၈ လုံး ရရှိထားပြီးဖြစ်ပါက နှိပ်ပါ'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
-                    {/* Mode: One-Time Email Code Login / Verification */}
-                    {authMode === 'otp_login' && (
-                      <View>
-                        <Text className="mb-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                          Password မလိုဘဲ Email သို့ ပေးပို့သော ၈ လုံးပါ Code ဖြင့် အတည်ပြု ဝင်ရောက်နိုင်ပါသည်။ (Sign Up အပြီး Email အတည်ပြုရန်အတွက်လည်း အသုံးပြုနိုင်ပါသည်)
+                {/* Verify Recovery Code Mode */}
+                {authMode === 'verify_recovery' && (
+                  <View>
+                    <Text className="mb-3 text-xs text-zinc-600 dark:text-zinc-300">
+                      {language === 'en'
+                        ? 'Enter the 8-digit code and your new password.'
+                        : 'Email ထဲရှိ ၈ လုံးပါ Code နှင့် စကားဝှက်အသစ်ကို ထည့်သွင်းပေးပါ။'}
+                    </Text>
+
+                    <View className="mb-2">
+                      <TextInput
+                        placeholder="Email"
+                        placeholderTextColor="#94a3b8"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        value={email}
+                        onChangeText={setEmail}
+                        className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+                      />
+                    </View>
+
+                    <View className="mb-2">
+                      <TextInput
+                        placeholder="8-digit Code"
+                        placeholderTextColor="#94a3b8"
+                        keyboardType="number-pad"
+                        maxLength={8}
+                        value={otpToken}
+                        onChangeText={setOtpToken}
+                        className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-center text-sm font-bold tracking-widest text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+                      />
+                    </View>
+
+                    <View className="mb-3">
+                      <TextInput
+                        secureTextEntry
+                        placeholder={language === 'en' ? 'New Password' : 'စကားဝှက်အသစ်'}
+                        placeholderTextColor="#94a3b8"
+                        autoCapitalize="none"
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+                      />
+                    </View>
+
+                    <PressableScale
+                      disabled={isSubmittingAuth}
+                      onPress={handleConfirmNewPassword}
+                      style={{
+                        backgroundColor: themeColor.primary,
+                        borderRadius: 12,
+                      }}
+                      className="flex-row items-center justify-center py-2.5"
+                    >
+                      {isSubmittingAuth ? (
+                        <ActivityIndicator size="small" color={themeColor.onPrimary} />
+                      ) : (
+                        <Lock size={14} color={themeColor.onPrimary} />
+                      )}
+                      <Text
+                        style={{ color: themeColor.onPrimary }}
+                        className="ml-1.5 text-xs font-bold"
+                      >
+                        {language === 'en' ? 'Save New Password' : 'စကားဝှက်အသစ် သိမ်းဆည်းမည်'}
+                      </Text>
+                    </PressableScale>
+                  </View>
+                )}
+
+                {/* OTP Login Mode */}
+                {authMode === 'otp_login' && (
+                  <View>
+                    <Text className="mb-3 text-xs text-zinc-600 dark:text-zinc-300">
+                      {language === 'en'
+                        ? 'Sign in using the 8-digit OTP code sent to your email.'
+                        : 'Email သို့ ပို့ပေးသော ၈ လုံးပါ Code ဖြင့် အတည်ပြု ဝင်ရောက်နိုင်ပါသည်။'}
+                    </Text>
+
+                    <View className="mb-2 flex-row items-center space-x-2">
+                      <TextInput
+                        placeholder="Email"
+                        placeholderTextColor="#94a3b8"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        value={email}
+                        onChangeText={setEmail}
+                        className="flex-1 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+                      />
+                      <TouchableOpacity
+                        disabled={isSubmittingAuth}
+                        onPress={handleSendOtpLogin}
+                        className="rounded-xl bg-zinc-200 px-3 py-2 dark:bg-zinc-700 ml-2"
+                      >
+                        <Text className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">
+                          {language === 'en' ? 'Send' : 'ကုဒ်ပို့ပါ'}
                         </Text>
+                      </TouchableOpacity>
+                    </View>
 
-                        <View className="mb-2.5">
-                          <Text className="mb-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                            Email လိပ်စာ
-                          </Text>
-                          <View className="flex-row items-center space-x-2">
-                            <TextInput
-                              placeholder="ec.class@gmail.com"
-                              placeholderTextColor="#94a3b8"
-                              keyboardType="email-address"
-                              autoCapitalize="none"
-                              value={email}
-                              onChangeText={setEmail}
-                              className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                            />
-                            <TouchableOpacity
-                              disabled={isSubmittingAuth}
-                              onPress={handleSendOtpLogin}
-                              className="rounded-xl bg-slate-200 px-3 py-2 dark:bg-slate-700"
-                            >
-                              <Text className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
-                                Code ပို့ပါ
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
+                    <View className="mb-3">
+                      <TextInput
+                        placeholder="8-digit Code"
+                        placeholderTextColor="#94a3b8"
+                        keyboardType="number-pad"
+                        maxLength={8}
+                        value={otpToken}
+                        onChangeText={setOtpToken}
+                        className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-center text-sm font-bold tracking-widest text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+                      />
+                    </View>
 
-                        <View className="mb-3.5">
-                          <Text className="mb-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                            ၈ လုံးပါ One-Time Code
-                          </Text>
-                          <TextInput
-                            placeholder="12345678"
-                            placeholderTextColor="#94a3b8"
-                            keyboardType="number-pad"
-                            autoComplete="one-time-code"
-                            textContentType="oneTimeCode"
-                            maxLength={8}
-                            value={otpToken}
-                            onChangeText={setOtpToken}
-                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-sm font-bold tracking-widest text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                          />
-                        </View>
-
-                        <TouchableOpacity
-                          disabled={isSubmittingAuth}
-                          onPress={handleVerifyOtpLogin}
-                          style={{ backgroundColor: themeColor.primary }}
-                          className="flex-row items-center justify-center rounded-xl py-2.5 active:opacity-90"
-                        >
-                          {isSubmittingAuth ? (
-                            <ActivityIndicator size="small" color={themeColor.onPrimary} />
-                          ) : (
-                            <KeyRound size={14} color={themeColor.onPrimary} />
-                          )}
-                          <Text
-                            style={{ color: themeColor.onPrimary }}
-                            className="ml-1.5 text-xs font-bold"
-                          >
-                            Code အတည်ပြုပြီး ဝင်မည်
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
+                    <PressableScale
+                      disabled={isSubmittingAuth}
+                      onPress={handleVerifyOtpLogin}
+                      style={{
+                        backgroundColor: themeColor.primary,
+                        borderRadius: 12,
+                      }}
+                      className="flex-row items-center justify-center py-2.5"
+                    >
+                      {isSubmittingAuth ? (
+                        <ActivityIndicator size="small" color={themeColor.onPrimary} />
+                      ) : (
+                        <KeyRound size={14} color={themeColor.onPrimary} />
+                      )}
+                      <Text
+                        style={{ color: themeColor.onPrimary }}
+                        className="ml-1.5 text-xs font-bold"
+                      >
+                        {language === 'en' ? 'Verify & Sign In' : 'အတည်ပြုပြီး ဝင်မည်'}
+                      </Text>
+                    </PressableScale>
                   </View>
                 )}
               </View>
             )}
 
-            {/* Offline Mode Note */}
-            <View className="mb-1 rounded-2xl bg-slate-50 p-3 dark:bg-slate-800/40">
-              <Text className="text-[11px] text-slate-500 dark:text-slate-400">
-                💡 အကောင့်မဝင်ဘဲ Offline သာ အသုံးပြုလိုပါက စာရင်းများကို ဖုန်း/ကွန်ပျူတာ
-                စက်ထဲတွင်သာ သိမ်းဆည်းထားမည် ဖြစ်ပါသည်။ Cloud သို့ သိမ်းဆည်းရန်သာ အကောင့်ဝင်ရန် လိုအပ်ပါသည်။
+            {/* Offline Mode Note (Only shown when logged out, single concise line) */}
+            <View className="mt-3 rounded-xl bg-zinc-50 px-3.5 py-2.5 dark:bg-zinc-800/40">
+              <Text className="text-[11px] text-zinc-500 dark:text-zinc-400 text-center">
+                {language === 'en'
+                  ? '💡 Without sign-in, all records remain saved offline on this device only.'
+                  : '💡 အကောင့်မဝင်ဘဲ အော့ဖ်လိုင်းအသုံးပြုပါက စာရင်းများကို ဤစက်ထဲတွင်သာ သိမ်းဆည်းပါမည်။'}
               </Text>
             </View>
-          </ScrollView>
-        </Pressable>
-      </Pressable>
-    </Modal>
+
+            {/* Collapsed Developer Helper for Mobile OAuth Callback (if on native mobile) */}
+            {Platform.OS !== 'web' ? (
+              <View className="mt-2 items-center">
+                <TouchableOpacity
+                  onPress={() => setShowDevCallback(!showDevCallback)}
+                  className="py-1"
+                >
+                  <Text className="text-[10px] text-zinc-400 underline">
+                    {showDevCallback ? 'Hide Redirect URI' : 'Mobile OAuth Config URI'}
+                  </Text>
+                </TouchableOpacity>
+
+                {showDevCallback && (
+                  <TouchableOpacity
+                    onPress={async () => {
+                      const uri = getMobileAuthRedirectUri();
+                      await Clipboard.setStringAsync(uri);
+                      setFeedback({
+                        text: `Callback URI Copied:\n${uri}`,
+                        isError: false,
+                      });
+                    }}
+                    className="mt-1 flex-row items-center rounded-lg bg-zinc-100 px-2 py-1 dark:bg-zinc-800"
+                  >
+                    <Copy size={11} color="#6366f1" />
+                    <Text className="ml-1 text-[10px] text-indigo-600 dark:text-indigo-400">
+                      Copy Redirect URI
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : null}
+          </View>
+        )}
+      </ScrollView>
+    </DragDismissSheet>
   );
 };
+

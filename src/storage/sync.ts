@@ -44,43 +44,48 @@ export async function pushLocalToCloud(
   client: SupabaseClient,
   userId?: string
 ): Promise<SyncResult> {
+  if (!userId) {
+    return {
+      success: false,
+      message: 'Cloud sync requires an authenticated user account.',
+    };
+  }
+
   try {
-    // 1. Settings (if user is authenticated)
-    if (userId) {
-      try {
-        const payload: Record<string, any> = {
+    // 1. Settings (for authenticated user)
+    try {
+      const payload: Record<string, any> = {
+        user_id: userId,
+        ec_kbzpay_name: local.settings.ecKbzpayName || '',
+        ec_kbzpay_phone: local.settings.ecKbzpayPhone || '',
+        updated_at: new Date().toISOString(),
+      };
+      if (local.settings.themeColorId) {
+        payload.theme_color_id = local.settings.themeColorId;
+      }
+      if (local.settings.language) {
+        payload.language = local.settings.language;
+      }
+
+      const { error: settingsError } = await client.from('settings').upsert(payload);
+      if (settingsError) {
+        // If remote schema does not have theme_color_id or language columns yet, fallback gracefully
+        await client.from('settings').upsert({
           user_id: userId,
           ec_kbzpay_name: local.settings.ecKbzpayName || '',
           ec_kbzpay_phone: local.settings.ecKbzpayPhone || '',
           updated_at: new Date().toISOString(),
-        };
-        if (local.settings.themeColorId) {
-          payload.theme_color_id = local.settings.themeColorId;
-        }
-        if (local.settings.language) {
-          payload.language = local.settings.language;
-        }
-
-        const { error: settingsError } = await client.from('settings').upsert(payload);
-        if (settingsError) {
-          // If remote schema does not have theme_color_id or language columns yet, fallback gracefully
-          await client.from('settings').upsert({
-            user_id: userId,
-            ec_kbzpay_name: local.settings.ecKbzpayName || '',
-            ec_kbzpay_phone: local.settings.ecKbzpayPhone || '',
-            updated_at: new Date().toISOString(),
-          });
-        }
-      } catch (settingsErr) {
-        console.warn('Non-fatal settings sync warning:', settingsErr);
+        });
       }
+    } catch (settingsErr) {
+      console.warn('Non-fatal settings sync warning:', settingsErr);
     }
 
     // 2. Students
     if (local.students.length > 0) {
       const studentRows = local.students.map((s) => ({
         id: s.id,
-        user_id: userId || null,
+        user_id: userId,
         name: s.name,
         roll_number: s.rollNumber || null,
         phone: s.phone || null,
@@ -94,7 +99,7 @@ export async function pushLocalToCloud(
     if (local.subjects.length > 0) {
       const subjectRows = local.subjects.map((sub) => ({
         id: sub.id,
-        user_id: userId || null,
+        user_id: userId,
         name: sub.name,
         created_at: sub.createdAt,
       }));
@@ -106,7 +111,7 @@ export async function pushLocalToCloud(
     if (local.events.length > 0) {
       const eventRows = local.events.map((e) => ({
         id: e.id,
-        user_id: userId || null,
+        user_id: userId,
         name: e.name,
         type: e.type,
         fixed_amount: e.fixedAmount ?? null,
@@ -122,7 +127,7 @@ export async function pushLocalToCloud(
     if (local.eventRecords.length > 0) {
       const recordRows = local.eventRecords.map((r) => ({
         id: r.id,
-        user_id: userId || null,
+        user_id: userId,
         event_id: r.eventId,
         student_id: r.studentId,
         amount: r.amount,
@@ -137,7 +142,7 @@ export async function pushLocalToCloud(
     if (local.fines.length > 0) {
       const fineRows = local.fines.map((f) => ({
         id: f.id,
-        user_id: userId || null,
+        user_id: userId,
         subject_id: f.subjectId,
         student_id: f.studentId,
         reason: f.reason,
@@ -171,27 +176,20 @@ export async function pullCloudToLocal(
   userId?: string,
   currentSettings?: AppSettings
 ): Promise<SyncResult> {
+  if (!userId) {
+    return {
+      success: false,
+      message: 'Cloud sync requires an authenticated user account.',
+    };
+  }
+
   try {
-    let stuQuery = client.from('students').select('*').order('name', { ascending: true });
-    let subQuery = client.from('subjects').select('*').order('name', { ascending: true });
-    let evQuery = client.from('events').select('*').order('created_at', { ascending: false });
-    let recQuery = client.from('event_records').select('*').order('created_at', { ascending: false });
-    let fineQuery = client.from('fines').select('*').order('created_at', { ascending: false });
-
-    if (userId) {
-      stuQuery = stuQuery.eq('user_id', userId);
-      subQuery = subQuery.eq('user_id', userId);
-      evQuery = evQuery.eq('user_id', userId);
-      recQuery = recQuery.eq('user_id', userId);
-      fineQuery = fineQuery.eq('user_id', userId);
-    }
-
     const [stuRes, subRes, evRes, recRes, fineRes] = await Promise.all([
-      stuQuery,
-      subQuery,
-      evQuery,
-      recQuery,
-      fineQuery,
+      client.from('students').select('*').eq('user_id', userId).order('name', { ascending: true }),
+      client.from('subjects').select('*').eq('user_id', userId).order('name', { ascending: true }),
+      client.from('events').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+      client.from('event_records').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+      client.from('fines').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
     ]);
 
     if (stuRes.error) throw new Error(formatSyncError('students', stuRes.error));
