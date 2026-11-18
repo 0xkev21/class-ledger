@@ -43,37 +43,132 @@ jobs:
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_nBGDAWeGZP4YpSD-ewlulg_aeOlKXPu' }}
         run: npx expo prebuild --platform android --clean --no-install
 
-      - name: Build Android Release APK
+      - name: Build Android Release APKs & AAB
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease bundleRelease --no-daemon
 
-      - name: Sign APK (if Keystore Secret provided)
+      - name: Sign & Prepare Android Artifacts
         id: sign-apk
         run: |
-          UNSIGNED_APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          mkdir -p android-artifacts
           VERSION="${GITHUB_REF_NAME:-v1.0.0}"
-          OUTPUT_APK="ClassLedger-${VERSION}.apk"
 
-          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            echo "Signing APK with repository keystore..."
-            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
-            jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
-              -keystore release.keystore \
-              -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
-              -keypass "${{ secrets.ANDROID_KEY_PASSWORD }}" \
-              "$UNSIGNED_APK" "${{ secrets.ANDROID_KEY_ALIAS }}"
-            zipalign -v 4 "$UNSIGNED_APK" "$OUTPUT_APK" || cp "$UNSIGNED_APK" "$OUTPUT_APK"
-          else
-            echo "Signing with debug key for direct installation..."
-            cp "$UNSIGNED_APK" "$OUTPUT_APK"
+          # Locate Android build tools (apksigner & zipalign)
+          BUILD_TOOLS_DIR=$(ls -d ${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools/* 2>/dev/null | sort -V | tail -n 1)
+          APKSIGNER="${BUILD_TOOLS_DIR}/apksigner"
+          ZIPALIGN="${BUILD_TOOLS_DIR}/zipalign"
+
+          if [ ! -x "$APKSIGNER" ]; then
+            APKSIGNER=$(which apksigner || true)
           fi
-          echo "apk_path=$OUTPUT_APK" >> $GITHUB_OUTPUT
+          if [ ! -x "$ZIPALIGN" ]; then
+            ZIPALIGN=$(which zipalign || true)
+          fi
 
-      - name: Upload Android APK Artifact
+          echo "Using apksigner: $APKSIGNER"
+          echo "Using zipalign: $ZIPALIGN"
+
+          # Determine Keystore to use
+          KEYSTORE_FILE="release.keystore"
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "Using production keystore from repository secrets..."
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$KEYSTORE_FILE"
+            KS_PASS="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+            KEY_ALIAS="${{ secrets.ANDROID_KEY_ALIAS }}"
+            KEY_PASS="${{ secrets.ANDROID_KEY_PASSWORD }}"
+          else
+            echo "No production keystore secret found. Generating self-signed release keystore for direct installation..."
+            KS_PASS="classledger123"
+            KEY_ALIAS="classledger"
+            KEY_PASS="classledger123"
+            keytool -genkeypair -v \
+              -keystore "$KEYSTORE_FILE" \
+              -alias "$KEY_ALIAS" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass "$KS_PASS" \
+              -keypass "$KEY_PASS" \
+              -dname "CN=ClassLedger, OU=ClassLedger, O=ClassLedger, C=US"
+          fi
+
+          sign_and_align_apk() {
+            local src="$1"
+            local dest="$2"
+            echo "Signing APK: $src -> $dest"
+            local aligned_tmp="aligned_tmp.apk"
+
+            # 1. zipalign BEFORE apksigner (mandatory for v2/v3 signing schemes)
+            if [ -x "$ZIPALIGN" ]; then
+              "$ZIPALIGN" -f -v 4 "$src" "$aligned_tmp"
+            else
+              cp "$src" "$aligned_tmp"
+            fi
+
+            # 2. apksigner applies v1, v2, and v3 signature schemes (required for Android 11+)
+            if [ -x "$APKSIGNER" ]; then
+              "$APKSIGNER" sign \
+                --ks "$KEYSTORE_FILE" \
+                --ks-pass "pass:$KS_PASS" \
+                --ks-key-alias "$KEY_ALIAS" \
+                --key-pass "pass:$KEY_PASS" \
+                --v1-signing-enabled true \
+                --v2-signing-enabled true \
+                --v3-signing-enabled true \
+                --out "$dest" \
+                "$aligned_tmp"
+
+              # 3. Verify signature
+              "$APKSIGNER" verify --verbose "$dest"
+            else
+              # Fallback to jarsigner if apksigner is unavailable
+              jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+                -keystore "$KEYSTORE_FILE" \
+                -storepass "$KS_PASS" \
+                -keypass "$KEY_PASS" \
+                "$aligned_tmp" "$KEY_ALIAS"
+              cp "$aligned_tmp" "$dest"
+            fi
+            rm -f "$aligned_tmp"
+          }
+
+          # Process Split and Universal APKs
+          for apk in $(find android/app/build/outputs/apk/release -name "*.apk"); do
+            filename=$(basename "$apk")
+            if [[ "$filename" == *"arm64-v8a"* ]]; then
+              sign_and_align_apk "$apk" "android-artifacts/ClassLedger-${VERSION}-arm64-v8a.apk"
+            elif [[ "$filename" == *"armeabi-v7a"* ]]; then
+              sign_and_align_apk "$apk" "android-artifacts/ClassLedger-${VERSION}-armeabi-v7a.apk"
+            elif [[ "$filename" == *"x86_64"* ]]; then
+              sign_and_align_apk "$apk" "android-artifacts/ClassLedger-${VERSION}-x86_64.apk"
+            elif [[ "$filename" == *"universal"* ]]; then
+              sign_and_align_apk "$apk" "android-artifacts/ClassLedger-${VERSION}-universal.apk"
+            fi
+          done
+
+          # Default APK alias (use arm64-v8a as primary lightweight APK for standard download links)
+          if [ -f "android-artifacts/ClassLedger-${VERSION}-arm64-v8a.apk" ]; then
+            cp "android-artifacts/ClassLedger-${VERSION}-arm64-v8a.apk" "android-artifacts/ClassLedger-${VERSION}.apk"
+          elif [ -f "android-artifacts/ClassLedger-${VERSION}-universal.apk" ]; then
+            cp "android-artifacts/ClassLedger-${VERSION}-universal.apk" "android-artifacts/ClassLedger-${VERSION}.apk"
+          fi
+
+          # Process AAB (Android App Bundle for Play Store)
+          for aab in $(find android/app/build/outputs/bundle/release -name "*.aab"); do
+            dest="android-artifacts/ClassLedger-${VERSION}.aab"
+            jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+              -keystore "$KEYSTORE_FILE" \
+              -storepass "$KS_PASS" \
+              -keypass "$KEY_PASS" \
+              "$aab" "$KEY_ALIAS" || true
+            cp "$aab" "$dest"
+          done
+
+      - name: Upload Android APK Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: ${{ steps.sign-apk.outputs.apk_path }}
+          path: android-artifacts/*
 
   build-desktop:
     name: Build Linux Desktop (Tauri)
