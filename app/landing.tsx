@@ -35,16 +35,17 @@ export default function ProductLandingPage() {
   const insets = useSafeAreaInsets();
   const { isDark, themeColor } = useAppTheme();
 
+
   const handleOpenApp = () => {
     router.push('/(tabs)');
   };
 
   const handleOpenGitHub = () => {
-    Linking.openURL('https://github.com/0xkev21/ec-treasury');
+    Linking.openURL('https://github.com/0xkev21/class-ledger');
   };
 
   const handleOpenReleases = () => {
-    Linking.openURL('https://github.com/0xkev21/ec-treasury/releases');
+    Linking.openURL('https://github.com/0xkev21/class-ledger/releases');
   };
 
   return (

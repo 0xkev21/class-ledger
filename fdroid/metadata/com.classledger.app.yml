@@ -3,8 +3,8 @@ Categories:
   - Office
 License: MIT
 AuthorName: Class Ledger Team
-SourceCode: https://github.com/0xkev21/ec-treasury
-IssueTracker: https://github.com/0xkev21/ec-treasury/issues
+SourceCode: https://github.com/0xkev21/class-ledger
+IssueTracker: https://github.com/0xkev21/class-ledger/issues
 
 AutoName: Class Ledger
 Summary: Class treasury, dues tracking, and student fine management system
@@ -20,7 +20,7 @@ Description: |-
   * Multi-language: English and Myanmar (Burmese) language support.
 
 RepoType: git
-Repo: https://github.com/0xkev21/ec-treasury.git
+Repo: https://github.com/0xkev21/class-ledger.git
 
 Builds:
   - versionName: 1.0.0
