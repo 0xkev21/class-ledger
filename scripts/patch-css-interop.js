@@ -66,3 +66,87 @@ function patchFile(filePath) {
 
 patchFile(targetDist);
 patchFile(targetSrc);
+
+function patchGestureHandlerModuleId(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+  let content = fs.readFileSync(filePath, 'utf8');
+  const targetPattern = /moduleId \?\?=\s*(?:typeof RNGestureHandlerModule\?\.getModuleId === 'function'\s*\?\s*RNGestureHandlerModule\.getModuleId\(\)\s*:\s*-1|RNGestureHandlerModule\.getModuleId\(\));/;
+  const replacement = `moduleId ??=\n    typeof RNGestureHandlerModule?.getModuleId === 'function'\n      ? RNGestureHandlerModule.getModuleId()\n      : 0;`;
+
+  if (targetPattern.test(content)) {
+    content = content.replace(targetPattern, replacement);
+    fs.writeFileSync(filePath, content, 'utf8');
+    console.log(`Successfully patched gesture-handler moduleId: ${path.relative(process.cwd(), filePath)}`);
+  }
+}
+
+function patchGestureHandlerRootViewAndroid(filePath, isTsx) {
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+  let content = fs.readFileSync(filePath, 'utf8');
+  if (isTsx) {
+    if (!content.includes('hasNativeModuleId')) {
+      content = content.replace(
+        "import { StyleSheet } from 'react-native';",
+        "import { StyleSheet, View } from 'react-native';\nimport RNGestureHandlerModule from '../RNGestureHandlerModule';"
+      );
+      content = content.replace(
+        `<GestureHandlerRootViewNativeComponent
+        style={style ?? styles.container}
+        {...rest}
+        moduleId={getModuleId()}
+      />`,
+        `{typeof RNGestureHandlerModule?.getModuleId === 'function' ? (
+        <GestureHandlerRootViewNativeComponent
+          style={style ?? styles.container}
+          {...rest}
+          moduleId={getModuleId()}
+        />
+      ) : (
+        <View style={style ?? styles.container} {...rest} />
+      )}`
+      );
+      fs.writeFileSync(filePath, content, 'utf8');
+      console.log(`Successfully patched gesture-handler RootView android tsx: ${path.relative(process.cwd(), filePath)}`);
+    }
+  } else {
+    if (!content.includes('hasNativeModuleId')) {
+      content = content.replace(
+        "import { StyleSheet } from 'react-native';",
+        "import { StyleSheet, View } from 'react-native';\nimport RNGestureHandlerModule from '../RNGestureHandlerModule';"
+      );
+      content = content.replace(
+        `children: /*#__PURE__*/_jsx(GestureHandlerRootViewNativeComponent, {
+      style: style ?? styles.container,
+      ...rest,
+      moduleId: getModuleId()
+    })`,
+        `children: typeof RNGestureHandlerModule?.getModuleId === 'function' ? /*#__PURE__*/_jsx(GestureHandlerRootViewNativeComponent, {
+      style: style ?? styles.container,
+      ...rest,
+      moduleId: getModuleId()
+    }) : /*#__PURE__*/_jsx(View, {
+      style: style ?? styles.container,
+      ...rest
+    })`
+      );
+      fs.writeFileSync(filePath, content, 'utf8');
+      console.log(`Successfully patched gesture-handler RootView android js: ${path.relative(process.cwd(), filePath)}`);
+    }
+  }
+}
+
+const ghSrc = path.join(__dirname, '..', 'node_modules', 'react-native-gesture-handler', 'src', 'moduleId.ts');
+const ghDist = path.join(__dirname, '..', 'node_modules', 'react-native-gesture-handler', 'lib', 'module', 'moduleId.js');
+patchGestureHandlerModuleId(ghSrc);
+patchGestureHandlerModuleId(ghDist);
+
+const ghRvSrc = path.join(__dirname, '..', 'node_modules', 'react-native-gesture-handler', 'src', 'components', 'GestureHandlerRootView.android.tsx');
+const ghRvDist = path.join(__dirname, '..', 'node_modules', 'react-native-gesture-handler', 'lib', 'module', 'components', 'GestureHandlerRootView.android.js');
+patchGestureHandlerRootViewAndroid(ghRvSrc, true);
+patchGestureHandlerRootViewAndroid(ghRvDist, false);
+
+
