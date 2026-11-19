@@ -1,0 +1,4 @@
+v1.0.9 Release:
+- Dynamic animated bottom navigation bar with elastic spring pills and icon bounces
+- Tactile haptic vibration feedback on touch clicks, tab switches, and filter chips
+- Enhanced touch feedback with smooth press physics across the app

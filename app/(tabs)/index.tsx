@@ -31,6 +31,7 @@ import { StaggeredRow } from '@/src/components/animated/StaggeredRow';
 import { useAppTheme, useTreasury } from '@/src/context/TreasuryContext';
 import { Event, EventType } from '@/src/types';
 import { formatMMK } from '@/src/utils/formatters';
+import { Haptics } from '@/src/utils/haptics';
 
 export default function EventsScreen() {
   const { events, eventRecords, getEventStats, t } = useTreasury();
@@ -225,7 +226,10 @@ export default function EventsScreen() {
                 return (
                   <TouchableOpacity
                     key={chip.id}
-                    onPress={() => setTypeFilter(chip.id as any)}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setTypeFilter(chip.id as any);
+                    }}
                     style={{
                       backgroundColor: isSelected
                         ? themeColor.primary
@@ -283,7 +287,10 @@ export default function EventsScreen() {
                 return (
                   <StaggeredRow key={ev.id} index={index}>
                     <TouchableOpacity
-                      onPress={() => setSelectedEvent(ev)}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setSelectedEvent(ev);
+                      }}
                       activeOpacity={0.85}
                       style={{ borderCurve: 'continuous' }}
                       className="rounded-3xl bg-white dark:bg-zinc-900 p-5 border border-zinc-200/70 dark:border-zinc-800/80 shadow-none"

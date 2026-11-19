@@ -11,6 +11,7 @@ import Animated, {
   useReducedMotion,
 } from 'react-native-reanimated';
 import { cssInterop } from 'nativewind';
+import { Haptics } from '@/src/utils/haptics';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 cssInterop(AnimatedPressable, { className: 'style' });
@@ -20,6 +21,7 @@ export interface PressableScaleProps extends PressableProps {
   targetScale?: number;
   durationMs?: number;
   className?: string;
+  hapticFeedback?: boolean | 'selection' | 'light' | 'medium';
   children: React.ReactNode;
 }
 
@@ -37,6 +39,7 @@ export const PressableScale: React.FC<PressableScaleProps> = ({
   durationMs = 120,
   hitSlop = 12,
   pressRetentionOffset = 16,
+  hapticFeedback = true,
   ...rest
 }) => {
   const [pressed, setPressed] = useState(false);
@@ -51,6 +54,15 @@ export const PressableScale: React.FC<PressableScaleProps> = ({
       disabled={disabled}
       onPressIn={(e) => {
         setPressed(true);
+        if (hapticFeedback !== false) {
+          if (hapticFeedback === 'medium') {
+            Haptics.impactMediumAsync();
+          } else if (hapticFeedback === 'light') {
+            Haptics.impactLightAsync();
+          } else {
+            Haptics.selectionAsync();
+          }
+        }
         onPressIn?.(e);
       }}
       onPressOut={(e) => {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Class Ledger",
     "slug": "class-ledger",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "classledger",
@@ -10,14 +10,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.classledger.app",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "infoPlist": {
         "CADisableMinimumFrameDurationOnPhone": true
       }
     },
     "android": {
       "package": "com.classledger.app",
-      "versionCode": 8,
+      "versionCode": 9,
+      "permissions": ["android.permission.VIBRATE"],
       "adaptiveIcon": {
         "backgroundColor": "#4f46e5",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

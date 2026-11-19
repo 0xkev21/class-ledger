@@ -34,6 +34,7 @@ import {
   downloadFileWeb,
   generateFinesCSV,
 } from '@/src/utils/exporter';
+import { Haptics } from '@/src/utils/haptics';
 
 export default function SettingsScreen() {
   const {
@@ -72,12 +73,14 @@ export default function SettingsScreen() {
 
   const handleSelectThemePreset = async (presetId: ThemeColorId) => {
     if (currentThemeId === presetId) return;
+    Haptics.selectionAsync();
     await updateSettings({ themeColorId: presetId });
     setToastMessage(t.settings.themeChangedToast);
   };
 
   const handleSelectLanguage = async (newLang: 'my' | 'en') => {
     if (language === newLang) return;
+    Haptics.selectionAsync();
     await setLanguage(newLang);
     setToastMessage(
       newLang === 'en'
@@ -87,6 +90,7 @@ export default function SettingsScreen() {
   };
 
   const handleSaveKbzSettings = async () => {
+    Haptics.notificationSuccessAsync();
     await updateSettings({
       ecKbzpayName: kbzName.trim(),
       ecKbzpayPhone: kbzPhone.trim(),

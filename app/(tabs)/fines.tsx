@@ -27,6 +27,7 @@ import { ToastNotification } from '@/src/components/ToastNotification';
 import { useAppTheme, useTreasury } from '@/src/context/TreasuryContext';
 import { Fine } from '@/src/types';
 import { formatMMK } from '@/src/utils/formatters';
+import { Haptics } from '@/src/utils/haptics';
 
 export default function FinesScreen() {
   const {
@@ -232,7 +233,10 @@ export default function FinesScreen() {
                 return (
                   <TouchableOpacity
                     key={st}
-                    onPress={() => setStatusFilter(st)}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setStatusFilter(st);
+                    }}
                     style={{
                       backgroundColor: isSelected
                         ? themeColor.primary
@@ -277,7 +281,10 @@ export default function FinesScreen() {
                 className="mb-3"
               >
                 <TouchableOpacity
-                  onPress={() => setSelectedSubjectId('all')}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setSelectedSubjectId('all');
+                  }}
                   style={{
                     backgroundColor:
                       selectedSubjectId === 'all'
@@ -312,7 +319,10 @@ export default function FinesScreen() {
                   return (
                     <TouchableOpacity
                       key={sub.id}
-                      onPress={() => setSelectedSubjectId(sub.id)}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setSelectedSubjectId(sub.id);
+                      }}
                       style={{
                         backgroundColor: isSelected
                           ? themeColor.primary
@@ -443,7 +453,10 @@ export default function FinesScreen() {
                       {/* 1-Tap Tactile Pill Toggle */}
                       <View className="flex-row items-center gap-2">
                         <TouchableOpacity
-                          onPress={() => toggleFinePaid(fine.id)}
+                          onPress={() => {
+                            Haptics.impactLightAsync();
+                            toggleFinePaid(fine.id);
+                          }}
                           activeOpacity={0.8}
                           style={{ borderCurve: 'continuous' }}
                           className={`flex-row items-center rounded-full px-3.5 py-1.5 ${

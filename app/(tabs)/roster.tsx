@@ -29,6 +29,7 @@ import { StaggeredRow } from '@/src/components/animated/StaggeredRow';
 import { useAppTheme, useTreasury } from '@/src/context/TreasuryContext';
 import { Student, Subject } from '@/src/types';
 import { formatMMK } from '@/src/utils/formatters';
+import { Haptics } from '@/src/utils/haptics';
 
 export default function RosterScreen() {
   const {
@@ -293,6 +294,7 @@ export default function RosterScreen() {
                       <View className="flex-row items-center gap-1.5">
                         <TouchableOpacity
                           onPress={() => {
+                            Haptics.selectionAsync();
                             setEditingStudent(student);
                             setShowAddStudent(true);
                           }}
@@ -381,6 +383,7 @@ export default function RosterScreen() {
                       <View className="flex-row items-center gap-1.5">
                         <TouchableOpacity
                           onPress={() => {
+                            Haptics.selectionAsync();
                             setEditingSubject(sub);
                             setShowAddSubject(true);
                           }}

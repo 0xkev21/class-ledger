@@ -1,9 +1,10 @@
 import { BarChart3, Gavel, HeartHandshake, Settings2, Users } from 'lucide-react-native';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeIcon } from '@/src/components/NativeIcon';
+import { AnimatedTabButton } from '@/src/components/animated/AnimatedTabButton';
+import { AnimatedTabItem } from '@/src/components/animated/AnimatedTabItem';
 import { useAppTheme, useTranslation } from '@/src/context/TreasuryContext';
 
 export default function TabLayout() {
@@ -13,7 +14,7 @@ export default function TabLayout() {
   const isWeb = process.env.EXPO_OS === 'web';
 
   const bottomInset = isWeb ? 8 : Math.max(insets.bottom, 8);
-  const tabHeight = 52 + bottomInset;
+  const tabHeight = 56 + bottomInset;
 
   return (
     <Tabs
@@ -24,10 +25,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: isDark ? '#a1a1aa' : '#71717a',
         tabBarHideOnKeyboard: true,
         tabBarButton: ({ ref, ...props }) => (
-          <Pressable
-            {...props}
-            android_ripple={{ color: 'transparent' }}
-          />
+          <AnimatedTabButton {...props} />
         ),
         tabBarItemStyle: {
           justifyContent: 'center',
@@ -55,16 +53,11 @@ export default function TabLayout() {
           title: t.tabs.events,
           tabBarAccessibilityLabel: t.tabs.events,
           tabBarIcon: ({ color, focused }) => (
-            <View
-              style={{
-                backgroundColor: focused ? themeColor.surface : 'transparent',
-                borderRadius: 18,
-                height: 36,
-                minWidth: 52,
-                paddingHorizontal: 14,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+            <AnimatedTabItem
+              focused={focused}
+              color={color}
+              surfaceColor={themeColor.surface}
+              activeColor={isDark ? themeColor.primaryLight : themeColor.primary}
             >
               <NativeIcon
                 sfSymbol="sparkles"
@@ -73,7 +66,7 @@ export default function TabLayout() {
                 color={color}
                 size={22}
               />
-            </View>
+            </AnimatedTabItem>
           ),
         }}
       />
@@ -83,16 +76,11 @@ export default function TabLayout() {
           title: t.tabs.fines,
           tabBarAccessibilityLabel: t.tabs.fines,
           tabBarIcon: ({ color, focused }) => (
-            <View
-              style={{
-                backgroundColor: focused ? themeColor.surface : 'transparent',
-                borderRadius: 18,
-                height: 36,
-                minWidth: 52,
-                paddingHorizontal: 14,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+            <AnimatedTabItem
+              focused={focused}
+              color={color}
+              surfaceColor={themeColor.surface}
+              activeColor={isDark ? themeColor.primaryLight : themeColor.primary}
             >
               <NativeIcon
                 sfSymbol="exclamationmark.triangle.fill"
@@ -101,7 +89,7 @@ export default function TabLayout() {
                 color={color}
                 size={22}
               />
-            </View>
+            </AnimatedTabItem>
           ),
         }}
       />
@@ -111,16 +99,11 @@ export default function TabLayout() {
           title: t.tabs.roster,
           tabBarAccessibilityLabel: t.tabs.roster,
           tabBarIcon: ({ color, focused }) => (
-            <View
-              style={{
-                backgroundColor: focused ? themeColor.surface : 'transparent',
-                borderRadius: 18,
-                height: 36,
-                minWidth: 52,
-                paddingHorizontal: 14,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+            <AnimatedTabItem
+              focused={focused}
+              color={color}
+              surfaceColor={themeColor.surface}
+              activeColor={isDark ? themeColor.primaryLight : themeColor.primary}
             >
               <NativeIcon
                 sfSymbol="person.2.fill"
@@ -129,7 +112,7 @@ export default function TabLayout() {
                 color={color}
                 size={22}
               />
-            </View>
+            </AnimatedTabItem>
           ),
         }}
       />
@@ -139,16 +122,11 @@ export default function TabLayout() {
           title: t.tabs.reports,
           tabBarAccessibilityLabel: t.tabs.reports,
           tabBarIcon: ({ color, focused }) => (
-            <View
-              style={{
-                backgroundColor: focused ? themeColor.surface : 'transparent',
-                borderRadius: 18,
-                height: 36,
-                minWidth: 52,
-                paddingHorizontal: 14,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+            <AnimatedTabItem
+              focused={focused}
+              color={color}
+              surfaceColor={themeColor.surface}
+              activeColor={isDark ? themeColor.primaryLight : themeColor.primary}
             >
               <NativeIcon
                 sfSymbol="chart.bar.fill"
@@ -157,7 +135,7 @@ export default function TabLayout() {
                 color={color}
                 size={22}
               />
-            </View>
+            </AnimatedTabItem>
           ),
         }}
       />
@@ -167,16 +145,11 @@ export default function TabLayout() {
           title: t.tabs.settings,
           tabBarAccessibilityLabel: t.tabs.settings,
           tabBarIcon: ({ color, focused }) => (
-            <View
-              style={{
-                backgroundColor: focused ? themeColor.surface : 'transparent',
-                borderRadius: 18,
-                height: 36,
-                minWidth: 52,
-                paddingHorizontal: 14,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+            <AnimatedTabItem
+              focused={focused}
+              color={color}
+              surfaceColor={themeColor.surface}
+              activeColor={isDark ? themeColor.primaryLight : themeColor.primary}
             >
               <NativeIcon
                 sfSymbol="gear"
@@ -185,7 +158,7 @@ export default function TabLayout() {
                 color={color}
                 size={22}
               />
-            </View>
+            </AnimatedTabItem>
           ),
         }}
       />

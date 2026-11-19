@@ -26,6 +26,7 @@ import {
   generateFinesCSV,
 } from '@/src/utils/exporter';
 import { formatMMK } from '@/src/utils/formatters';
+import { Haptics } from '@/src/utils/haptics';
 
 export default function ReportsScreen() {
   const {
@@ -50,6 +51,7 @@ export default function ReportsScreen() {
 
   // 1-Click Copy End-of-Year Fine Summary
   const handleCopyEndOfYearReport = async () => {
+    Haptics.selectionAsync();
     const reportText = generateEndOfYearFineSummary({
       totalPaid: finesSummary.totalPaid,
       totalUnpaid: finesSummary.totalUnpaid,
@@ -58,18 +60,22 @@ export default function ReportsScreen() {
     });
     const success = await copyReportToClipboard(reportText);
     if (success) {
+      Haptics.notificationSuccessAsync();
       setToastMessage(t.reports.clipboardSuccess);
     }
   };
 
   // CSV Export
   const handleExportCSV = async () => {
+    Haptics.selectionAsync();
     const csv = generateFinesCSV(fines, students, subjects);
     if (Platform.OS === 'web') {
       downloadFileWeb(`ec_fines_report_${Date.now()}.csv`, csv);
+      Haptics.notificationSuccessAsync();
       setToastMessage(t.reports.csvSuccess);
     } else {
       await copyReportToClipboard(csv);
+      Haptics.notificationSuccessAsync();
       setToastMessage(t.reports.clipboardSuccess);
     }
   };
@@ -246,6 +252,7 @@ export default function ReportsScreen() {
             <View className="flex-row gap-2.5">
               <TouchableOpacity
                 onPress={() => {
+                  Haptics.selectionAsync();
                   setAestheticInitialType('student_fines');
                   setShowAestheticModal(true);
                 }}
@@ -273,6 +280,7 @@ export default function ReportsScreen() {
 
               <TouchableOpacity
                 onPress={() => {
+                  Haptics.selectionAsync();
                   setAestheticInitialType('subject_fines');
                   setShowAestheticModal(true);
                 }}
@@ -309,7 +317,10 @@ export default function ReportsScreen() {
                 className="flex-row p-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-full border border-zinc-200/70 dark:border-zinc-700/60"
               >
                 <TouchableOpacity
-                  onPress={() => setBreakdownMode('subject')}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setBreakdownMode('subject');
+                  }}
                   style={{
                     backgroundColor:
                       breakdownMode === 'subject' ? themeColor.primary : 'transparent',
@@ -335,7 +346,10 @@ export default function ReportsScreen() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  onPress={() => setBreakdownMode('student')}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setBreakdownMode('student');
+                  }}
                   style={{
                     backgroundColor:
                       breakdownMode === 'student' ? themeColor.primary : 'transparent',
