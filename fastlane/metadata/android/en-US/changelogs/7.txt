@@ -1,0 +1,5 @@
+v1.0.7 Release:
+- Custom brand app icon with Android adaptive icons (monochrome & dynamic theme support)
+- Beautiful native launch splash screen with automatic dark mode support
+- Fixed toast notification stability in production builds
+- Performance optimizations and updated desktop bundles
