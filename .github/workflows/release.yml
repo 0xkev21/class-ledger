@@ -115,6 +115,7 @@ jobs:
                 --v1-signing-enabled true \
                 --v2-signing-enabled true \
                 --v3-signing-enabled true \
+                --v4-signing-enabled false \
                 --out "$dest" \
                 "$aligned_tmp"
 
@@ -165,6 +166,9 @@ jobs:
               cp "$aab" "$dest"
             done
           fi
+
+          # Remove any .idsig files so they are not uploaded
+          rm -f android-artifacts/*.idsig
 
       - name: Upload Android APK Artifacts
         uses: actions/upload-artifact@v4
@@ -242,6 +246,9 @@ jobs:
         with:
           name: linux-desktop
           path: release-assets
+
+      - name: Remove unwanted .idsig files
+        run: rm -f release-assets/*.idsig
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
