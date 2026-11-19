@@ -206,7 +206,7 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
             style={{ flex: 1 }}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 32 }}
-            showsVerticalScrollIndicator={true}
+            showsVerticalScrollIndicator={false}
           >
             {/* 1. Date & Subject Row */}
             <View className="flex-row gap-3 mb-4">
@@ -330,7 +330,11 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    className="flex-row gap-1.5"
+                    contentContainerStyle={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}
                   >
                     {subjects.map((sub) => {
                       const isSelected = selectedSubjectId === sub.id;
@@ -470,7 +474,7 @@ export const BatchFineModal: React.FC<BatchFineModalProps> = ({
                 style={{ borderCurve: 'continuous' }}
                 className="rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 p-2 max-h-56 border border-zinc-200/60 dark:border-zinc-700/60"
               >
-                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator keyboardShouldPersistTaps="handled">
+                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                   {filteredStudents.length === 0 ? (
                     <Text className="text-center text-xs text-zinc-400 py-6">
                       {t.roster.emptyStudentsTitle}

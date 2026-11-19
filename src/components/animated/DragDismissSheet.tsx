@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Dimensions,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   StyleProp,
   StyleSheet,
+  useWindowDimensions,
   View,
   ViewStyle,
 } from 'react-native';
@@ -15,17 +15,16 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Haptics } from '@/src/utils/haptics';
 import { EASE_OUT, project, rubberband } from '@/src/utils/motion';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export interface DragDismissSheetProps {
   visible: boolean;
@@ -38,24 +37,29 @@ export interface DragDismissSheetProps {
   backgroundColor?: string;
 }
 
+const triggerLightHaptic = () => {
+  Haptics.impactLightAsync();
+};
+
 export const DragDismissSheet: React.FC<DragDismissSheetProps> = ({
   visible,
   onClose,
   children,
-  maxHeight = SCREEN_HEIGHT * 0.9,
+  maxHeight,
   containerStyle,
   sheetClassName = '',
   isDark: propIsDark,
   backgroundColor: propBg,
 }) => {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const colorScheme = useColorScheme();
   const isDark = propIsDark !== undefined ? propIsDark : colorScheme === 'dark';
   const resolvedBg = propBg || (isDark ? '#18181b' : '#ffffff');
   const reducedMotion = useReducedMotion();
   const [modalRendered, setModalRendered] = useState(visible);
 
-  const sheetHeight = maxHeight;
+  const sheetHeight = maxHeight || windowHeight * 0.9;
   const translateY = useSharedValue(sheetHeight);
   const context = useSharedValue(0);
 
@@ -68,30 +72,34 @@ export const DragDismissSheet: React.FC<DragDismissSheetProps> = ({
     if (visible) {
       setModalRendered(true);
       if (reducedMotion) {
-        translateY.value = 0;
+        translateY.set(0);
       } else {
-        translateY.value = withSpring(0, {
-          duration: 320,
-          dampingRatio: 0.85,
-        });
+        translateY.set(
+          withSpring(0, {
+            duration: 320,
+            dampingRatio: 0.85,
+          })
+        );
       }
     } else if (modalRendered) {
       if (reducedMotion) {
-        translateY.value = sheetHeight;
+        translateY.set(sheetHeight);
         setModalRendered(false);
       } else {
-        translateY.value = withSpring(
-          sheetHeight,
-          {
-            duration: 260,
-            dampingRatio: 1,
-            overshootClamping: true,
-          },
-          (finished) => {
-            if (finished) {
-              runOnJS(handleFinishClose)();
+        translateY.set(
+          withSpring(
+            sheetHeight,
+            {
+              duration: 260,
+              dampingRatio: 1,
+              overshootClamping: true,
+            },
+            (finished) => {
+              if (finished) {
+                scheduleOnRN(handleFinishClose);
+              }
             }
-          }
+          )
         );
       }
     }
@@ -102,38 +110,43 @@ export const DragDismissSheet: React.FC<DragDismissSheetProps> = ({
       Gesture.Pan()
         .activeOffsetY([-10, 10]) // Declare intent before claiming touch
         .onStart(() => {
-          context.value = translateY.value; // Resume seamlessly if grabbed mid-motion
+          context.set(translateY.get()); // Resume seamlessly if grabbed mid-motion
         })
         .onUpdate((e) => {
-          const next = context.value + e.translationY;
+          const next = context.get() + e.translationY;
           // Downward is free; upward past top resists via rubberband
-          translateY.value = next >= 0 ? next : rubberband(next, sheetHeight);
+          translateY.set(next >= 0 ? next : rubberband(next, sheetHeight));
         })
         .onEnd((e) => {
-          const projected = translateY.value + project(e.velocityY);
+          const projected = translateY.get() + project(e.velocityY);
           // Flick velocity or 35% distance commits to dismiss
           if (projected > sheetHeight * 0.35 || e.velocityY > 500) {
-            translateY.value = withSpring(
-              sheetHeight,
-              {
-                duration: 280,
-                dampingRatio: 1,
-                velocity: e.velocityY,
-                overshootClamping: true,
-              },
-              (finished) => {
-                if (finished) {
-                  runOnJS(handleFinishClose)();
+            scheduleOnRN(triggerLightHaptic);
+            translateY.set(
+              withSpring(
+                sheetHeight,
+                {
+                  duration: 280,
+                  dampingRatio: 1,
+                  velocity: e.velocityY,
+                  overshootClamping: true,
+                },
+                (finished) => {
+                  if (finished) {
+                    scheduleOnRN(handleFinishClose);
+                  }
                 }
-              }
+              )
             );
           } else {
             // Settle back to open position with gesture velocity
-            translateY.value = withSpring(0, {
-              duration: 300,
-              dampingRatio: 0.8,
-              velocity: e.velocityY,
-            });
+            translateY.set(
+              withSpring(0, {
+                duration: 300,
+                dampingRatio: 0.8,
+                velocity: e.velocityY,
+              })
+            );
           }
         }),
     [sheetHeight]
@@ -141,7 +154,7 @@ export const DragDismissSheet: React.FC<DragDismissSheetProps> = ({
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
-      translateY.value,
+      translateY.get(),
       [0, sheetHeight],
       [1, 0],
       Extrapolation.CLAMP
@@ -149,7 +162,7 @@ export const DragDismissSheet: React.FC<DragDismissSheetProps> = ({
   }));
 
   const sheetAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+    transform: [{ translateY: translateY.get() }],
   }));
 
   if (!modalRendered) return null;

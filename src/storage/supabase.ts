@@ -233,12 +233,11 @@ export async function createSessionFromUrl(
   const client = getSupabaseClient();
   if (!client) return { success: false, error: 'Database service is not configured.' };
 
-  const { inFlight, savedState } = await checkOAuthInFlight();
-  if (!inFlight) {
-    return {
-      success: false,
-      error: 'Unsolicited authentication callback rejected: no active login request found.',
-    };
+  // If an active session is already established (e.g. parallel listener or fast exchange), treat as success
+  const { data: sessionData } = await client.auth.getSession();
+  if (sessionData?.session) {
+    await clearOAuthInFlight();
+    return { success: true };
   }
 
   const { accessToken, refreshToken, code, state, error } = extractAuthTokensFromUrl(url);
@@ -246,6 +245,15 @@ export async function createSessionFromUrl(
   if (error) {
     await clearOAuthInFlight();
     return { success: false, error };
+  }
+
+  const { inFlight, savedState } = await checkOAuthInFlight();
+  // If a state nonce was set locally or present, require matching in-flight OAuth attempt
+  if (!inFlight && state) {
+    return {
+      success: false,
+      error: 'Unsolicited authentication callback rejected: no active login request found.',
+    };
   }
 
   // If a state nonce was set locally, require incoming redirect to match it

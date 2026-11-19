@@ -3,7 +3,6 @@ import {
   Edit2,
   Phone,
   Plus,
-  Search,
   Trash2,
   Users,
   X,
@@ -13,14 +12,16 @@ import {
   Alert,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AddStudentModal } from '@/src/components/AddStudentModal';
 import { AddSubjectModal } from '@/src/components/AddSubjectModal';
+import { EmptyState } from '@/src/components/EmptyState';
+import { FloatingActionButton } from '@/src/components/FloatingActionButton';
 import { NativeIcon } from '@/src/components/NativeIcon';
+import { SearchBar } from '@/src/components/SearchBar';
 import { ToastNotification } from '@/src/components/ToastNotification';
 import { AnimatedSegmentedControl } from '@/src/components/animated/AnimatedSegmentedControl';
 import { PressableScale } from '@/src/components/animated/PressableScale';
@@ -156,7 +157,7 @@ export default function RosterScreen() {
           paddingBottom: 120,
           flexGrow: 1,
         }}
-        showsVerticalScrollIndicator={true}
+        showsVerticalScrollIndicator={false}
       >
         <View className="w-full max-w-4xl mx-auto">
           {/* Header */}
@@ -188,96 +189,32 @@ export default function RosterScreen() {
           />
 
           {/* Search Bar */}
-          <View
-            style={{
-              backgroundColor: isDark ? '#18181b' : '#ffffff',
-              borderCurve: 'continuous',
-            }}
-            className="flex-row items-center rounded-2xl px-4 py-3 mb-4 border border-zinc-200/70 dark:border-zinc-800/80"
-          >
-            <NativeIcon
-              sfSymbol="magnifyingglass"
-              materialName="search"
-              FallbackIcon={Search}
-              size={16}
-              color={isDark ? '#71717a' : '#9ca3af'}
-            />
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={
-                segment === 'students'
-                  ? t.roster.searchStudents
-                  : t.roster.searchSubjects
-              }
-              placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-              style={{ color: isDark ? '#f4f4f5' : '#18181b' }}
-              className="ml-2.5 flex-1 text-xs p-0"
-            />
-            {searchQuery ? (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <NativeIcon
-                  sfSymbol="xmark.circle.fill"
-                  materialName="clear"
-                  FallbackIcon={X}
-                  size={15}
-                  color="#9ca3af"
-                />
-              </TouchableOpacity>
-            ) : null}
-          </View>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={
+              segment === 'students'
+                ? t.roster.searchStudents
+                : t.roster.searchSubjects
+            }
+            style={{ marginBottom: 16 }}
+          />
 
           {/* Segment 1: Students View */}
           {segment === 'students' ? (
             filteredStudents.length === 0 ? (
-              <View
-                style={{ borderCurve: 'continuous' }}
-                className="items-center justify-center py-16 px-6 rounded-3xl bg-white dark:bg-zinc-900 mt-2 border border-zinc-200/70 dark:border-zinc-800/80"
-              >
-                <View
-                  style={{ backgroundColor: themeColor.surface }}
-                  className="h-16 w-16 rounded-full items-center justify-center mb-3"
-                >
-                  <NativeIcon
-                    sfSymbol="person.2.fill"
-                    materialName="people"
-                    FallbackIcon={Users}
-                    size={32}
-                    color={themeColor.primary}
-                  />
-                </View>
-                <Text className="text-base font-bold text-zinc-900 dark:text-zinc-50 mb-1">
-                  {t.roster.emptyStudentsTitle}
-                </Text>
-                <Text className="text-xs text-zinc-500 dark:text-zinc-400 text-center mb-5 max-w-xs leading-relaxed">
-                  {t.roster.emptyStudentsDesc}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    setEditingStudent(null);
-                    setShowAddStudent(true);
-                  }}
-                  style={{
-                    backgroundColor: themeColor.primary,
-                    borderCurve: 'continuous',
-                  }}
-                  className="flex-row items-center rounded-full px-6 py-3 active:opacity-90 shadow-sm"
-                >
-                  <NativeIcon
-                    sfSymbol="plus"
-                    materialName="add"
-                    FallbackIcon={Plus}
-                    size={16}
-                    color={themeColor.onPrimary}
-                  />
-                  <Text
-                    style={{ color: themeColor.onPrimary }}
-                    className="ml-1.5 text-xs font-bold"
-                  >
-                    {t.roster.addStudent}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <EmptyState
+                title={t.roster.emptyStudentsTitle}
+                description={t.roster.emptyStudentsDesc}
+                icon={Users}
+                sfSymbol="person.2.fill"
+                materialName="people"
+                actionLabel={t.roster.addStudent}
+                onActionPress={() => {
+                  setEditingStudent(null);
+                  setShowAddStudent(true);
+                }}
+              />
             ) : (
               <View className="gap-2.5">
                 {filteredStudents.map((student, index) => {
@@ -302,7 +239,7 @@ export default function RosterScreen() {
                               style={{ borderCurve: 'continuous' }}
                               className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5"
                             >
-                              <Text selectable className="text-[10px] font-semibold text-zinc-500">
+                              <Text selectable className="text-2xs font-semibold text-zinc-500">
                                 {student.rollNumber}
                               </Text>
                             </View>
@@ -318,7 +255,7 @@ export default function RosterScreen() {
                               size={11}
                               color="#9ca3af"
                             />
-                            <Text selectable className="ml-1 text-[11px] text-zinc-400">
+                            <Text selectable className="ml-1 text-xs-tight text-zinc-400">
                               {student.phone}
                             </Text>
                           </View>
@@ -342,7 +279,7 @@ export default function RosterScreen() {
                                   : (isDark ? '#6ee7b7' : '#047857'),
                                 fontVariant: ['tabular-nums'],
                               }}
-                              className="text-[10px] font-bold"
+                              className="text-2xs font-bold"
                             >
                               {unpaidBalance > 0
                                 ? `${t.roster.unpaidDues}: ${formatMMK(unpaidBalance)}`
@@ -392,54 +329,18 @@ export default function RosterScreen() {
           ) : (
             /* Segment 2: Subjects View */
             filteredSubjects.length === 0 ? (
-              <View
-                style={{ borderCurve: 'continuous' }}
-                className="items-center justify-center py-16 px-6 rounded-3xl bg-white dark:bg-zinc-900 mt-2 border border-zinc-200/70 dark:border-zinc-800/80"
-              >
-                <View
-                  style={{ backgroundColor: themeColor.surface }}
-                  className="h-16 w-16 rounded-full items-center justify-center mb-3"
-                >
-                  <NativeIcon
-                    sfSymbol="book.fill"
-                    materialName="menu-book"
-                    FallbackIcon={BookOpen}
-                    size={32}
-                    color={themeColor.primary}
-                  />
-                </View>
-                <Text className="text-base font-bold text-zinc-900 dark:text-zinc-50 mb-1">
-                  {t.roster.emptySubjectsTitle}
-                </Text>
-                <Text className="text-xs text-zinc-500 dark:text-zinc-400 text-center mb-5 max-w-xs leading-relaxed">
-                  {t.roster.emptySubjectsDesc}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    setEditingSubject(null);
-                    setShowAddSubject(true);
-                  }}
-                  style={{
-                    backgroundColor: themeColor.primary,
-                    borderCurve: 'continuous',
-                  }}
-                  className="flex-row items-center rounded-full px-6 py-3 active:opacity-90 shadow-sm"
-                >
-                  <NativeIcon
-                    sfSymbol="plus"
-                    materialName="add"
-                    FallbackIcon={Plus}
-                    size={16}
-                    color={themeColor.onPrimary}
-                  />
-                  <Text
-                    style={{ color: themeColor.onPrimary }}
-                    className="ml-1.5 text-xs font-bold"
-                  >
-                    {t.roster.addSubject}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <EmptyState
+                title={t.roster.emptySubjectsTitle}
+                description={t.roster.emptySubjectsDesc}
+                icon={BookOpen}
+                sfSymbol="book.fill"
+                materialName="menu-book"
+                actionLabel={t.roster.addSubject}
+                onActionPress={() => {
+                  setEditingSubject(null);
+                  setShowAddSubject(true);
+                }}
+              />
             ) : (
               <View className="gap-2.5">
                 {filteredSubjects.map((sub, index) => {
@@ -460,7 +361,7 @@ export default function RosterScreen() {
                           {sub.name}
                         </Text>
                         <View className="flex-row items-center gap-2 mt-1">
-                          <Text className="text-[11px] text-zinc-400">
+                          <Text className="text-xs-tight text-zinc-400">
                             {t.fines.countFines(subFines.length)}
                           </Text>
                           <Text
@@ -469,7 +370,7 @@ export default function RosterScreen() {
                               color: themeColor.primary,
                               fontVariant: ['tabular-nums'],
                             }}
-                            className="text-[11px] font-bold"
+                            className="text-xs-tight font-bold"
                           >
                             {formatMMK(subTotal)}
                           </Text>
@@ -518,55 +419,18 @@ export default function RosterScreen() {
       </ScrollView>
 
       {/* Prominent Floating Action Button with Safe Inset Positioning */}
-      <View
-        style={{
-          position: 'absolute',
-          bottom: Math.max(insets.bottom, 16) + 16,
-          right: 20,
+      <FloatingActionButton
+        onPress={() => {
+          if (segment === 'students') {
+            setEditingStudent(null);
+            setShowAddStudent(true);
+          } else {
+            setEditingSubject(null);
+            setShowAddSubject(true);
+          }
         }}
-      >
-        <PressableScale
-          onPress={() => {
-            if (segment === 'students') {
-              setEditingStudent(null);
-              setShowAddStudent(true);
-            } else {
-              setEditingSubject(null);
-              setShowAddSubject(true);
-            }
-          }}
-          style={{
-            backgroundColor: themeColor.primary,
-            borderRadius: 9999,
-            paddingHorizontal: 20,
-            paddingVertical: 14,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderCurve: 'continuous',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 8,
-            elevation: 6,
-          }}
-          className="flex-row items-center rounded-full px-5 py-3.5 shadow-lg"
-        >
-          <NativeIcon
-            sfSymbol="plus"
-            materialName="add"
-            FallbackIcon={Plus}
-            size={18}
-            color={themeColor.onPrimary}
-          />
-          <Text
-            style={{ color: themeColor.onPrimary }}
-            className="ml-2 text-sm font-bold"
-          >
-            {segment === 'students' ? t.roster.addStudent : t.roster.addSubject}
-          </Text>
-        </PressableScale>
-      </View>
+        label={segment === 'students' ? t.roster.addStudent : t.roster.addSubject}
+      />
 
       {/* Add / Edit Student Modal */}
       <AddStudentModal

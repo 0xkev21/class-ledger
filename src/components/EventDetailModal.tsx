@@ -354,7 +354,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               style={{ flex: 1 }}
               contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 }}
               keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={true}
+              showsVerticalScrollIndicator={false}
             >
               {/* Step 1: Select Student */}
               <Text className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
@@ -397,7 +397,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                 style={{ borderCurve: 'continuous' }}
                 className="mb-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-2 max-h-56 overflow-hidden"
               >
-                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled">
+                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                   {students
                     .filter((s) =>
                       donorSearch.trim()
@@ -566,7 +566,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               style={{ flex: 1 }}
               contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 }}
               keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={true}
+              showsVerticalScrollIndicator={false}
             >
               {/* Hero MMK Banner */}
               <View

@@ -168,7 +168,7 @@ export default function SettingsScreen() {
           paddingBottom: 120,
           flexGrow: 1,
         }}
-        showsVerticalScrollIndicator={true}
+        showsVerticalScrollIndicator={false}
       >
         <View className="w-full max-w-4xl mx-auto">
           {/* Header */}

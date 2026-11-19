@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import {
   LayoutChangeEvent,
   LayoutRectangle,
+  Pressable,
   StyleProp,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
   ViewStyle,
 } from 'react-native';
@@ -15,6 +15,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { Haptics } from '@/src/utils/haptics';
 import { EASE_IN_OUT } from '@/src/utils/motion';
 
 export interface TabItem<T extends string = string> {
@@ -100,6 +101,13 @@ export function AnimatedSegmentedControl<T extends string = string>({
     opacity: hasMeasured ? 1 : 0,
   }));
 
+  const handleTabPress = (id: T) => {
+    if (id !== activeId) {
+      Haptics.selectionAsync();
+      onChange(id);
+    }
+  };
+
   return (
     <View
       style={[
@@ -127,11 +135,12 @@ export function AnimatedSegmentedControl<T extends string = string>({
         const IconComponent = tab.icon;
 
         return (
-          <TouchableOpacity
+          <Pressable
             key={tab.id}
-            onPress={() => onChange(tab.id)}
+            onPress={() => handleTabPress(tab.id)}
             onLayout={(e) => handleLayout(tab.id, e)}
-            activeOpacity={0.8}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isActive }}
             style={styles.tab}
             className="flex-1 flex-row items-center justify-center py-2.5 rounded-full z-10"
           >
@@ -149,7 +158,7 @@ export function AnimatedSegmentedControl<T extends string = string>({
             >
               {tab.label}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </View>

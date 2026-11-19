@@ -1,7 +1,7 @@
 import { BarChart3, Gavel, HeartHandshake, Settings2, Users } from 'lucide-react-native';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeIcon } from '@/src/components/NativeIcon';
 import { useAppTheme, useTranslation } from '@/src/context/TreasuryContext';
@@ -23,6 +23,12 @@ export default function TabLayout() {
         tabBarActiveTintColor: isDark ? themeColor.primaryLight : themeColor.primary,
         tabBarInactiveTintColor: isDark ? '#a1a1aa' : '#71717a',
         tabBarHideOnKeyboard: true,
+        tabBarButton: ({ ref, ...props }) => (
+          <Pressable
+            {...props}
+            android_ripple={{ color: 'transparent' }}
+          />
+        ),
         tabBarItemStyle: {
           justifyContent: 'center',
           alignItems: 'center',

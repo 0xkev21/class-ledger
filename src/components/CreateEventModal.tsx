@@ -136,7 +136,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
             style={{ flex: 1 }}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
-            showsVerticalScrollIndicator={true}
+            showsVerticalScrollIndicator={false}
           >
             {/* Event Name */}
             <View className="mb-4">

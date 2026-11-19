@@ -33,7 +33,17 @@ Builds:
     gradle:
       - assembleRelease
 
+  - versionName: 1.0.8
+    versionCode: 8
+    commit: v1.0.8
+    prebuild:
+      - npm ci
+      - npx expo prebuild --platform android --clean --no-install
+    subdir: android
+    gradle:
+      - assembleRelease
+
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.0.7
-CurrentVersionCode: 7
+CurrentVersion: 1.0.8
+CurrentVersionCode: 8

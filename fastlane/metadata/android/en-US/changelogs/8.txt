@@ -1,0 +1,5 @@
+v1.0.8 Release:
+- Fixed OAuth redirect handling with dedicated auth callback screen
+- Standardized floating action buttons across all tabs
+- Removed native Android tab ripple and hidden vertical scrollbar indicators
+- Fixed filter chip horizontal spacing and refined UI design system tokens

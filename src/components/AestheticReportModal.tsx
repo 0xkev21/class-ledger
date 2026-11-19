@@ -864,7 +864,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
               className={`p-4 md:w-96 md:border-r border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 ${
                 isLargeScreen ? 'max-w-md' : 'flex-1'
               }`}
-              showsVerticalScrollIndicator={true}
+              showsVerticalScrollIndicator={false}
             >
               {/* 1. Report Type Selector */}
               <View className="mb-4">
@@ -960,7 +960,15 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
                   <Text className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 mb-2">
                     {language === 'en' ? 'Selected Event:' : 'ရွေးချယ်ထားသော အခမ်းအနား:'}
                   </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} className="gap-2">
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}
+                  >
                     {events.map((ev) => (
                       <TouchableOpacity
                         key={ev.id}
@@ -1183,7 +1191,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
                   paddingVertical: 10,
                   paddingHorizontal: 2,
                 }}
-                showsVerticalScrollIndicator={true}
+                showsVerticalScrollIndicator={false}
               >
                 <View className="w-full max-w-2xl">
                   {previewRenderer === 'svg' ? (

@@ -88,7 +88,7 @@ export default function ReportsScreen() {
           paddingBottom: 120,
           flexGrow: 1,
         }}
-        showsVerticalScrollIndicator={true}
+        showsVerticalScrollIndicator={false}
       >
         <View className="w-full max-w-4xl mx-auto">
           {/* Screen Header */}
@@ -142,7 +142,7 @@ export default function ReportsScreen() {
                 style={{ borderCurve: 'continuous' }}
                 className="flex-1 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 p-4 border border-emerald-100 dark:border-emerald-900/30"
               >
-                <Text className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 mb-0.5">
+                <Text className="text-xs-tight font-bold text-emerald-700 dark:text-emerald-300 mb-0.5">
                   {t.reports.paidFines}
                 </Text>
                 <Text
@@ -159,7 +159,7 @@ export default function ReportsScreen() {
                 style={{ borderCurve: 'continuous' }}
                 className="flex-1 rounded-2xl bg-rose-50 dark:bg-rose-950/40 p-4 border border-rose-100 dark:border-rose-900/30"
               >
-                <Text className="text-[11px] font-bold text-rose-700 dark:text-rose-300 mb-0.5">
+                <Text className="text-xs-tight font-bold text-rose-700 dark:text-rose-300 mb-0.5">
                   {t.reports.unpaidFines}
                 </Text>
                 <Text
@@ -198,7 +198,7 @@ export default function ReportsScreen() {
                 {t.reports.finesSummary} ({t.common.copy})
               </Text>
             </TouchableOpacity>
-            <Text className="text-[11px] text-zinc-400 text-center mt-2">
+            <Text className="text-xs-tight text-zinc-400 text-center mt-2">
               {language === 'en'
                 ? 'Ready to share directly to Viber or Telegram'
                 : 'စာရင်းချုပ်ကို Viber / Telegram သို့ တိုက်ရိုက်ကူးယူနိုင်ပါသည်'}
@@ -228,7 +228,7 @@ export default function ReportsScreen() {
                   <Text className="text-base font-extrabold text-zinc-900 dark:text-zinc-50">
                     {t.reports.imageExport}
                   </Text>
-                  <Text className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <Text className="text-xs-tight text-zinc-500 dark:text-zinc-400">
                     {language === 'en'
                       ? 'Export formatted table as PNG image'
                       : 'လှပသော ဇယားဒီဇိုင်းဖြင့် Report Image ထုတ်ယူရန်'}
@@ -393,7 +393,7 @@ export default function ReportsScreen() {
 
                       <View className="flex-row justify-between items-center pt-2 border-t border-zinc-100 dark:border-zinc-800">
                         <View>
-                          <Text className="text-[10px] text-zinc-400">{t.common.paid}</Text>
+                          <Text className="text-2xs text-zinc-400">{t.common.paid}</Text>
                           <Text
                             selectable
                             style={{ fontVariant: ['tabular-nums'] }}
@@ -403,7 +403,7 @@ export default function ReportsScreen() {
                           </Text>
                         </View>
                         <View>
-                          <Text className="text-[10px] text-zinc-400">{t.common.unpaid}</Text>
+                          <Text className="text-2xs text-zinc-400">{t.common.unpaid}</Text>
                           <Text
                             selectable
                             style={{ fontVariant: ['tabular-nums'] }}
@@ -413,7 +413,7 @@ export default function ReportsScreen() {
                           </Text>
                         </View>
                         <View className="items-end">
-                          <Text className="text-[10px] text-zinc-400">{t.common.total}</Text>
+                          <Text className="text-2xs text-zinc-400">{t.common.total}</Text>
                           <Text
                             selectable
                             style={{ fontVariant: ['tabular-nums'] }}
@@ -457,15 +457,15 @@ export default function ReportsScreen() {
                             <Text
                               selectable
                               style={{ fontVariant: ['tabular-nums'] }}
-                              className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold"
+                              className="text-xs-tight text-emerald-600 dark:text-emerald-400 font-semibold"
                             >
                               {t.common.paid}: {formatMMK(stat.totalPaid)}
                             </Text>
-                            <Text className="text-[11px] text-zinc-400">•</Text>
+                            <Text className="text-xs-tight text-zinc-400">•</Text>
                             <Text
                               selectable
                               style={{ fontVariant: ['tabular-nums'] }}
-                              className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold"
+                              className="text-xs-tight text-rose-600 dark:text-rose-400 font-semibold"
                             >
                               {t.common.unpaid}: {formatMMK(stat.totalUnpaid)}
                             </Text>
@@ -481,11 +481,11 @@ export default function ReportsScreen() {
                             {formatMMK(stat.totalAll)}
                           </Text>
                           {stat.unpaidCount > 0 ? (
-                            <Text className="text-[10px] text-rose-500 font-bold">
+                            <Text className="text-2xs text-rose-500 font-bold">
                               {t.reports.unpaidCount(stat.unpaidCount)}
                             </Text>
                           ) : (
-                            <Text className="text-[10px] text-emerald-500 font-bold">
+                            <Text className="text-2xs text-emerald-500 font-bold">
                               {t.roster.allClear}
                             </Text>
                           )}

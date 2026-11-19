@@ -2,15 +2,12 @@ import {
   CalendarDays,
   HeartHandshake,
   Plus,
-  Search,
-  X,
 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -23,8 +20,11 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { CreateEventModal } from '@/src/components/CreateEventModal';
+import { EmptyState } from '@/src/components/EmptyState';
 import { EventDetailModal } from '@/src/components/EventDetailModal';
+import { FloatingActionButton } from '@/src/components/FloatingActionButton';
 import { NativeIcon } from '@/src/components/NativeIcon';
+import { SearchBar } from '@/src/components/SearchBar';
 import { ToastNotification } from '@/src/components/ToastNotification';
 import { PressableScale } from '@/src/components/animated/PressableScale';
 import { StaggeredRow } from '@/src/components/animated/StaggeredRow';
@@ -119,7 +119,7 @@ export default function EventsScreen() {
             style={{ backgroundColor: themeColor.surface, borderCurve: 'continuous' }}
             className="rounded-full px-2.5 py-0.5"
           >
-            <Text style={{ color: themeColor.text }} className="text-[10px] font-bold">
+            <Text style={{ color: themeColor.text }} className="text-2xs font-bold">
               {t.events.eventsCount(events.length)}
             </Text>
           </View>
@@ -139,7 +139,7 @@ export default function EventsScreen() {
           paddingBottom: 120,
           flexGrow: 1,
         }}
-        showsVerticalScrollIndicator={true}
+        showsVerticalScrollIndicator={false}
       >
         <View className="w-full max-w-4xl mx-auto">
           {/* Screen Header */}
@@ -189,7 +189,7 @@ export default function EventsScreen() {
               >
                 <Text
                   style={{ color: themeColor.onPrimary }}
-                  className="text-[11px] font-semibold"
+                  className="text-xs-tight font-semibold"
                 >
                   {t.events.eventsCount(events.length)}
                 </Text>
@@ -200,7 +200,16 @@ export default function EventsScreen() {
           {/* Filter Chips & Search Bar */}
           <View className="mb-4">
             {/* Horizontal Filter Chips */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2 mb-3">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+              }}
+              className="mb-3"
+            >
               {[
                 { id: 'all', label: t.events.filterAll(events.length) },
                 {
@@ -248,90 +257,25 @@ export default function EventsScreen() {
               })}
             </ScrollView>
 
-            {/* Search Input with Native Platform Icons */}
-            <View
-              style={{
-                backgroundColor: isDark ? '#18181b' : '#ffffff',
-                borderCurve: 'continuous',
-              }}
-              className="flex-row items-center rounded-2xl px-4 py-3 border border-zinc-200/70 dark:border-zinc-800/80"
-            >
-              <NativeIcon
-                sfSymbol="magnifyingglass"
-                materialName="search"
-                FallbackIcon={Search}
-                size={16}
-                color={isDark ? '#71717a' : '#9ca3af'}
-              />
-              <TextInput
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder={t.events.searchEvents}
-                placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-                style={{ color: isDark ? '#f4f4f5' : '#18181b' }}
-                className="ml-2.5 flex-1 text-xs p-0"
-              />
-              {searchQuery ? (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <NativeIcon
-                    sfSymbol="xmark.circle.fill"
-                    materialName="clear"
-                    FallbackIcon={X}
-                    size={16}
-                    color={isDark ? '#71717a' : '#9ca3af'}
-                  />
-                </TouchableOpacity>
-              ) : null}
-            </View>
+            {/* Search Input */}
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t.events.searchEvents}
+            />
           </View>
 
           {/* Events Feed */}
           {filteredEvents.length === 0 ? (
-            <View
-              style={{ borderCurve: 'continuous' }}
-              className="items-center justify-center py-16 px-6 rounded-3xl bg-white dark:bg-zinc-900 mt-2 border border-zinc-200/70 dark:border-zinc-800/80"
-            >
-              <View
-                style={{ backgroundColor: themeColor.surface }}
-                className="h-16 w-16 rounded-full items-center justify-center mb-3"
-              >
-                <NativeIcon
-                  sfSymbol="sparkles"
-                  materialName="event"
-                  FallbackIcon={HeartHandshake}
-                  size={32}
-                  color={themeColor.primary}
-                />
-              </View>
-              <Text className="text-base font-bold text-zinc-900 dark:text-zinc-50 mb-1">
-                {t.events.emptyTitle}
-              </Text>
-              <Text className="text-xs text-zinc-500 dark:text-zinc-400 text-center mb-5 max-w-xs leading-relaxed">
-                {t.events.emptyDesc}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowCreateModal(true)}
-                style={{
-                  backgroundColor: themeColor.primary,
-                  borderCurve: 'continuous',
-                }}
-                className="flex-row items-center rounded-full px-6 py-3 active:opacity-90 shadow-sm"
-              >
-                <NativeIcon
-                  sfSymbol="plus"
-                  materialName="add"
-                  FallbackIcon={Plus}
-                  size={16}
-                  color={themeColor.onPrimary}
-                />
-                <Text
-                  style={{ color: themeColor.onPrimary }}
-                  className="ml-1.5 text-xs font-bold"
-                >
-                  {t.events.newEvent}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <EmptyState
+              title={t.events.emptyTitle}
+              description={t.events.emptyDesc}
+              icon={HeartHandshake}
+              sfSymbol="sparkles"
+              materialName="event"
+              actionLabel={t.events.newEvent}
+              onActionPress={() => setShowCreateModal(true)}
+            />
           ) : (
             <View className="gap-3.5">
               {filteredEvents.map((ev, index) => {
@@ -368,7 +312,7 @@ export default function EventsScreen() {
                                       : '#e11d48'
                                     : themeColor.text,
                               }}
-                              className="text-[10px] font-bold"
+                              className="text-2xs font-bold"
                             >
                               {ev.type === 'donation' ? t.events.donation : t.events.fixedFee}
                             </Text>
@@ -391,7 +335,7 @@ export default function EventsScreen() {
                               />
                               <Text
                                 style={{ color: isDark ? '#d4d4d8' : '#52525b' }}
-                                className="ml-1 text-[10px] font-medium"
+                                className="ml-1 text-2xs font-medium"
                               >
                                 {ev.dueDate}
                               </Text>
@@ -413,7 +357,7 @@ export default function EventsScreen() {
                       <View>
                         <Text
                           style={{ color: isDark ? '#a1a1aa' : '#71717a' }}
-                          className="text-[11px] font-medium"
+                          className="text-xs-tight font-medium"
                         >
                           {ev.type === 'donation' ? t.events.collected : t.events.amountPaidTotal}
                         </Text>
@@ -451,47 +395,10 @@ export default function EventsScreen() {
       </Animated.ScrollView>
 
       {/* Prominent Floating Action Button with Safe Inset Positioning */}
-      <View
-        style={{
-          position: 'absolute',
-          bottom: Math.max(insets.bottom, 16) + 16,
-          right: 20,
-        }}
-      >
-        <PressableScale
-          onPress={() => setShowCreateModal(true)}
-          style={{
-            backgroundColor: themeColor.primary,
-            borderRadius: 9999,
-            paddingHorizontal: 20,
-            paddingVertical: 14,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderCurve: 'continuous',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 8,
-            elevation: 6,
-          }}
-          className="flex-row items-center rounded-full px-5 py-3.5 shadow-lg"
-        >
-          <NativeIcon
-            sfSymbol="plus"
-            materialName="add"
-            FallbackIcon={Plus}
-            size={18}
-            color={themeColor.onPrimary}
-          />
-          <Text
-            style={{ color: themeColor.onPrimary }}
-            className="ml-2 text-sm font-bold"
-          >
-            {t.events.newEvent}
-          </Text>
-        </PressableScale>
-      </View>
+      <FloatingActionButton
+        onPress={() => setShowCreateModal(true)}
+        label={t.events.newEvent}
+      />
 
       {/* Create Event Modal */}
       <CreateEventModal

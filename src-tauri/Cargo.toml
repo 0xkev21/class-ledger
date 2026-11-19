@@ -1,6 +1,6 @@
 [package]
 name = "class-ledger-app"
-version = "1.0.7"
+version = "1.0.8"
 description = "Class Ledger & Student Management App"
 authors = ["Class Ledger Team"]
 edition = "2021"

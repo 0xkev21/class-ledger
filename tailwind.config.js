@@ -10,6 +10,10 @@ module.exports = {
   darkMode: "class",
   theme: {
     extend: {
+      fontSize: {
+        '2xs': ['10px', { lineHeight: '14px' }],
+        'xs-tight': ['11px', { lineHeight: '16px' }],
+      },
       colors: {
         brand: {
           50: '#eef2ff',

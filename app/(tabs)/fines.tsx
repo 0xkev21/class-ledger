@@ -5,7 +5,6 @@ import {
   Gavel,
   Image as ImageIcon,
   Plus,
-  Search,
   Trash2,
   X,
 } from 'lucide-react-native';
@@ -14,14 +13,16 @@ import {
   Alert,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AestheticReportModal } from '@/src/components/AestheticReportModal';
 import { BatchFineModal } from '@/src/components/BatchFineModal';
+import { EmptyState } from '@/src/components/EmptyState';
+import { FloatingActionButton } from '@/src/components/FloatingActionButton';
 import { NativeIcon } from '@/src/components/NativeIcon';
+import { SearchBar } from '@/src/components/SearchBar';
 import { ToastNotification } from '@/src/components/ToastNotification';
 import { useAppTheme, useTreasury } from '@/src/context/TreasuryContext';
 import { Fine } from '@/src/types';
@@ -117,7 +118,7 @@ export default function FinesScreen() {
           paddingBottom: 120,
           flexGrow: 1,
         }}
-        showsVerticalScrollIndicator={true}
+        showsVerticalScrollIndicator={false}
       >
         <View className="w-full max-w-4xl mx-auto">
           {/* Screen Header */}
@@ -177,7 +178,7 @@ export default function FinesScreen() {
                 style={{ borderCurve: 'continuous' }}
                 className="flex-1 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 p-4 border border-emerald-100 dark:border-emerald-900/30"
               >
-                <Text className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 mb-0.5">
+                <Text className="text-xs-tight font-bold text-emerald-700 dark:text-emerald-300 mb-0.5">
                   {t.fines.paidTotal}
                 </Text>
                 <Text
@@ -194,7 +195,7 @@ export default function FinesScreen() {
                 style={{ borderCurve: 'continuous' }}
                 className="flex-1 rounded-2xl bg-rose-50 dark:bg-rose-950/40 p-4 border border-rose-100 dark:border-rose-900/30"
               >
-                <Text className="text-[11px] font-bold text-rose-700 dark:text-rose-300 mb-0.5">
+                <Text className="text-xs-tight font-bold text-rose-700 dark:text-rose-300 mb-0.5">
                   {t.fines.unpaidTotal}
                 </Text>
                 <Text
@@ -211,7 +212,7 @@ export default function FinesScreen() {
           {/* Search & Filter Controls */}
           <View className="mb-4">
             {/* Status Chips */}
-            <View className="flex-row gap-2 mb-3">
+            <View className="flex-row gap-2 mb-3" style={{ flexDirection: 'row', gap: 8 }}>
               {(['all', 'unpaid', 'paid'] as const).map((st) => {
                 const isSelected = statusFilter === st;
                 const count =
@@ -268,7 +269,12 @@ export default function FinesScreen() {
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                className="flex-row gap-2 mb-3"
+                contentContainerStyle={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+                className="mb-3"
               >
                 <TouchableOpacity
                   onPress={() => setSelectedSubjectId('all')}
@@ -296,7 +302,7 @@ export default function FinesScreen() {
                           ? '#e4e4e7'
                           : '#52525b',
                     }}
-                    className="text-[11px] font-bold"
+                    className="text-xs-tight font-bold"
                   >
                     {t.fines.allSubjects}
                   </Text>
@@ -329,7 +335,7 @@ export default function FinesScreen() {
                             ? '#e4e4e7'
                             : '#52525b',
                         }}
-                        className="text-[11px] font-bold"
+                        className="text-xs-tight font-bold"
                       >
                         {sub.name}
                       </Text>
@@ -340,89 +346,24 @@ export default function FinesScreen() {
             ) : null}
 
             {/* Search Bar */}
-            <View
-              style={{
-                backgroundColor: isDark ? '#18181b' : '#ffffff',
-                borderCurve: 'continuous',
-              }}
-              className="flex-row items-center rounded-2xl px-4 py-3 border border-zinc-200/70 dark:border-zinc-800/80"
-            >
-              <NativeIcon
-                sfSymbol="magnifyingglass"
-                materialName="search"
-                FallbackIcon={Search}
-                size={16}
-                color={isDark ? '#71717a' : '#9ca3af'}
-              />
-              <TextInput
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder={t.fines.searchPlaceholder}
-                placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-                style={{ color: isDark ? '#f4f4f5' : '#18181b' }}
-                className="ml-2.5 flex-1 text-xs p-0"
-              />
-              {searchQuery ? (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <NativeIcon
-                    sfSymbol="xmark.circle.fill"
-                    materialName="clear"
-                    FallbackIcon={X}
-                    size={15}
-                    color={isDark ? '#71717a' : '#9ca3af'}
-                  />
-                </TouchableOpacity>
-              ) : null}
-            </View>
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t.fines.searchPlaceholder}
+            />
           </View>
 
           {/* Fines Feed */}
           {filteredFines.length === 0 ? (
-            <View
-              style={{ borderCurve: 'continuous' }}
-              className="items-center justify-center py-16 px-6 rounded-3xl bg-white dark:bg-zinc-900 mt-2 border border-zinc-200/70 dark:border-zinc-800/80"
-            >
-              <View
-                style={{ backgroundColor: themeColor.surface }}
-                className="h-16 w-16 rounded-full items-center justify-center mb-3"
-              >
-                <NativeIcon
-                  sfSymbol="exclamationmark.triangle.fill"
-                  materialName="gavel"
-                  FallbackIcon={Gavel}
-                  size={32}
-                  color={themeColor.primary}
-                />
-              </View>
-              <Text className="text-base font-bold text-zinc-900 dark:text-zinc-50 mb-1">
-                {t.fines.emptyTitle}
-              </Text>
-              <Text className="text-xs text-zinc-500 dark:text-zinc-400 text-center mb-5 max-w-xs leading-relaxed">
-                {t.fines.emptyDesc}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowBatchModal(true)}
-                style={{
-                  backgroundColor: themeColor.primary,
-                  borderCurve: 'continuous',
-                }}
-                className="flex-row items-center rounded-full px-6 py-3 active:opacity-90 shadow-sm"
-              >
-                <NativeIcon
-                  sfSymbol="plus"
-                  materialName="add"
-                  FallbackIcon={Plus}
-                  size={16}
-                  color={themeColor.onPrimary}
-                />
-                <Text
-                  style={{ color: themeColor.onPrimary }}
-                  className="ml-1.5 text-xs font-bold"
-                >
-                  {t.fines.batchFine}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <EmptyState
+              title={t.fines.emptyTitle}
+              description={t.fines.emptyDesc}
+              icon={Gavel}
+              sfSymbol="exclamationmark.triangle.fill"
+              materialName="gavel"
+              actionLabel={t.fines.batchFine}
+              onActionPress={() => setShowBatchModal(true)}
+            />
           ) : (
             <View className="gap-2.5">
               {filteredFines.map((fine) => {
@@ -448,7 +389,7 @@ export default function FinesScreen() {
                         >
                           <Text
                             style={{ color: themeColor.text }}
-                            className="text-[10px] font-bold"
+                            className="text-2xs font-bold"
                           >
                             {subject?.name || 'General'}
                           </Text>
@@ -461,7 +402,7 @@ export default function FinesScreen() {
                             size={11}
                             color="#9ca3af"
                           />
-                          <Text className="ml-1 text-[10px] text-zinc-400">
+                          <Text className="ml-1 text-2xs text-zinc-400">
                             {fine.date}
                           </Text>
                         </View>
@@ -538,7 +479,7 @@ export default function FinesScreen() {
                                 ? '#fb7185'
                                 : '#e11d48',
                             }}
-                            className="ml-1.5 text-[11px] font-bold"
+                            className="ml-1.5 text-xs-tight font-bold"
                           >
                             {fine.isPaid ? t.common.paid : t.common.unpaid}
                           </Text>
@@ -570,37 +511,10 @@ export default function FinesScreen() {
       </ScrollView>
 
       {/* Prominent Floating Action Button with Safe Inset Positioning */}
-      <View
-        style={{
-          position: 'absolute',
-          bottom: Math.max(insets.bottom, 16) + 16,
-          right: 20,
-        }}
-      >
-        <TouchableOpacity
-          onPress={() => setShowBatchModal(true)}
-          activeOpacity={0.85}
-          style={{
-            backgroundColor: themeColor.primary,
-            borderCurve: 'continuous',
-          }}
-          className="flex-row items-center rounded-full px-5 py-4 shadow-lg active:opacity-90"
-        >
-          <NativeIcon
-            sfSymbol="plus"
-            materialName="add"
-            FallbackIcon={Plus}
-            size={18}
-            color={themeColor.onPrimary}
-          />
-          <Text
-            style={{ color: themeColor.onPrimary }}
-            className="ml-2 text-sm font-bold"
-          >
-            {t.fines.batchFine}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <FloatingActionButton
+        onPress={() => setShowBatchModal(true)}
+        label={t.fines.batchFine}
+      />
 
       {/* Batch Fine Modal */}
       <BatchFineModal
