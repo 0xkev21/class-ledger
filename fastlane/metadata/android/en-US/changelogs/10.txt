@@ -1,0 +1,4 @@
+v1.0.10 Release:
+- Synchronous route bundle loading to eliminate transient web navigation errors
+- Resilient error boundary handlers for offline and poor network conditions
+- Web CSS design token theme enhancements and dark mode FOUC prevention

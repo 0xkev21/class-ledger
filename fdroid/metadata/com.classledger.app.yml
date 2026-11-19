@@ -53,7 +53,17 @@ Builds:
     gradle:
       - assembleRelease
 
+  - versionName: 1.0.10
+    versionCode: 10
+    commit: v1.0.10
+    prebuild:
+      - npm ci
+      - npx expo prebuild --platform android --clean --no-install
+    subdir: android
+    gradle:
+      - assembleRelease
+
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.0.9
-CurrentVersionCode: 9
+CurrentVersion: 1.0.10
+CurrentVersionCode: 10
