@@ -288,7 +288,7 @@ export async function createSessionFromUrl(
  */
 export function getMobileAuthRedirectUri(): string {
   if (Platform.OS === 'web') {
-    return typeof window !== 'undefined' ? window.location.origin : '';
+    return typeof window !== 'undefined' ? window.location.href.split(/[?#]/)[0] : '';
   }
   return Linking.createURL('auth');
 }
@@ -310,7 +310,7 @@ export async function signInWithGoogle(): Promise<{ success: boolean; error?: st
     await setOAuthInFlight(stateNonce);
 
     if (Platform.OS === 'web') {
-      const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+      const redirectTo = typeof window !== 'undefined' ? window.location.href.split(/[?#]/)[0] : undefined;
       console.log('[Supabase Auth] Web OAuth redirectTo:', redirectTo);
       const { error } = await client.auth.signInWithOAuth({
         provider: 'google',
