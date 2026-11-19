@@ -43,9 +43,9 @@ jobs:
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_nBGDAWeGZP4YpSD-ewlulg_aeOlKXPu' }}
         run: npx expo prebuild --platform android --clean --no-install
 
-      - name: Build Android Release APKs & AAB
+      - name: Build Android Release APKs
         working-directory: android
-        run: ./gradlew assembleRelease bundleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon
 
       - name: Sign & Prepare Android Artifacts
         id: sign-apk
@@ -153,16 +153,18 @@ jobs:
             cp "android-artifacts/ClassLedger-${VERSION}-universal.apk" "android-artifacts/ClassLedger-${VERSION}.apk"
           fi
 
-          # Process AAB (Android App Bundle for Play Store)
-          for aab in $(find android/app/build/outputs/bundle/release -name "*.aab"); do
-            dest="android-artifacts/ClassLedger-${VERSION}.aab"
-            jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
-              -keystore "$KEYSTORE_FILE" \
-              -storepass "$KS_PASS" \
-              -keypass "$KEY_PASS" \
-              "$aab" "$KEY_ALIAS" || true
-            cp "$aab" "$dest"
-          done
+          # Process AAB (if generated)
+          if [ -d "android/app/build/outputs/bundle/release" ]; then
+            for aab in $(find android/app/build/outputs/bundle/release -name "*.aab"); do
+              dest="android-artifacts/ClassLedger-${VERSION}.aab"
+              jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+                -keystore "$KEYSTORE_FILE" \
+                -storepass "$KS_PASS" \
+                -keypass "$KEY_PASS" \
+                "$aab" "$KEY_ALIAS" || true
+              cp "$aab" "$dest"
+            done
+          fi
 
       - name: Upload Android APK Artifacts
         uses: actions/upload-artifact@v4
