@@ -15,6 +15,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
   interpolate,
+  runOnJS,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -22,7 +23,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { scheduleOnRN } from 'react-native-worklets';
 import { EASE_OUT, project, rubberband } from '@/src/utils/motion';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -89,7 +89,7 @@ export const DragDismissSheet: React.FC<DragDismissSheetProps> = ({
           },
           (finished) => {
             if (finished) {
-              scheduleOnRN(handleFinishClose);
+              runOnJS(handleFinishClose)();
             }
           }
         );
@@ -123,7 +123,7 @@ export const DragDismissSheet: React.FC<DragDismissSheetProps> = ({
               },
               (finished) => {
                 if (finished) {
-                  scheduleOnRN(handleFinishClose);
+                  runOnJS(handleFinishClose)();
                 }
               }
             );

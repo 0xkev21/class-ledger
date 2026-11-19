@@ -9,7 +9,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { scheduleOnRN } from 'react-native-worklets';
 import { EASE_OUT } from '@/src/utils/motion';
 
 interface ToastNotificationProps {
@@ -31,41 +30,41 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
   onHideRef.current = onHide;
 
   useEffect(() => {
+    let exitTimer: ReturnType<typeof setTimeout> | null = null;
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+
     if (message) {
       // Entrance
-      opacity.set(withTiming(1, { duration: 200, easing: EASE_OUT }));
-      translateY.set(
-        reducedMotion
-          ? 0
-          : withSpring(0, { duration: 300, dampingRatio: 1 })
-      );
+      opacity.value = withTiming(1, { duration: 200, easing: EASE_OUT });
+      translateY.value = reducedMotion
+        ? 0
+        : withSpring(0, { duration: 300, dampingRatio: 1 });
 
-      const timer = setTimeout(() => {
+      exitTimer = setTimeout(() => {
         // Exit
-        opacity.set(
-          withTiming(0, { duration: 180, easing: EASE_OUT }, (finished) => {
-            if (finished) {
-              scheduleOnRN(() => {
-                onHideRef.current();
-              });
-            }
-          })
-        );
+        opacity.value = withTiming(0, { duration: 180, easing: EASE_OUT });
         if (!reducedMotion) {
-          translateY.set(withTiming(-20, { duration: 180, easing: EASE_OUT }));
+          translateY.value = withTiming(-20, { duration: 180, easing: EASE_OUT });
         }
-      }, duration);
 
-      return () => clearTimeout(timer);
+        hideTimer = setTimeout(() => {
+          onHideRef.current();
+        }, 180);
+      }, duration);
     } else {
-      opacity.set(0);
-      translateY.set(-20);
+      opacity.value = 0;
+      translateY.value = -20;
     }
+
+    return () => {
+      if (exitTimer) clearTimeout(exitTimer);
+      if (hideTimer) clearTimeout(hideTimer);
+    };
   }, [message, duration, reducedMotion]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.get(),
-    transform: [{ translateY: translateY.get() }],
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
   }));
 
   if (!message) return null;
