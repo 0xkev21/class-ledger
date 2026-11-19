@@ -1,6 +1,7 @@
 import { Search, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
+  Platform,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -42,16 +43,20 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     }
   };
 
-  const iconColor = isDark ? '#71717a' : '#9ca3af';
+  const isWeb = Platform.OS === 'web';
+  const iconColor = isWeb ? 'var(--text-muted)' : isDark ? '#71717a' : '#9ca3af';
 
   return (
     <View
+      className="bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800/80"
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? '#18181b' : '#ffffff',
+          backgroundColor: isWeb ? 'var(--bg-card)' : isDark ? '#18181b' : '#ffffff',
           borderColor: isFocused
             ? themeColor.primary
+            : isWeb
+            ? 'var(--border-card)'
             : isDark
             ? 'rgba(39, 39, 42, 0.8)'
             : 'rgba(228, 228, 231, 0.7)',
@@ -78,10 +83,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         autoCapitalize={autoCapitalize}
         autoCorrect={false}
         returnKeyType="search"
+        className="text-zinc-900 dark:text-zinc-100"
         style={[
           styles.input,
           {
-            color: isDark ? '#f4f4f5' : '#18181b',
+            color: isWeb ? 'var(--text-primary)' : isDark ? '#f4f4f5' : '#18181b',
           },
         ]}
       />

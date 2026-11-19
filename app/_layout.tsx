@@ -8,11 +8,32 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { TreasuryProvider } from '@/src/context/TreasuryContext';
+import { ErrorBoundary as DefaultErrorBoundary, ErrorBoundaryProps } from 'expo-router';
 
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from 'expo-router';
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => {
+    if (
+      error?.message?.includes('NetworkError') ||
+      error?.message?.includes('fetch') ||
+      error?.name === 'AsyncRequireError'
+    ) {
+      const timer = setTimeout(() => {
+        retry();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [error, retry]);
+
+  if (
+    error?.message?.includes('NetworkError') ||
+    error?.message?.includes('fetch') ||
+    error?.name === 'AsyncRequireError'
+  ) {
+    return null;
+  }
+
+  return <DefaultErrorBoundary error={error} retry={retry} />;
+}
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.

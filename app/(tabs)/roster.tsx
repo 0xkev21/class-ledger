@@ -10,6 +10,7 @@ import {
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -43,6 +44,7 @@ export default function RosterScreen() {
   } = useTreasury();
   const { isDark, themeColor } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === 'web';
 
   // Active Segment: 'students' or 'subjects'
   const [segment, setSegment] = useState<'students' | 'subjects'>('students');
@@ -184,8 +186,8 @@ export default function RosterScreen() {
             }}
             activeColor={themeColor.primary}
             onActiveColor={themeColor.onPrimary}
-            backgroundColor={isDark ? '#18181b' : '#f4f4f5'}
-            inactiveTextColor={isDark ? '#a1a1aa' : '#71717a'}
+            backgroundColor={isWeb ? 'var(--bg-surface)' : isDark ? '#18181b' : '#f4f4f5'}
+            inactiveTextColor={isWeb ? 'var(--text-muted)' : isDark ? '#a1a1aa' : '#71717a'}
             className="mb-4"
           />
 

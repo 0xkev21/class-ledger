@@ -3,6 +3,50 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg-page: #fafafa;
+    --bg-header: rgba(250, 250, 250, 0.92);
+    --border-header: #e4e4e7;
+    --bg-tabbar: #ffffff;
+    --border-tabbar: #f4f4f5;
+    --tab-inactive: #71717a;
+    --bg-card: #ffffff;
+    --border-card: rgba(228, 228, 231, 0.7);
+    --bg-surface: #f4f4f5;
+    --text-primary: #18181b;
+    --text-muted: #71717a;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-page: #09090b;
+      --bg-header: rgba(9, 9, 11, 0.92);
+      --border-header: #27272a;
+      --bg-tabbar: #09090b;
+      --border-tabbar: #27272a;
+      --tab-inactive: #a1a1aa;
+      --bg-card: #18181b;
+      --border-card: rgba(39, 39, 42, 0.8);
+      --bg-surface: #27272a;
+      --text-primary: #f4f4f5;
+      --text-muted: #a1a1aa;
+    }
+  }
+
+  html.dark {
+    --bg-page: #09090b;
+    --bg-header: rgba(9, 9, 11, 0.92);
+    --border-header: #27272a;
+    --bg-tabbar: #09090b;
+    --border-tabbar: #27272a;
+    --tab-inactive: #a1a1aa;
+    --bg-card: #18181b;
+    --border-card: rgba(39, 39, 42, 0.8);
+    --bg-surface: #27272a;
+    --text-primary: #f4f4f5;
+    --text-muted: #a1a1aa;
+  }
+
   html,
   body,
   #root {
@@ -12,15 +56,7 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    background-color: #fafafa;
+    background-color: var(--bg-page);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Pyidaungsu", "Noto Sans Myanmar", Helvetica, Arial, sans-serif;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    html,
-    body,
-    #root {
-      background-color: #09090b;
-    }
   }
 }

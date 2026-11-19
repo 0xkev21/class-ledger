@@ -23,6 +23,24 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* NativeWind v4 / Expo Router injected CSS and head assets */}
         {headNodes}
+
+        {/* Synchronously apply dark class before the page is painted to eliminate FOUC */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var mediaQuery = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+                  if (mediaQuery && mediaQuery.matches) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
       </head>
       <body {...bodyAttributes} style={{ margin: 0, padding: 0, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
         {children}

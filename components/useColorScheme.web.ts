@@ -4,6 +4,9 @@ import { useColorScheme as useColorSchemeCore } from 'react-native';
 export function useColorScheme(): 'light' | 'dark' {
   const coreScheme = useColorSchemeCore();
   const [scheme, setScheme] = useState<'light' | 'dark'>(() => {
+    if (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) {
+      return 'dark';
+    }
     if (typeof window !== 'undefined' && window.matchMedia) {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }

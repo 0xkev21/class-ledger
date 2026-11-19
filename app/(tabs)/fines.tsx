@@ -11,6 +11,7 @@ import {
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -41,6 +42,7 @@ export default function FinesScreen() {
   } = useTreasury();
   const { isDark, themeColor } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === 'web';
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -240,6 +242,8 @@ export default function FinesScreen() {
                     style={{
                       backgroundColor: isSelected
                         ? themeColor.primary
+                        : isWeb
+                        ? 'var(--bg-card)'
                         : isDark
                         ? '#18181b'
                         : '#ffffff',
@@ -248,18 +252,22 @@ export default function FinesScreen() {
                     className={`rounded-full px-4 py-2 border ${
                       isSelected
                         ? 'border-transparent shadow-xs'
-                        : 'border-zinc-200/70 dark:border-zinc-800/80'
+                        : 'border-zinc-200/70 dark:border-zinc-800/80 bg-white dark:bg-zinc-900'
                     }`}
                   >
                     <Text
                       style={{
                         color: isSelected
                           ? themeColor.onPrimary
+                          : isWeb
+                          ? 'var(--text-primary)'
                           : isDark
                           ? '#e4e4e7'
                           : '#52525b',
                       }}
-                      className="text-xs font-bold"
+                      className={`text-xs font-bold ${
+                        isSelected ? '' : 'text-zinc-600 dark:text-zinc-200'
+                      }`}
                     >
                       {label}
                     </Text>
@@ -326,6 +334,8 @@ export default function FinesScreen() {
                       style={{
                         backgroundColor: isSelected
                           ? themeColor.primary
+                          : isWeb
+                          ? 'var(--bg-card)'
                           : isDark
                           ? '#18181b'
                           : '#ffffff',
@@ -334,18 +344,22 @@ export default function FinesScreen() {
                       className={`rounded-full px-3.5 py-1.5 border ${
                         isSelected
                           ? 'border-transparent shadow-xs'
-                          : 'border-zinc-200/70 dark:border-zinc-800/80'
+                          : 'border-zinc-200/70 dark:border-zinc-800/80 bg-white dark:bg-zinc-900'
                       }`}
                     >
                       <Text
                         style={{
                           color: isSelected
                             ? themeColor.onPrimary
+                            : isWeb
+                            ? 'var(--text-primary)'
                             : isDark
                             ? '#e4e4e7'
                             : '#52525b',
                         }}
-                        className="text-xs-tight font-bold"
+                        className={`text-xs-tight font-bold ${
+                          isSelected ? '' : 'text-zinc-600 dark:text-zinc-200'
+                        }`}
                       >
                         {sub.name}
                       </Text>

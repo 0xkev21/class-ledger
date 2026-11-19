@@ -1,6 +1,6 @@
 import { LucideIcon, Plus } from 'lucide-react-native';
 import React from 'react';
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Platform, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { useAppTheme } from '@/src/context/TreasuryContext';
 import { NativeIcon, NativeIconProps } from './NativeIcon';
 import { PressableScale } from './animated/PressableScale';
@@ -35,15 +35,17 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   testID,
 }) => {
   const { themeColor, isDark } = useAppTheme();
+  const isWeb = Platform.OS === 'web';
 
   return (
     <View
       testID={testID}
+      className="bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800/80"
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? '#18181b' : '#ffffff',
-          borderColor: isDark ? 'rgba(39, 39, 42, 0.8)' : 'rgba(228, 228, 231, 0.7)',
+          backgroundColor: isWeb ? 'var(--bg-card)' : isDark ? '#18181b' : '#ffffff',
+          borderColor: isWeb ? 'var(--border-card)' : isDark ? 'rgba(39, 39, 42, 0.8)' : 'rgba(228, 228, 231, 0.7)',
         },
         style,
       ]}

@@ -770,10 +770,10 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                 {/* Search input */}
                 <View
                   style={{
-                    backgroundColor: isDark ? '#18181b' : '#ffffff',
+                    backgroundColor: Platform.OS === 'web' ? 'var(--bg-card)' : isDark ? '#18181b' : '#ffffff',
                     borderCurve: 'continuous',
                   }}
-                  className="flex-row items-center rounded-2xl px-3.5 py-2.5 mb-3 border border-zinc-200/70 dark:border-zinc-800/80"
+                  className="flex-row items-center rounded-2xl px-3.5 py-2.5 mb-3 border border-zinc-200/70 dark:border-zinc-800/80 bg-white dark:bg-zinc-900"
                 >
                   <NativeIcon
                     sfSymbol="magnifyingglass"

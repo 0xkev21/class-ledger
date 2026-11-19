@@ -1,11 +1,41 @@
 import { BarChart3, Gavel, HeartHandshake, Settings2, Users } from 'lucide-react-native';
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { ErrorBoundaryProps, Tabs } from 'expo-router';
+import { ErrorBoundary as DefaultErrorBoundary } from 'expo-router';
+import React, { useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeIcon } from '@/src/components/NativeIcon';
 import { AnimatedTabButton } from '@/src/components/animated/AnimatedTabButton';
 import { AnimatedTabItem } from '@/src/components/animated/AnimatedTabItem';
 import { useAppTheme, useTranslation } from '@/src/context/TreasuryContext';
+
+/**
+ * Resilient Tab Error Boundary:
+ * Prevents transient Metro web chunk network errors from flashing on tab transitions.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => {
+    if (
+      error?.message?.includes('NetworkError') ||
+      error?.message?.includes('fetch') ||
+      error?.name === 'AsyncRequireError'
+    ) {
+      const timer = setTimeout(() => {
+        retry();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [error, retry]);
+
+  if (
+    error?.message?.includes('NetworkError') ||
+    error?.message?.includes('fetch') ||
+    error?.name === 'AsyncRequireError'
+  ) {
+    return null;
+  }
+
+  return <DefaultErrorBoundary error={error} retry={retry} />;
+}
 
 export default function TabLayout() {
   const { themeColor, isDark } = useAppTheme();
@@ -22,7 +52,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarShowLabel: false,
         tabBarActiveTintColor: isDark ? themeColor.primaryLight : themeColor.primary,
-        tabBarInactiveTintColor: isDark ? '#a1a1aa' : '#71717a',
+        tabBarInactiveTintColor: isWeb ? 'var(--tab-inactive)' : (isDark ? '#a1a1aa' : '#71717a'),
         tabBarHideOnKeyboard: true,
         tabBarButton: ({ ref, ...props }) => (
           <AnimatedTabButton {...props} />
@@ -32,8 +62,8 @@ export default function TabLayout() {
           alignItems: 'center',
         },
         tabBarStyle: {
-          backgroundColor: isDark ? '#09090b' : '#ffffff',
-          borderTopColor: isDark ? '#27272a' : '#f4f4f5',
+          backgroundColor: isWeb ? 'var(--bg-tabbar)' : (isDark ? '#09090b' : '#ffffff'),
+          borderTopColor: isWeb ? 'var(--border-tabbar)' : (isDark ? '#27272a' : '#f4f4f5'),
           borderTopWidth: 1,
           elevation: isDark ? 0 : 4,
           shadowColor: '#000000',

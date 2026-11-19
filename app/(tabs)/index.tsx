@@ -5,6 +5,7 @@ import {
 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -37,6 +38,7 @@ export default function EventsScreen() {
   const { events, eventRecords, getEventStats, t } = useTreasury();
   const { isDark, themeColor } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === 'web';
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -104,9 +106,9 @@ export default function EventsScreen() {
             right: 0,
             zIndex: 30,
             paddingTop: insets.top,
-            backgroundColor: isDark ? 'rgba(9, 9, 11, 0.92)' : 'rgba(250, 250, 250, 0.92)',
+            backgroundColor: isWeb ? 'var(--bg-header)' : isDark ? 'rgba(9, 9, 11, 0.92)' : 'rgba(250, 250, 250, 0.92)',
             borderBottomWidth: StyleSheet.hairlineWidth,
-            borderBottomColor: isDark ? '#27272a' : '#e4e4e7',
+            borderBottomColor: isWeb ? 'var(--border-header)' : isDark ? '#27272a' : '#e4e4e7',
           },
           compactHeaderStyle,
         ]}
@@ -233,6 +235,8 @@ export default function EventsScreen() {
                     style={{
                       backgroundColor: isSelected
                         ? themeColor.primary
+                        : isWeb
+                        ? 'var(--bg-card)'
                         : isDark
                         ? '#18181b'
                         : '#ffffff',
@@ -241,18 +245,22 @@ export default function EventsScreen() {
                     className={`rounded-full px-4 py-2 border ${
                       isSelected
                         ? 'border-transparent shadow-xs'
-                        : 'border-zinc-200/70 dark:border-zinc-800/80'
+                        : 'border-zinc-200/70 dark:border-zinc-800/80 bg-white dark:bg-zinc-900'
                     }`}
                   >
                     <Text
                       style={{
                         color: isSelected
                           ? themeColor.onPrimary
+                          : isWeb
+                          ? 'var(--text-primary)'
                           : isDark
                           ? '#e4e4e7'
                           : '#52525b',
                       }}
-                      className="text-xs font-bold"
+                      className={`text-xs font-bold ${
+                        isSelected ? '' : 'text-zinc-600 dark:text-zinc-200'
+                      }`}
                     >
                       {chip.label}
                     </Text>
