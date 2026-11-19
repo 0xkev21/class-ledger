@@ -256,12 +256,20 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         // 3. Connect and auto-sync if credentials exist
         const client = getSupabaseClient();
         if (client) {
-          getCurrentUser().then((u) => {
-            if (isMounted) {
-              setUser(u);
-              setIsAuthLoading(false);
-            }
-          });
+          getCurrentUser()
+            .then((u) => {
+              if (isMounted) {
+                setUser(u);
+                setIsAuthLoading(false);
+              }
+            })
+            .catch((err) => {
+              console.warn('[TreasuryContext] Initial auth check notice:', err);
+              if (isMounted) {
+                setUser(null);
+                setIsAuthLoading(false);
+              }
+            });
 
           if (authUnsubRef.current) authUnsubRef.current();
           authUnsubRef.current = subscribeToAuthChanges(async (newUser) => {
@@ -308,66 +316,77 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                   setSyncMessage(pullRes.message);
                 }
               } catch (err: any) {
-                console.error('Initial user sync error:', err);
+                console.warn('Initial user sync error:', err);
                 setSyncStatus('error');
                 setSyncMessage(err.message || 'Sync error');
               }
+            } else {
+              setSyncStatus('idle');
             }
           });
 
-          setSyncStatus('syncing');
-          setSyncMessage('Checking cloud database...');
-
           try {
             const currentUser = await getCurrentUser();
-            const pullRes = await pullCloudToLocal(client, currentUser?.id, localData.settings);
-            if (!isMounted) return;
+            if (currentUser?.id) {
+              setSyncStatus('syncing');
+              setSyncMessage('Checking cloud database...');
+              const pullRes = await pullCloudToLocal(client, currentUser.id, localData.settings);
+              if (!isMounted) return;
 
-            if (pullRes.success && pullRes.updatedState) {
-              const cloudHasData =
-                pullRes.updatedState.students.length > 0 ||
-                pullRes.updatedState.events.length > 0 ||
-                pullRes.updatedState.fines.length > 0;
+              if (pullRes.success && pullRes.updatedState) {
+                const cloudHasData =
+                  pullRes.updatedState.students.length > 0 ||
+                  pullRes.updatedState.events.length > 0 ||
+                  pullRes.updatedState.fines.length > 0;
 
-              if (cloudHasData) {
-                await applyCloudState(
-                  pullRes.updatedState,
-                  pullRes.syncedAt || new Date().toISOString(),
-                  currentUser ? `Synced with ${currentUser.email}` : 'Synced with Cloud'
-                );
-              } else {
-                const pushRes = await pushLocalToCloud(localData, client, currentUser?.id);
-                if (pushRes.success) {
-                  setSyncStatus('synced');
-                  setSyncMessage('Cloud database initialized!');
-                  const now = pushRes.syncedAt || new Date().toISOString();
-                  setLastSyncedAt(now);
-                  await saveLastSyncedAt(now);
-                }
-              }
-
-              if (realtimeUnsubRef.current) realtimeUnsubRef.current();
-              realtimeUnsubRef.current = subscribeToTreasuryRealtime(client, () => {
-                if (isPushingRef.current) return;
-                if (realtimeDebounceTimerRef.current) {
-                  clearTimeout(realtimeDebounceTimerRef.current);
-                }
-                realtimeDebounceTimerRef.current = setTimeout(async () => {
-                  if (!isMounted || isPushingRef.current) return;
-                  const activeUser = await getCurrentUser();
-                  const updateRes = await pullCloudToLocal(client, activeUser?.id, stateRef.current.settings);
-                  if (updateRes.success && updateRes.updatedState && isMounted) {
-                    await applyCloudState(updateRes.updatedState, new Date().toISOString());
+                if (cloudHasData) {
+                  await applyCloudState(
+                    pullRes.updatedState,
+                    pullRes.syncedAt || new Date().toISOString(),
+                    `Synced with ${currentUser.email}`
+                  );
+                } else {
+                  const pushRes = await pushLocalToCloud(localData, client, currentUser.id);
+                  if (pushRes.success) {
+                    setSyncStatus('synced');
+                    setSyncMessage('Cloud database initialized!');
+                    const now = pushRes.syncedAt || new Date().toISOString();
+                    setLastSyncedAt(now);
+                    await saveLastSyncedAt(now);
                   }
-                }, 800);
-              });
+                }
+
+                if (realtimeUnsubRef.current) realtimeUnsubRef.current();
+                realtimeUnsubRef.current = subscribeToTreasuryRealtime(client, () => {
+                  if (isPushingRef.current) return;
+                  if (realtimeDebounceTimerRef.current) {
+                    clearTimeout(realtimeDebounceTimerRef.current);
+                  }
+                  realtimeDebounceTimerRef.current = setTimeout(async () => {
+                    try {
+                      if (!isMounted || isPushingRef.current) return;
+                      const activeUser = await getCurrentUser();
+                      if (!activeUser?.id) return;
+                      const updateRes = await pullCloudToLocal(client, activeUser.id, stateRef.current.settings);
+                      if (updateRes.success && updateRes.updatedState && isMounted) {
+                        await applyCloudState(updateRes.updatedState, new Date().toISOString());
+                      }
+                    } catch (rtErr) {
+                      console.warn('[TreasuryContext] Realtime sync notice:', rtErr);
+                    }
+                  }, 800);
+                });
+              } else {
+                setSyncStatus('error');
+                setSyncMessage(pullRes.message);
+              }
             } else {
-              setSyncStatus('error');
-              setSyncMessage(pullRes.message);
+              setSyncStatus('idle');
             }
           } catch (syncErr: any) {
+            console.warn('[TreasuryContext] Initial sync notice:', syncErr?.message || syncErr);
             setSyncStatus('error');
-            setSyncMessage(syncErr.message || 'Cloud connection failed');
+            setSyncMessage(syncErr?.message || 'Offline mode');
           }
         } else {
           setIsAuthLoading(false);
@@ -385,17 +404,19 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const handleAppResume = () => {
       const client = getSupabaseClient();
       if (client) {
-        getCurrentUser().then((activeUser) => {
-          if (activeUser) {
-            pullCloudToLocal(client, activeUser.id, stateRef.current.settings)
-              .then((updateRes) => {
-                if (updateRes.success && updateRes.updatedState && isMounted) {
-                  applyCloudState(updateRes.updatedState, updateRes.syncedAt || new Date().toISOString());
-                }
-              })
-              .catch(() => {});
-          }
-        });
+        getCurrentUser()
+          .then((activeUser) => {
+            if (activeUser?.id) {
+              pullCloudToLocal(client, activeUser.id, stateRef.current.settings)
+                .then((updateRes) => {
+                  if (updateRes.success && updateRes.updatedState && isMounted) {
+                    applyCloudState(updateRes.updatedState, updateRes.syncedAt || new Date().toISOString());
+                  }
+                })
+                .catch(() => {});
+            }
+          })
+          .catch(() => {});
       }
     };
 

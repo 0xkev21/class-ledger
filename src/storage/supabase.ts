@@ -387,16 +387,20 @@ export async function signInWithEmail(
   email: string,
   password: string
 ): Promise<{ success: boolean; error?: string; user?: User }> {
-  const client = getSupabaseClient();
-  if (!client) {
-    return { success: false, error: 'Database service is not configured.' };
+  try {
+    const client = getSupabaseClient();
+    if (!client) {
+      return { success: false, error: 'Database service is not configured.' };
+    }
+    const { data, error } = await client.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, user: data.user || undefined };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error connecting to authentication server.' };
   }
-  const { data, error } = await client.auth.signInWithPassword({
-    email: email.trim(),
-    password,
-  });
-  if (error) return { success: false, error: error.message };
-  return { success: true, user: data.user || undefined };
 }
 
 /**
@@ -407,27 +411,31 @@ export async function signUpWithEmail(
   password: string,
   name?: string
 ): Promise<{ success: boolean; error?: string; user?: User; requiresEmailConfirmation?: boolean }> {
-  const client = getSupabaseClient();
-  if (!client) {
-    return { success: false, error: 'Database service is not configured.' };
-  }
-  const { data, error } = await client.auth.signUp({
-    email: email.trim(),
-    password,
-    options: {
-      data: {
-        full_name: name?.trim() || undefined,
-        name: name?.trim() || undefined,
+  try {
+    const client = getSupabaseClient();
+    if (!client) {
+      return { success: false, error: 'Database service is not configured.' };
+    }
+    const { data, error } = await client.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        data: {
+          full_name: name?.trim() || undefined,
+          name: name?.trim() || undefined,
+        },
       },
-    },
-  });
-  if (error) return { success: false, error: error.message };
-  const requiresEmailConfirmation = Boolean(data.user && !data.session);
-  return {
-    success: true,
-    user: data.user || undefined,
-    requiresEmailConfirmation,
-  };
+    });
+    if (error) return { success: false, error: error.message };
+    const requiresEmailConfirmation = Boolean(data.user && !data.session);
+    return {
+      success: true,
+      user: data.user || undefined,
+      requiresEmailConfirmation,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error connecting to authentication server.' };
+  }
 }
 
 /**
@@ -436,18 +444,22 @@ export async function signUpWithEmail(
 export async function sendEmailOtp(
   email: string
 ): Promise<{ success: boolean; error?: string }> {
-  const client = getSupabaseClient();
-  if (!client) {
-    return { success: false, error: 'Database service is not configured.' };
+  try {
+    const client = getSupabaseClient();
+    if (!client) {
+      return { success: false, error: 'Database service is not configured.' };
+    }
+    const { error } = await client.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        shouldCreateUser: true,
+      },
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error sending OTP.' };
   }
-  const { error } = await client.auth.signInWithOtp({
-    email: email.trim(),
-    options: {
-      shouldCreateUser: true,
-    },
-  });
-  if (error) return { success: false, error: error.message };
-  return { success: true };
 }
 
 /**
@@ -458,17 +470,21 @@ export async function verifyEmailOtp(
   token: string,
   type: 'signup' | 'email' | 'recovery' = 'email'
 ): Promise<{ success: boolean; error?: string; user?: User }> {
-  const client = getSupabaseClient();
-  if (!client) {
-    return { success: false, error: 'Database service is not configured.' };
+  try {
+    const client = getSupabaseClient();
+    if (!client) {
+      return { success: false, error: 'Database service is not configured.' };
+    }
+    const { data, error } = await client.auth.verifyOtp({
+      email: email.trim(),
+      token: token.trim(),
+      type,
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, user: data.user || undefined };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error verifying OTP.' };
   }
-  const { data, error } = await client.auth.verifyOtp({
-    email: email.trim(),
-    token: token.trim(),
-    type,
-  });
-  if (error) return { success: false, error: error.message };
-  return { success: true, user: data.user || undefined };
 }
 
 /**
@@ -477,13 +493,17 @@ export async function verifyEmailOtp(
 export async function resetPasswordForEmail(
   email: string
 ): Promise<{ success: boolean; error?: string }> {
-  const client = getSupabaseClient();
-  if (!client) {
-    return { success: false, error: 'Database service is not configured.' };
+  try {
+    const client = getSupabaseClient();
+    if (!client) {
+      return { success: false, error: 'Database service is not configured.' };
+    }
+    const { error } = await client.auth.resetPasswordForEmail(email.trim());
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error requesting password reset.' };
   }
-  const { error } = await client.auth.resetPasswordForEmail(email.trim());
-  if (error) return { success: false, error: error.message };
-  return { success: true };
 }
 
 /**
@@ -492,50 +512,74 @@ export async function resetPasswordForEmail(
 export async function updateUserPassword(
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
-  const client = getSupabaseClient();
-  if (!client) {
-    return { success: false, error: 'Database service is not configured.' };
+  try {
+    const client = getSupabaseClient();
+    if (!client) {
+      return { success: false, error: 'Database service is not configured.' };
+    }
+    const { error } = await client.auth.updateUser({
+      password: newPassword,
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error updating password.' };
   }
-  const { error } = await client.auth.updateUser({
-    password: newPassword,
-  });
-  if (error) return { success: false, error: error.message };
-  return { success: true };
 }
 
 /**
  * Signs out the currently authenticated user
  */
 export async function signOutUser(): Promise<{ success: boolean; error?: string }> {
-  const client = getSupabaseClient();
-  if (!client) return { success: true };
-  const { error } = await client.auth.signOut();
-  if (error) return { success: false, error: error.message };
-  return { success: true };
+  try {
+    const client = getSupabaseClient();
+    if (!client) return { success: true };
+    const { error } = await client.auth.signOut();
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error signing out.' };
+  }
 }
 
 /**
  * Gets currently authenticated user
  */
 export async function getCurrentUser(): Promise<User | null> {
-  const client = getSupabaseClient();
-  if (!client) return null;
-  const { data } = await client.auth.getUser();
-  return data.user || null;
+  try {
+    const client = getSupabaseClient();
+    if (!client) return null;
+    const { data, error } = await client.auth.getUser();
+    if (error) return null;
+    return data?.user || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Subscribes to Supabase Auth state changes
  */
 export function subscribeToAuthChanges(callback: (user: User | null) => void): () => void {
-  const client = getSupabaseClient();
-  if (!client) return () => {};
-  const {
-    data: { subscription },
-  } = client.auth.onAuthStateChange((_event, session) => {
-    callback(session?.user || null);
-  });
-  return () => {
-    subscription.unsubscribe();
-  };
+  try {
+    const client = getSupabaseClient();
+    if (!client) return () => {};
+    const {
+      data: { subscription },
+    } = client.auth.onAuthStateChange((_event, session) => {
+      try {
+        callback(session?.user || null);
+      } catch (err) {
+        console.warn('[Supabase Auth] auth state callback error:', err);
+      }
+    });
+    return () => {
+      try {
+        subscription.unsubscribe();
+      } catch {}
+    };
+  } catch (err) {
+    console.warn('[Supabase Auth] Failed to subscribe to auth changes:', err);
+    return () => {};
+  }
 }
