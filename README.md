@@ -32,8 +32,7 @@
     <a href="https://github.com/0xkev21/class-ledger/releases/latest"><strong>📱 Download APK</strong></a> •
     <a href="https://github.com/0xkev21/class-ledger/releases/latest"><strong>🐧 Download Linux App</strong></a> •
     <a href="#-key-features"><strong>✨ Key Features</strong></a> •
-    <a href="#-quick-start"><strong>🚀 Quick Start</strong></a> •
-    <a href="RELEASE.md"><strong>📦 Distribution Guide</strong></a>
+    <a href="#-quick-start"><strong>🚀 Quick Start</strong></a>
   </p>
 
 </div>
