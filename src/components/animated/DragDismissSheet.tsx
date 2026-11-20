@@ -19,12 +19,12 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { surfaces } from '@/src/theme';
 import { Haptics } from '@/src/utils/haptics';
-import { EASE_OUT, project, rubberband } from '@/src/utils/motion';
+import { project, rubberband } from '@/src/utils/motion';
 
 export interface DragDismissSheetProps {
   visible: boolean;
@@ -55,7 +55,8 @@ export const DragDismissSheet: React.FC<DragDismissSheetProps> = ({
   const { height: windowHeight } = useWindowDimensions();
   const colorScheme = useColorScheme();
   const isDark = propIsDark !== undefined ? propIsDark : colorScheme === 'dark';
-  const resolvedBg = propBg || (isDark ? '#18181b' : '#ffffff');
+  const palette = isDark ? surfaces.dark : surfaces.light;
+  const resolvedBg = propBg || (isDark ? surfaces.dark.card : surfaces.light.bg);
   const reducedMotion = useReducedMotion();
   const [modalRendered, setModalRendered] = useState(visible);
 
@@ -108,18 +109,16 @@ export const DragDismissSheet: React.FC<DragDismissSheetProps> = ({
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
-        .activeOffsetY([-10, 10]) // Declare intent before claiming touch
+        .activeOffsetY([-10, 10])
         .onStart(() => {
-          context.set(translateY.get()); // Resume seamlessly if grabbed mid-motion
+          context.set(translateY.get());
         })
         .onUpdate((e) => {
           const next = context.get() + e.translationY;
-          // Downward is free; upward past top resists via rubberband
           translateY.set(next >= 0 ? next : rubberband(next, sheetHeight));
         })
         .onEnd((e) => {
           const projected = translateY.get() + project(e.velocityY);
-          // Flick velocity or 35% distance commits to dismiss
           if (projected > sheetHeight * 0.35 || e.velocityY > 500) {
             scheduleOnRN(triggerLightHaptic);
             translateY.set(
@@ -139,7 +138,6 @@ export const DragDismissSheet: React.FC<DragDismissSheetProps> = ({
               )
             );
           } else {
-            // Settle back to open position with gesture velocity
             translateY.set(
               withSpring(0, {
                 duration: 300,
@@ -180,20 +178,18 @@ export const DragDismissSheet: React.FC<DragDismissSheetProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.container}
       >
-        {/* Backdrop synced with sheet transform */}
         <Animated.View style={[styles.backdrop, backdropStyle]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
 
-        {/* Sheet with Pan Gesture recognition */}
         <Animated.View
           style={[
             styles.sheetContainer,
             {
               height: sheetHeight,
               backgroundColor: resolvedBg,
-              borderTopLeftRadius: 32,
-              borderTopRightRadius: 32,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
               maxHeight: sheetHeight,
               maxWidth: 672,
             },
@@ -201,42 +197,39 @@ export const DragDismissSheet: React.FC<DragDismissSheetProps> = ({
             containerStyle,
           ]}
         >
-          {/* Guaranteed solid opaque background plate */}
           <View
             pointerEvents="none"
             style={[
               StyleSheet.absoluteFill,
               {
                 backgroundColor: resolvedBg,
-                borderTopLeftRadius: 32,
-                borderTopRightRadius: 32,
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
               },
             ]}
           />
 
-          {/* Inner content container - guarantees solid opaque background and prevents Android elevation clipping */}
           <View
             style={{
               flex: 1,
               width: '100%',
               backgroundColor: resolvedBg,
-              borderTopLeftRadius: 32,
-              borderTopRightRadius: 32,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
               overflow: 'hidden',
               paddingHorizontal: isZeroPadding ? 0 : 24,
               paddingTop: isZeroPadding ? 0 : 8,
               paddingBottom: isZeroPadding ? 0 : Math.max(insets.bottom, 20),
             }}
           >
-            {/* Draggable Handle */}
             <GestureDetector gesture={panGesture}>
               <View style={styles.handleContainer}>
                 <View
                   style={{
-                    height: 6,
-                    width: 48,
+                    height: 5,
+                    width: 44,
                     borderRadius: 3,
-                    backgroundColor: isDark ? '#3f3f46' : '#d4d4d8',
+                    backgroundColor: palette.lineStrong,
                   }}
                 />
               </View>
@@ -258,23 +251,23 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: 'rgba(22, 35, 42, 0.45)',
   },
   sheetContainer: {
     width: '100%',
     zIndex: 10,
     borderCurve: 'continuous',
-    shadowColor: '#000',
+    shadowColor: '#1f3038',
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.16,
     shadowRadius: 16,
     elevation: 20,
   },
   handleContainer: {
     width: '100%',
     alignItems: 'center',
-    paddingTop: 4,
-    paddingBottom: 16,
+    paddingTop: 6,
+    paddingBottom: 14,
     cursor: 'grab',
   },
 });

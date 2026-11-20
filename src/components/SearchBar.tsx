@@ -2,15 +2,16 @@ import { Search, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   Platform,
-  Pressable,
   StyleProp,
   StyleSheet,
   TextInput,
   TextInputProps,
+  TouchableOpacity,
   View,
   ViewStyle,
 } from 'react-native';
 import { useAppTheme } from '@/src/context/TreasuryContext';
+import { fonts } from '@/src/theme';
 import { NativeIcon } from './NativeIcon';
 
 export interface SearchBarProps {
@@ -32,7 +33,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   autoCapitalize = 'none',
   testID,
 }) => {
-  const { isDark, themeColor } = useAppTheme();
+  const { palette, themeColor } = useAppTheme();
   const [isFocused, setIsFocused] = useState(false);
 
   const handleClear = () => {
@@ -43,23 +44,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     }
   };
 
-  const isWeb = Platform.OS === 'web';
-  const iconColor = isWeb ? 'var(--text-muted)' : isDark ? '#71717a' : '#9ca3af';
-
   return (
     <View
-      className="bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800/80"
       style={[
         styles.container,
         {
-          backgroundColor: isWeb ? 'var(--bg-card)' : isDark ? '#18181b' : '#ffffff',
-          borderColor: isFocused
-            ? themeColor.primary
-            : isWeb
-            ? 'var(--border-card)'
-            : isDark
-            ? 'rgba(39, 39, 42, 0.8)'
-            : 'rgba(228, 228, 231, 0.7)',
+          backgroundColor: palette.card,
+          borderColor: isFocused ? themeColor.primary : palette.line,
         },
         style,
       ]}
@@ -70,48 +61,45 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         materialName="search"
         FallbackIcon={Search}
         size={16}
-        color={iconColor}
+        color={palette.muted}
       />
       <TextInput
         testID={testID}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={iconColor}
+        placeholderTextColor={palette.muted}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         autoCapitalize={autoCapitalize}
         autoCorrect={false}
         returnKeyType="search"
-        className="text-zinc-900 dark:text-zinc-100"
         style={[
           styles.input,
           {
-            color: isWeb ? 'var(--text-primary)' : isDark ? '#f4f4f5' : '#18181b',
+            color: palette.ink,
+            fontFamily: fonts.regular,
+            ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
           },
         ]}
       />
       {value ? (
-        <Pressable
+        <TouchableOpacity
           onPress={handleClear}
+          activeOpacity={0.6}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel="Clear search input"
-          style={({ pressed }) => [
-            styles.clearButton,
-            {
-              opacity: pressed ? 0.6 : 1,
-            },
-          ]}
+          style={styles.clearButton}
         >
           <NativeIcon
             sfSymbol="xmark.circle.fill"
             materialName="clear"
             FallbackIcon={X}
             size={16}
-            color={iconColor}
+            color={palette.muted}
           />
-        </Pressable>
+        </TouchableOpacity>
       ) : null}
     </View>
   );
@@ -121,11 +109,11 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: 12,
     borderCurve: 'continuous',
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
   },
   input: {
     flex: 1,

@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS settings (
     user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     ec_kbzpay_name TEXT DEFAULT '',
     ec_kbzpay_phone TEXT DEFAULT '',
-    theme_color_id TEXT DEFAULT 'indigo',
+    theme_color_id TEXT DEFAULT 'teal',
     language TEXT DEFAULT 'my',
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

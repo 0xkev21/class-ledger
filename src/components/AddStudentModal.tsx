@@ -1,21 +1,22 @@
 import { User, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
+  Platform,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppTheme, useTreasury } from '../context/TreasuryContext';
-import { Student } from '../types';
+import { useAppTheme, useTreasury } from '@/src/context/TreasuryContext';
+import { fonts } from '@/src/theme';
+import { Student } from '@/src/types';
 import { DragDismissSheet } from './animated/DragDismissSheet';
 import { PressableScale } from './animated/PressableScale';
 import { NativeIcon } from './NativeIcon';
 
-interface AddStudentModalProps {
+export interface AddStudentModalProps {
   visible: boolean;
   onClose: () => void;
   editingStudent?: Student | null;
@@ -27,9 +28,8 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({
   editingStudent,
 }) => {
   const { addStudent, updateStudent, t } = useTreasury();
-  const { isDark, themeColor } = useAppTheme();
+  const { isDark, themeColor, palette } = useAppTheme();
   const { height: windowHeight } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
 
   const [name, setName] = useState('');
   const [rollNumber, setRollNumber] = useState('');
@@ -85,11 +85,10 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({
       isDark={isDark}
     >
       {/* Header */}
-      <View className="flex-row items-center justify-between mb-5">
-        <View className="flex-row items-center">
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
           <View
-            style={{ backgroundColor: themeColor.surface }}
-            className="h-10 w-10 rounded-full items-center justify-center mr-3"
+            style={[styles.iconBadge, { backgroundColor: themeColor.surface }]}
           >
             <NativeIcon
               sfSymbol="person.fill"
@@ -99,7 +98,12 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({
               color={themeColor.primary}
             />
           </View>
-          <Text className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
+          <Text
+            style={[
+              styles.title,
+              { color: palette.ink, fontFamily: fonts.semibold },
+            ]}
+          >
             {editingStudent
               ? t.modals.addStudent.titleEdit
               : t.modals.addStudent.titleAdd}
@@ -107,122 +111,229 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({
         </View>
         <PressableScale
           onPress={onClose}
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 16,
-            backgroundColor: isDark ? '#27272a' : '#f4f4f5',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          className="h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center"
+          accessibilityRole="button"
+          accessibilityLabel={t.common.close}
+          style={[styles.closeButton, { backgroundColor: palette.surface }]}
         >
           <NativeIcon
             sfSymbol="xmark"
             materialName="close"
             FallbackIcon={X}
             size={16}
-            color="#71717a"
+            color={palette.subtle}
           />
         </PressableScale>
       </View>
 
-          {error ? (
-            <View
-              style={{ borderCurve: 'continuous' }}
-              className="mb-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 p-3"
-            >
-              <Text className="text-xs text-rose-600 dark:text-rose-300 font-medium">{error}</Text>
-            </View>
-          ) : null}
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+      {error ? (
+        <View style={[styles.errorBox, { backgroundColor: palette.dangerBg }]}>
+          <Text
+            style={[
+              styles.errorText,
+              { color: palette.dangerText, fontFamily: fonts.medium },
+            ]}
           >
-            {/* Student Name (Required) */}
-            <View className="mb-4">
-              <Text className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1.5 ml-1">
-                {t.modals.addStudent.nameLabel} <Text className="text-rose-500">*</Text>
-              </Text>
-              <TextInput
-                value={name}
-                onChangeText={(tVal) => {
-                  setName(tVal);
-                  setError('');
-                }}
-                placeholder={t.modals.addStudent.namePlaceholder}
-                placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-                style={{
-                  color: isDark ? '#f4f4f5' : '#18181b',
-                  borderCurve: 'continuous',
-                }}
-                className="w-full rounded-2xl bg-zinc-100 dark:bg-zinc-800 px-4 py-3.5 text-sm"
-              />
-            </View>
+            {error}
+          </Text>
+        </View>
+      ) : null}
 
-            {/* Roll Number (Optional) */}
-            <View className="mb-4">
-              <Text className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1.5 ml-1">
-                {t.modals.addStudent.rollLabel} ({t.common.optional})
-              </Text>
-              <TextInput
-                value={rollNumber}
-                onChangeText={setRollNumber}
-                placeholder={t.modals.addStudent.rollPlaceholder}
-                placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-                style={{
-                  color: isDark ? '#f4f4f5' : '#18181b',
-                  borderCurve: 'continuous',
-                }}
-                className="w-full rounded-2xl bg-zinc-100 dark:bg-zinc-800 px-4 py-3.5 text-sm"
-              />
-            </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Student Name */}
+        <View style={styles.fieldGroup}>
+          <Text
+            style={[
+              styles.label,
+              { color: palette.muted, fontFamily: fonts.medium },
+            ]}
+          >
+            {t.modals.addStudent.nameLabel}{' '}
+            <Text style={{ color: palette.dangerText }}>*</Text>
+          </Text>
+          <TextInput
+            value={name}
+            onChangeText={(tVal) => {
+              setName(tVal);
+              setError('');
+            }}
+            placeholder={t.modals.addStudent.namePlaceholder}
+            placeholderTextColor={palette.muted}
+            style={[
+              styles.input,
+              {
+                backgroundColor: palette.card,
+                borderColor: palette.line,
+                color: palette.ink,
+                fontFamily: fonts.regular,
+                ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
+              },
+            ]}
+          />
+        </View>
 
-            {/* Phone (Optional) */}
-            <View className="mb-6">
-              <Text className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1.5 ml-1">
-                {t.modals.addStudent.phoneLabel} ({t.common.optional})
-              </Text>
-              <TextInput
-                value={phone}
-                onChangeText={setPhone}
-                placeholder={t.modals.addStudent.phonePlaceholder}
-                placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-                keyboardType="phone-pad"
-                style={{
-                  color: isDark ? '#f4f4f5' : '#18181b',
-                  borderCurve: 'continuous',
-                }}
-                className="w-full rounded-2xl bg-zinc-100 dark:bg-zinc-800 px-4 py-3.5 text-sm"
-              />
-            </View>
+        {/* Roll Number */}
+        <View style={styles.fieldGroup}>
+          <Text
+            style={[
+              styles.label,
+              { color: palette.muted, fontFamily: fonts.medium },
+            ]}
+          >
+            {t.modals.addStudent.rollLabel} ({t.common.optional})
+          </Text>
+          <TextInput
+            value={rollNumber}
+            onChangeText={setRollNumber}
+            placeholder={t.modals.addStudent.rollPlaceholder}
+            placeholderTextColor={palette.muted}
+            style={[
+              styles.input,
+              {
+                backgroundColor: palette.card,
+                borderColor: palette.line,
+                color: palette.ink,
+                fontFamily: fonts.mono,
+                ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
+              },
+            ]}
+          />
+        </View>
 
-            {/* Submit Button */}
-            <PressableScale
-              onPress={handleSubmit}
-              style={{
-                backgroundColor: themeColor.primary,
-                borderRadius: 9999,
-                paddingVertical: 14,
-                width: '100%',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderCurve: 'continuous',
-                marginBottom: 8,
-              }}
-              className="w-full rounded-full py-3.5 items-center justify-center shadow-sm mb-2"
-            >
-              <Text
-                style={{ color: themeColor.onPrimary }}
-                className="text-sm font-bold"
-              >
-                {editingStudent
-                  ? t.modals.addStudent.submitEdit
-                  : t.modals.addStudent.submitAdd}
-              </Text>
-            </PressableScale>
-          </ScrollView>
+        {/* Phone */}
+        <View style={styles.fieldGroupLast}>
+          <Text
+            style={[
+              styles.label,
+              { color: palette.muted, fontFamily: fonts.medium },
+            ]}
+          >
+            {t.modals.addStudent.phoneLabel} ({t.common.optional})
+          </Text>
+          <TextInput
+            value={phone}
+            onChangeText={setPhone}
+            placeholder={t.modals.addStudent.phonePlaceholder}
+            placeholderTextColor={palette.muted}
+            keyboardType="phone-pad"
+            style={[
+              styles.input,
+              {
+                backgroundColor: palette.card,
+                borderColor: palette.line,
+                color: palette.ink,
+                fontFamily: fonts.mono,
+                ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
+              },
+            ]}
+          />
+        </View>
+
+        {/* Submit Button */}
+        <PressableScale
+          onPress={handleSubmit}
+          accessibilityRole="button"
+          accessibilityLabel={
+            editingStudent
+              ? t.modals.addStudent.submitEdit
+              : t.modals.addStudent.submitAdd
+          }
+          style={[styles.submitButton, { backgroundColor: themeColor.primary }]}
+        >
+          <Text
+            style={[
+              styles.submitText,
+              { color: themeColor.onPrimary, fontFamily: fonts.semibold },
+            ]}
+          >
+            {editingStudent
+              ? t.modals.addStudent.submitEdit
+              : t.modals.addStudent.submitAdd}
+          </Text>
+        </PressableScale>
+      </ScrollView>
     </DragDismissSheet>
   );
 };
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    gap: 12,
+  },
+  iconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  title: {
+    fontSize: 19,
+    lineHeight: 24,
+    flexShrink: 1,
+  },
+  closeButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  errorBox: {
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    padding: 12,
+    marginBottom: 14,
+  },
+  errorText: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  fieldGroup: {
+    marginBottom: 14,
+  },
+  fieldGroupLast: {
+    marginBottom: 22,
+  },
+  label: {
+    fontSize: 12,
+    marginBottom: 6,
+    marginLeft: 2,
+  },
+  input: {
+    width: '100%',
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+  },
+  submitButton: {
+    width: '100%',
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  submitText: {
+    fontSize: 14,
+  },
+});

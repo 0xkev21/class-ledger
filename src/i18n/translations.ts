@@ -177,6 +177,11 @@ export interface Translations {
     burmese: string;
     appearance: string;
     appearanceSub: string;
+    themeMode: string;
+    themeSystem: string;
+    themeLight: string;
+    themeDark: string;
+    themeModeChangedToast: string;
     currentColor: string;
     presets: string;
     cloudSync: string;
@@ -484,7 +489,12 @@ export const translations: Record<AppLanguage, Translations> = {
       english: 'English',
       burmese: 'မြန်မာ',
       appearance: 'အသွင်အပြင်',
-      appearanceSub: 'စနစ်အတွက် Theme အရောင် ရွေးချယ်ရန်',
+      appearanceSub: 'အလင်း/အမှောင် ပုံစံနှင့် Theme အရောင် ရွေးချယ်ရန်',
+      themeMode: 'အလင်း / အမှောင် ပုံစံ',
+      themeSystem: 'စနစ်အတိုင်း',
+      themeLight: 'အလင်း',
+      themeDark: 'အမှောင်',
+      themeModeChangedToast: 'အလင်း/အမှောင် ပုံစံ ပြောင်းလဲပြီးပါပြီ',
       currentColor: 'လက်ရှိ အရောင်',
       presets: 'အသင့်သုံး အရောင်များ',
       cloudSync: 'Cloud Sync',
@@ -501,9 +511,9 @@ export const translations: Record<AppLanguage, Translations> = {
       kbzPay: 'ငွေလွှဲ အချက်အလက်များ',
       kbzPaySub: 'ကြေညာချက်များတွင် ဖော်ပြပေးမည့် KBZPay အချက်အလက်',
       accountName: 'KBZPay အကောင့်အမည်',
-      accountNamePlaceholder: 'ဥပမာ - Kaung Sat Oo',
+      accountNamePlaceholder: 'ဥပမာ - Mg Mg',
       phoneNumber: 'KBZPay ဖုန်းနံပါတ်',
-      phoneNumberPlaceholder: 'ဥပမာ - 09447131200',
+      phoneNumberPlaceholder: 'ဥပမာ - 09123456789',
       saveKbz: 'သိမ်းဆည်းမည်',
       kbzSavedToast: 'KBZPay အချက်အလက်များ သိမ်းဆည်းပြီးပါပြီ',
       dataBackup: 'ဒေတာ Backup',
@@ -525,7 +535,7 @@ export const translations: Record<AppLanguage, Translations> = {
         rollLabel: 'ခုံနံပါတ်',
         rollPlaceholder: 'ဥပမာ - 3CS-14 သို့မဟုတ် 12',
         phoneLabel: 'ဖုန်းနံပါတ်',
-        phonePlaceholder: 'ဥပမာ - 09447131200',
+        phonePlaceholder: 'ဥပမာ - 09123456789',
         submitAdd: 'ကျောင်းသား ထည့်မည်',
         submitEdit: 'သိမ်းဆည်းမည်',
         errorRequired: 'ကျောင်းသားအမည် ထည့်သွင်းပေးပါရန်',
@@ -790,7 +800,12 @@ export const translations: Record<AppLanguage, Translations> = {
       english: 'English',
       burmese: 'မြန်မာ',
       appearance: 'Appearance',
-      appearanceSub: 'Choose your preferred accent color',
+      appearanceSub: 'Choose display mode and accent color',
+      themeMode: 'Display Mode',
+      themeSystem: 'System',
+      themeLight: 'Light',
+      themeDark: 'Dark',
+      themeModeChangedToast: 'Display mode updated',
       currentColor: 'Active Theme',
       presets: 'Preset Colors',
       cloudSync: 'Cloud Sync',
@@ -807,9 +822,9 @@ export const translations: Record<AppLanguage, Translations> = {
       kbzPay: 'Payment Information',
       kbzPaySub: 'Account information used in broadcast announcements',
       accountName: 'KBZPay Account Name',
-      accountNamePlaceholder: 'e.g. Kaung Sat Oo',
+      accountNamePlaceholder: 'e.g. Mg Mg',
       phoneNumber: 'KBZPay Phone Number',
-      phoneNumberPlaceholder: 'e.g. 09447131200',
+      phoneNumberPlaceholder: 'e.g. 09123456789',
       saveKbz: 'Save Payment Info',
       kbzSavedToast: 'Payment info saved successfully',
       dataBackup: 'Data Backup',
@@ -831,7 +846,7 @@ export const translations: Record<AppLanguage, Translations> = {
         rollLabel: 'Roll Number',
         rollPlaceholder: 'e.g. 3CS-14 or 12',
         phoneLabel: 'Phone Number',
-        phonePlaceholder: 'e.g. 09447131200',
+        phonePlaceholder: 'e.g. 09123456789',
         submitAdd: 'Add Student',
         submitEdit: 'Save Changes',
         errorRequired: 'Student name is required',

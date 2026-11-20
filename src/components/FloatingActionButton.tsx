@@ -3,6 +3,7 @@ import React from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/src/context/TreasuryContext';
+import { fonts } from '@/src/theme';
 import { NativeIcon, NativeIconProps } from './NativeIcon';
 import { PressableScale } from './animated/PressableScale';
 
@@ -62,6 +63,7 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
             styles.label,
             {
               color: themeColor.onPrimary,
+              fontFamily: fonts.semibold,
             },
           ]}
           numberOfLines={1}
@@ -79,24 +81,23 @@ const styles = StyleSheet.create({
     zIndex: 50,
   },
   button: {
-    height: 48,
-    minWidth: 140,
-    borderRadius: 24,
-    paddingHorizontal: 20,
+    height: 46,
+    minWidth: 136,
+    borderRadius: 12,
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderCurve: 'continuous',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowColor: '#1f3038',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 5,
   },
   label: {
     marginLeft: 8,
     fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.1,
+    letterSpacing: -0.1,
   },
 });

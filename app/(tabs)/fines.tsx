@@ -1,20 +1,13 @@
-import {
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Gavel,
-  Image as ImageIcon,
-  Plus,
-  Trash2,
-  X,
-} from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import { Gavel, Image as ImageIcon, Plus, Trash2 } from 'lucide-react-native';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Platform,
   ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,11 +17,21 @@ import { EmptyState } from '@/src/components/EmptyState';
 import { FloatingActionButton } from '@/src/components/FloatingActionButton';
 import { NativeIcon } from '@/src/components/NativeIcon';
 import { SearchBar } from '@/src/components/SearchBar';
+import { StatusPill } from '@/src/components/StatusPill';
 import { ToastNotification } from '@/src/components/ToastNotification';
 import { useAppTheme, useTreasury } from '@/src/context/TreasuryContext';
+import { fonts } from '@/src/theme';
 import { Fine } from '@/src/types';
 import { formatMMK } from '@/src/utils/formatters';
 import { Haptics } from '@/src/utils/haptics';
+
+function chunkPairs<T>(items: T[]): Array<[T, T | null]> {
+  const pairs: Array<[T, T | null]> = [];
+  for (let i = 0; i < items.length; i += 2) {
+    pairs.push([items[i], items[i + 1] ?? null]);
+  }
+  return pairs;
+}
 
 export default function FinesScreen() {
   const {
@@ -40,21 +43,28 @@ export default function FinesScreen() {
     deleteFine,
     t,
   } = useTreasury();
-  const { isDark, themeColor } = useAppTheme();
+  const { themeColor, palette } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
 
-  // Search & Filter state
+  // Mount guard on web keeps static SSR and client hydration identical
+  const [hasMounted, setHasMounted] = useState(!isWeb);
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+  const isDesktop = hasMounted && width >= 1024;
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'unpaid' | 'paid'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'unpaid' | 'paid'>(
+    'all'
+  );
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('all');
 
-  // Modals state
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showAestheticModal, setShowAestheticModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Fast lookups
   const studentMap = useMemo(() => {
     return new Map(students.map((s) => [s.id, s]));
   }, [students]);
@@ -63,24 +73,24 @@ export default function FinesScreen() {
     return new Map(subjects.map((s) => [s.id, s]));
   }, [subjects]);
 
-  // Filtered fines list
   const filteredFines = useMemo(() => {
     return fines.filter((fine) => {
-      // Status filter
       if (statusFilter === 'unpaid' && fine.isPaid) return false;
       if (statusFilter === 'paid' && !fine.isPaid) return false;
 
-      // Subject filter
-      if (selectedSubjectId !== 'all' && fine.subjectId !== selectedSubjectId) {
+      if (
+        selectedSubjectId !== 'all' &&
+        fine.subjectId !== selectedSubjectId
+      ) {
         return false;
       }
 
-      // Search query (Student Name, Roll Number, or Reason)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const student = studentMap.get(fine.studentId);
         const nameMatch = student?.name.toLowerCase().includes(q) || false;
-        const rollMatch = student?.rollNumber?.toLowerCase().includes(q) || false;
+        const rollMatch =
+          student?.rollNumber?.toLowerCase().includes(q) || false;
         const reasonMatch = fine.reason.toLowerCase().includes(q);
         if (!nameMatch && !rollMatch && !reasonMatch) return false;
       }
@@ -89,122 +99,438 @@ export default function FinesScreen() {
     });
   }, [fines, statusFilter, selectedSubjectId, searchQuery, studentMap]);
 
+  const finePairs = useMemo(
+    () => chunkPairs(filteredFines),
+    [filteredFines]
+  );
+
+  const performDeleteFine = async (fineId: string) => {
+    await deleteFine(fineId);
+    setToastMessage(t.fines.deleteToast);
+  };
+
   const handleDeleteFine = (fineId: string, studentName: string) => {
-    Alert.alert(
-      t.fines.deleteTitle,
-      t.fines.deleteMsg(studentName),
-      [
-        { text: t.common.cancel, style: 'cancel' },
-        {
-          text: t.common.delete,
-          style: 'destructive',
-          onPress: async () => {
-            await deleteFine(fineId);
-            setToastMessage(t.fines.deleteToast);
-          },
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(t.fines.deleteMsg(studentName))) {
+        void performDeleteFine(fineId);
+      }
+      return;
+    }
+
+    Alert.alert(t.fines.deleteTitle, t.fines.deleteMsg(studentName), [
+      { text: t.common.cancel, style: 'cancel' },
+      {
+        text: t.common.delete,
+        style: 'destructive',
+        onPress: () => {
+          void performDeleteFine(fineId);
         },
-      ]
+      },
+    ]);
+  };
+
+  const renderStatusChips = () => (
+    <View style={styles.statusChipRow}>
+      {(['all', 'unpaid', 'paid'] as const).map((st) => {
+        const isSelected = statusFilter === st;
+        const count =
+          st === 'all'
+            ? fines.length
+            : st === 'unpaid'
+            ? fines.filter((f) => !f.isPaid).length
+            : fines.filter((f) => f.isPaid).length;
+
+        const label =
+          st === 'all'
+            ? `${t.common.all} (${count})`
+            : st === 'unpaid'
+            ? `${t.common.unpaid} (${count})`
+            : `${t.common.paid} (${count})`;
+
+        return (
+          <TouchableOpacity
+            key={st}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setStatusFilter(st);
+            }}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isSelected }}
+            style={[
+              styles.chip,
+              {
+                backgroundColor: isSelected ? palette.ink : palette.surface,
+                borderColor: isSelected ? palette.ink : palette.line,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.chipText,
+                {
+                  color: isSelected ? palette.bg : palette.ink,
+                  fontFamily: fonts.medium,
+                },
+              ]}
+            >
+              {label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
+  const renderFineCard = (fine: Fine) => {
+    const student = studentMap.get(fine.studentId);
+    const subject = subjectMap.get(fine.subjectId);
+    const studentName = student?.name || t.common.name;
+
+    return (
+      <View
+        key={fine.id}
+        style={[
+          styles.fineCard,
+          {
+            backgroundColor: palette.card,
+            borderColor: palette.line,
+          },
+        ]}
+      >
+        {/* Top Row: Subject + Date on Left, Amount on Right */}
+        <View style={styles.fineTopRow}>
+          <View style={styles.fineBadgesLeft}>
+            <StatusPill variant="brand" label={subject?.name || 'General'} />
+            <StatusPill variant="neutral" mono label={fine.date} />
+          </View>
+          <Text
+            selectable
+            style={[
+              styles.fineAmount,
+              { color: palette.ink, fontFamily: fonts.monoMedium },
+            ]}
+          >
+            {formatMMK(fine.amount)}
+          </Text>
+        </View>
+
+        {/* Middle Row: Roll + Name + Reason */}
+        <View style={styles.fineStudentBlock}>
+          <View style={styles.fineStudentNameLine}>
+            {student?.rollNumber ? (
+              <Text
+                selectable
+                style={[
+                  styles.fineRollText,
+                  { color: palette.ink, fontFamily: fonts.monoMedium },
+                ]}
+              >
+                {student.rollNumber}
+              </Text>
+            ) : null}
+            <Text
+              selectable
+              numberOfLines={1}
+              style={[
+                styles.fineStudentName,
+                { color: palette.ink, fontFamily: fonts.semibold },
+              ]}
+            >
+              {studentName}
+            </Text>
+          </View>
+          <Text
+            selectable
+            style={[
+              styles.fineReason,
+              { color: palette.muted, fontFamily: fonts.regular },
+            ]}
+          >
+            {fine.reason}
+          </Text>
+        </View>
+
+        {/* Bottom Row: 1-Tap Paid/Unpaid Toggle + Delete */}
+        <View
+          style={[
+            styles.fineBottomRow,
+            { borderTopColor: palette.line },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactLightAsync();
+              toggleFinePaid(fine.id);
+            }}
+            activeOpacity={0.78}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: fine.isPaid }}
+            accessibilityLabel={`${studentName}, ${
+              fine.isPaid ? t.common.paid : t.common.unpaid
+            }`}
+            style={styles.statusSwitchPress}
+          >
+            <StatusPill
+              variant={fine.isPaid ? 'paid' : 'unpaid'}
+              label={fine.isPaid ? t.common.paid : t.common.unpaid}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => handleDeleteFine(fine.id, studentName)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.delete}
+            hitSlop={6}
+            style={[
+              styles.deleteCircleBtn,
+              {
+                backgroundColor: palette.surface,
+              },
+            ]}
+          >
+            <NativeIcon
+              sfSymbol="trash"
+              materialName="delete"
+              FallbackIcon={Trash2}
+              size={14}
+              color={palette.muted}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   };
 
   return (
-    <View className="flex-1 bg-zinc-50 dark:bg-zinc-950">
-      <ToastNotification message={toastMessage} onHide={() => setToastMessage(null)} />
+    <View style={[styles.screenRoot, { backgroundColor: palette.bg }]}>
+      <ToastNotification
+        message={toastMessage}
+        onHide={() => setToastMessage(null)}
+      />
 
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
-        style={{ flex: 1, height: '100%' }}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: Math.max(insets.top, 16),
-          paddingBottom: 120,
-          flexGrow: 1,
-        }}
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: isDesktop ? 24 : 20,
+            paddingTop: isDesktop ? 24 : insets.top + 16,
+            paddingBottom: isDesktop ? 40 : 120,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        <View className="w-full max-w-4xl mx-auto">
-          {/* Screen Header */}
-          <View className="mb-5 pt-2 flex-row items-center justify-between">
-            <View className="flex-1 mr-2">
+        <View
+          style={[
+            styles.container,
+            { maxWidth: isDesktop ? 1280 : 760 },
+          ]}
+        >
+          {/* Header */}
+          <View style={styles.headerRow}>
+            <View style={styles.headerLeft}>
               <Text
                 selectable
-                className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-50 tracking-tight leading-relaxed py-0.5"
+                style={[
+                  styles.pageTitle,
+                  { color: palette.ink, fontFamily: fonts.bold },
+                ]}
               >
                 {t.fines.title}
               </Text>
-              <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+              <Text
+                style={[
+                  styles.pageSubtitle,
+                  { color: palette.muted, fontFamily: fonts.regular },
+                ]}
+              >
                 {t.fines.subtitle}
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={() => setShowAestheticModal(true)}
-              style={{ borderCurve: 'continuous' }}
-              className="flex-row items-center bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 px-3.5 py-2.5 rounded-full shadow-xs active:bg-zinc-100 dark:active:bg-zinc-800"
-            >
-              <NativeIcon
-                sfSymbol="photo.artframe"
-                materialName="image"
-                FallbackIcon={ImageIcon}
-                size={14}
-                color={themeColor.primary}
-              />
-              <Text className="ml-1.5 text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                {t.fines.imageExport}
-              </Text>
-            </TouchableOpacity>
+
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setShowAestheticModal(true);
+                }}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel={t.fines.imageExport}
+                style={[
+                  styles.exportBtn,
+                  {
+                    backgroundColor: palette.card,
+                    borderColor: palette.line,
+                  },
+                ]}
+              >
+                <NativeIcon
+                  sfSymbol="photo.artframe"
+                  materialName="image"
+                  FallbackIcon={ImageIcon}
+                  size={15}
+                  color={themeColor.primary}
+                />
+                <Text
+                  style={[
+                    styles.exportBtnText,
+                    { color: palette.ink, fontFamily: fonts.medium },
+                  ]}
+                >
+                  {t.fines.imageExport}
+                </Text>
+              </TouchableOpacity>
+
+              {isDesktop ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setShowBatchModal(true);
+                  }}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.fines.batchFine}
+                  style={[
+                    styles.primaryActionBtn,
+                    {
+                      backgroundColor: themeColor.primary,
+                    },
+                  ]}
+                >
+                  <NativeIcon
+                    sfSymbol="plus"
+                    materialName="add"
+                    FallbackIcon={Plus}
+                    size={16}
+                    color={themeColor.onPrimary}
+                  />
+                  <Text
+                    style={[
+                      styles.primaryActionText,
+                      {
+                        color: themeColor.onPrimary,
+                        fontFamily: fonts.semibold,
+                      },
+                    ]}
+                  >
+                    {t.fines.batchFine}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
 
-          {/* Hero Fine Summary Card */}
+          {/* Summary Strip */}
           <View
-            style={{ borderCurve: 'continuous' }}
-            className="rounded-3xl bg-white dark:bg-zinc-900 p-5 mb-5 border border-zinc-200/70 dark:border-zinc-800/80 shadow-none"
+            style={[
+              styles.summaryCard,
+              {
+                backgroundColor: palette.card,
+                borderColor: palette.line,
+              },
+            ]}
           >
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+            <View style={styles.summaryTopRow}>
+              <Text
+                style={[
+                  styles.summaryEyebrow,
+                  { color: palette.muted, fontFamily: fonts.medium },
+                ]}
+              >
                 {t.fines.summaryTitle}
               </Text>
-              <View className="h-7 w-7 rounded-full bg-rose-50 dark:bg-rose-950/60 items-center justify-center">
-                <NativeIcon
-                  sfSymbol="exclamationmark.triangle.fill"
-                  materialName="gavel"
-                  FallbackIcon={Gavel}
-                  size={14}
-                  color="#e11d48"
-                />
-              </View>
+              <StatusPill
+                variant="neutral"
+                mono
+                label={t.fines.countFines(fines.length)}
+              />
             </View>
 
-            <View className="flex-row gap-3">
-              {/* Collected (Paid) */}
+            <View style={styles.summaryMetricsRow}>
+              {isDesktop ? (
+                <View
+                  style={[
+                    styles.metricBox,
+                    { backgroundColor: themeColor.primaryDark },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.metricLabel,
+                      {
+                        color: themeColor.onPrimary,
+                        fontFamily: fonts.medium,
+                        opacity: 0.85,
+                      },
+                    ]}
+                  >
+                    {t.fines.totalAll}
+                  </Text>
+                  <Text
+                    selectable
+                    style={[
+                      styles.metricValueLarge,
+                      {
+                        color: themeColor.onPrimary,
+                        fontFamily: fonts.monoMedium,
+                      },
+                    ]}
+                  >
+                    {formatMMK(finesSummary.totalAll)}
+                  </Text>
+                </View>
+              ) : null}
+
               <View
-                style={{ borderCurve: 'continuous' }}
-                className="flex-1 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 p-4 border border-emerald-100 dark:border-emerald-900/30"
+                style={[styles.metricBox, { backgroundColor: palette.paidBg }]}
               >
-                <Text className="text-xs-tight font-bold text-emerald-700 dark:text-emerald-300 mb-0.5">
+                <Text
+                  style={[
+                    styles.metricLabel,
+                    { color: palette.paidText, fontFamily: fonts.medium },
+                  ]}
+                >
                   {t.fines.paidTotal}
                 </Text>
                 <Text
                   selectable
-                  style={{ fontVariant: ['tabular-nums'] }}
-                  className="text-lg font-extrabold text-emerald-700 dark:text-emerald-300 tracking-tight"
+                  style={[
+                    styles.metricValue,
+                    { color: palette.paidText, fontFamily: fonts.monoMedium },
+                  ]}
                 >
                   {formatMMK(finesSummary.totalPaid)}
                 </Text>
               </View>
 
-              {/* Pending (Unpaid) */}
               <View
-                style={{ borderCurve: 'continuous' }}
-                className="flex-1 rounded-2xl bg-rose-50 dark:bg-rose-950/40 p-4 border border-rose-100 dark:border-rose-900/30"
+                style={[
+                  styles.metricBox,
+                  { backgroundColor: palette.unpaidBg },
+                ]}
               >
-                <Text className="text-xs-tight font-bold text-rose-700 dark:text-rose-300 mb-0.5">
+                <Text
+                  style={[
+                    styles.metricLabel,
+                    { color: palette.unpaidText, fontFamily: fonts.medium },
+                  ]}
+                >
                   {t.fines.unpaidTotal}
                 </Text>
                 <Text
                   selectable
-                  style={{ fontVariant: ['tabular-nums'] }}
-                  className="text-lg font-extrabold text-rose-700 dark:text-rose-300 tracking-tight"
+                  style={[
+                    styles.metricValue,
+                    {
+                      color: palette.unpaidText,
+                      fontFamily: fonts.monoMedium,
+                    },
+                  ]}
                 >
                   {formatMMK(finesSummary.totalUnpaid)}
                 </Text>
@@ -212,116 +538,74 @@ export default function FinesScreen() {
             </View>
           </View>
 
-          {/* Search & Filter Controls */}
-          <View className="mb-4">
-            {/* Status Chips */}
-            <View className="flex-row gap-2 mb-3" style={{ flexDirection: 'row', gap: 8 }}>
-              {(['all', 'unpaid', 'paid'] as const).map((st) => {
-                const isSelected = statusFilter === st;
-                const count =
-                  st === 'all'
-                    ? fines.length
-                    : st === 'unpaid'
-                    ? fines.filter((f) => !f.isPaid).length
-                    : fines.filter((f) => f.isPaid).length;
+          {/* Filters & Search */}
+          <View style={styles.controlsWrap}>
+            {isDesktop ? (
+              <View style={styles.desktopToolbarRow}>
+                {renderStatusChips()}
+                <SearchBar
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder={t.fines.searchPlaceholder}
+                  style={styles.desktopSearchBar}
+                />
+              </View>
+            ) : (
+              <>
+                {renderStatusChips()}
+                <SearchBar
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder={t.fines.searchPlaceholder}
+                />
+              </>
+            )}
 
-                const label =
-                  st === 'all'
-                    ? `${t.common.all} (${count})`
-                    : st === 'unpaid'
-                    ? `${t.common.unpaid} (${count})`
-                    : `${t.common.paid} (${count})`;
-
-                return (
-                  <TouchableOpacity
-                    key={st}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setStatusFilter(st);
-                    }}
-                    style={{
-                      backgroundColor: isSelected
-                        ? themeColor.primary
-                        : isWeb
-                        ? 'var(--bg-card)'
-                        : isDark
-                        ? '#18181b'
-                        : '#ffffff',
-                      borderCurve: 'continuous',
-                    }}
-                    className={`rounded-full px-4 py-2 border ${
-                      isSelected
-                        ? 'border-transparent shadow-xs'
-                        : 'border-zinc-200/70 dark:border-zinc-800/80 bg-white dark:bg-zinc-900'
-                    }`}
-                  >
-                    <Text
-                      style={{
-                        color: isSelected
-                          ? themeColor.onPrimary
-                          : isWeb
-                          ? 'var(--text-primary)'
-                          : isDark
-                          ? '#e4e4e7'
-                          : '#52525b',
-                      }}
-                      className={`text-xs font-bold ${
-                        isSelected ? '' : 'text-zinc-600 dark:text-zinc-200'
-                      }`}
-                    >
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Subject Filter Horizontal Scroll */}
+            {/* Subject Filter Chips */}
             {subjects.length > 0 ? (
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-                className="mb-3"
+                contentContainerStyle={styles.subjectChipsContent}
               >
                 <TouchableOpacity
                   onPress={() => {
                     Haptics.selectionAsync();
                     setSelectedSubjectId('all');
                   }}
-                  style={{
-                    backgroundColor:
-                      selectedSubjectId === 'all'
-                        ? themeColor.primary
-                        : isDark
-                        ? '#18181b'
-                        : '#ffffff',
-                    borderCurve: 'continuous',
-                  }}
-                  className={`rounded-full px-3.5 py-1.5 border ${
-                    selectedSubjectId === 'all'
-                      ? 'border-transparent shadow-xs'
-                      : 'border-zinc-200/70 dark:border-zinc-800/80'
-                  }`}
+                  activeOpacity={0.78}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: selectedSubjectId === 'all' }}
+                  style={[
+                    styles.subjectChip,
+                    {
+                      backgroundColor:
+                        selectedSubjectId === 'all'
+                          ? themeColor.surface
+                          : palette.card,
+                      borderColor:
+                        selectedSubjectId === 'all'
+                          ? themeColor.border
+                          : palette.line,
+                    },
+                  ]}
                 >
                   <Text
-                    style={{
-                      color:
-                        selectedSubjectId === 'all'
-                          ? themeColor.onPrimary
-                          : isDark
-                          ? '#e4e4e7'
-                          : '#52525b',
-                    }}
-                    className="text-xs-tight font-bold"
+                    style={[
+                      styles.subjectChipText,
+                      {
+                        color:
+                          selectedSubjectId === 'all'
+                            ? themeColor.text
+                            : palette.muted,
+                        fontFamily: fonts.medium,
+                      },
+                    ]}
                   >
                     {t.fines.allSubjects}
                   </Text>
                 </TouchableOpacity>
+
                 {subjects.map((sub) => {
                   const isSelected = selectedSubjectId === sub.id;
                   return (
@@ -331,35 +615,31 @@ export default function FinesScreen() {
                         Haptics.selectionAsync();
                         setSelectedSubjectId(sub.id);
                       }}
-                      style={{
-                        backgroundColor: isSelected
-                          ? themeColor.primary
-                          : isWeb
-                          ? 'var(--bg-card)'
-                          : isDark
-                          ? '#18181b'
-                          : '#ffffff',
-                        borderCurve: 'continuous',
-                      }}
-                      className={`rounded-full px-3.5 py-1.5 border ${
-                        isSelected
-                          ? 'border-transparent shadow-xs'
-                          : 'border-zinc-200/70 dark:border-zinc-800/80 bg-white dark:bg-zinc-900'
-                      }`}
+                      activeOpacity={0.78}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
+                      style={[
+                        styles.subjectChip,
+                        {
+                          backgroundColor: isSelected
+                            ? themeColor.surface
+                            : palette.card,
+                          borderColor: isSelected
+                            ? themeColor.border
+                            : palette.line,
+                        },
+                      ]}
                     >
                       <Text
-                        style={{
-                          color: isSelected
-                            ? themeColor.onPrimary
-                            : isWeb
-                            ? 'var(--text-primary)'
-                            : isDark
-                            ? '#e4e4e7'
-                            : '#52525b',
-                        }}
-                        className={`text-xs-tight font-bold ${
-                          isSelected ? '' : 'text-zinc-600 dark:text-zinc-200'
-                        }`}
+                        style={[
+                          styles.subjectChipText,
+                          {
+                            color: isSelected
+                              ? themeColor.text
+                              : palette.muted,
+                            fontFamily: fonts.medium,
+                          },
+                        ]}
                       >
                         {sub.name}
                       </Text>
@@ -368,13 +648,6 @@ export default function FinesScreen() {
                 })}
               </ScrollView>
             ) : null}
-
-            {/* Search Bar */}
-            <SearchBar
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={t.fines.searchPlaceholder}
-            />
           </View>
 
           {/* Fines Feed */}
@@ -388,162 +661,34 @@ export default function FinesScreen() {
               actionLabel={t.fines.batchFine}
               onActionPress={() => setShowBatchModal(true)}
             />
-          ) : (
-            <View className="gap-2.5">
-              {filteredFines.map((fine) => {
-                const student = studentMap.get(fine.studentId);
-                const subject = subjectMap.get(fine.subjectId);
-
-                return (
-                  <View
-                    key={fine.id}
-                    style={{ borderCurve: 'continuous' }}
-                    className="rounded-3xl bg-white dark:bg-zinc-900 p-4 border border-zinc-200/70 dark:border-zinc-800/80 shadow-none flex-row items-center justify-between"
-                  >
-                    <View className="flex-1 mr-3">
-                      {/* Subject badge & date */}
-                      <View className="flex-row items-center gap-2 mb-1">
-                        <View
-                          style={{
-                            backgroundColor: themeColor.surface,
-                            borderColor: themeColor.border,
-                            borderCurve: 'continuous',
-                          }}
-                          className="rounded-full px-2.5 py-0.5 border"
-                        >
-                          <Text
-                            style={{ color: themeColor.text }}
-                            className="text-2xs font-bold"
-                          >
-                            {subject?.name || 'General'}
-                          </Text>
-                        </View>
-                        <View className="flex-row items-center">
-                          <NativeIcon
-                            sfSymbol="calendar"
-                            materialName="calendar-today"
-                            FallbackIcon={Calendar}
-                            size={11}
-                            color="#9ca3af"
-                          />
-                          <Text className="ml-1 text-2xs text-zinc-400">
-                            {fine.date}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Student Name */}
-                      <Text
-                        selectable
-                        className="text-sm font-bold text-zinc-900 dark:text-zinc-50 leading-relaxed py-0.5"
-                      >
-                        {student?.name || 'Unknown Student'}
-                        {student?.rollNumber ? (
-                          <Text className="text-xs font-normal text-zinc-400">
-                            {' '}({student.rollNumber})
-                          </Text>
-                        ) : null}
-                      </Text>
-
-                      {/* Reason */}
-                      <Text
-                        selectable
-                        className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed"
-                      >
-                        {fine.reason}
-                      </Text>
-                    </View>
-
-                    <View className="items-end gap-2">
-                      {/* Amount */}
-                      <Text
-                        selectable
-                        style={{ fontVariant: ['tabular-nums'] }}
-                        className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50"
-                      >
-                        {formatMMK(fine.amount)}
-                      </Text>
-
-                      {/* 1-Tap Tactile Pill Toggle */}
-                      <View className="flex-row items-center gap-2">
-                        <TouchableOpacity
-                          onPress={() => {
-                            Haptics.impactLightAsync();
-                            toggleFinePaid(fine.id);
-                          }}
-                          activeOpacity={0.8}
-                          style={{ borderCurve: 'continuous' }}
-                          className={`flex-row items-center rounded-full px-3.5 py-1.5 ${
-                            fine.isPaid
-                              ? 'bg-emerald-500/15'
-                              : 'bg-rose-500/15'
-                          }`}
-                        >
-                          {fine.isPaid ? (
-                            <NativeIcon
-                              sfSymbol="checkmark.circle.fill"
-                              materialName="check-circle"
-                              FallbackIcon={CheckCircle2}
-                              size={14}
-                              color="#059669"
-                            />
-                          ) : (
-                            <NativeIcon
-                              sfSymbol="clock.fill"
-                              materialName="schedule"
-                              FallbackIcon={Clock}
-                              size={14}
-                              color="#e11d48"
-                            />
-                          )}
-                          <Text
-                            style={{
-                              color: fine.isPaid
-                                ? isDark
-                                  ? '#34d399'
-                                  : '#059669'
-                                : isDark
-                                ? '#fb7185'
-                                : '#e11d48',
-                            }}
-                            className="ml-1.5 text-xs-tight font-bold"
-                          >
-                            {fine.isPaid ? t.common.paid : t.common.unpaid}
-                          </Text>
-                        </TouchableOpacity>
-
-                        {/* Delete Fine Button */}
-                        <TouchableOpacity
-                          onPress={() =>
-                            handleDeleteFine(fine.id, student?.name || 'Unknown')
-                          }
-                          className="h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center active:bg-rose-50 dark:active:bg-rose-950/40"
-                        >
-                          <NativeIcon
-                            sfSymbol="trash"
-                            materialName="delete"
-                            FallbackIcon={Trash2}
-                            size={14}
-                            color="#a1a1aa"
-                          />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+          ) : isDesktop ? (
+            <View style={styles.feedGridGap}>
+              {finePairs.map(([leftItem, rightItem]) => (
+                <View key={leftItem.id} style={styles.desktopGridRow}>
+                  <View style={styles.desktopGridCol}>
+                    {renderFineCard(leftItem)}
                   </View>
-                );
-              })}
+                  <View style={styles.desktopGridCol}>
+                    {rightItem ? renderFineCard(rightItem) : null}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.feedListGap}>
+              {filteredFines.map((fine) => renderFineCard(fine))}
             </View>
           )}
         </View>
       </ScrollView>
 
-      {/* Prominent Floating Action Button with Safe Inset Positioning */}
-      <FloatingActionButton
-        onPress={() => setShowBatchModal(true)}
-        label={t.fines.batchFine}
-      />
+      {!isDesktop ? (
+        <FloatingActionButton
+          onPress={() => setShowBatchModal(true)}
+          label={t.fines.batchFine}
+        />
+      ) : null}
 
-      {/* Batch Fine Modal */}
       <BatchFineModal
         visible={showBatchModal}
         onClose={() => setShowBatchModal(false)}
@@ -552,7 +697,6 @@ export default function FinesScreen() {
         }}
       />
 
-      {/* Aesthetic Table Image Report Modal */}
       <AestheticReportModal
         visible={showAestheticModal}
         onClose={() => setShowAestheticModal(false)}
@@ -562,3 +706,251 @@ export default function FinesScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+  },
+  scroll: {
+    flex: 1,
+    height: '100%',
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  container: {
+    width: '100%',
+    alignSelf: 'center',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 14,
+    marginBottom: 18,
+  },
+  headerLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
+  pageTitle: {
+    fontSize: 26,
+    lineHeight: 42,
+    paddingTop: 4,
+    letterSpacing: -0.3,
+    ...(Platform.OS === 'android' ? { includeFontPadding: true } : {}),
+  },
+  pageSubtitle: {
+    fontSize: 13,
+    lineHeight: 22,
+    marginTop: 2,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 0,
+    paddingTop: 6,
+  },
+  exportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    borderRadius: 9999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  exportBtnText: {
+    fontSize: 12,
+  },
+  primaryActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  primaryActionText: {
+    fontSize: 13,
+  },
+  summaryCard: {
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 18,
+  },
+  summaryTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 12,
+  },
+  summaryEyebrow: {
+    fontSize: 11,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  summaryMetricsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  metricBox: {
+    flex: 1,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  metricLabel: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  metricValue: {
+    fontSize: 19,
+    lineHeight: 24,
+    fontVariant: ['tabular-nums'],
+  },
+  metricValueLarge: {
+    fontSize: 20,
+    lineHeight: 25,
+    fontVariant: ['tabular-nums'],
+  },
+  controlsWrap: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  desktopToolbarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  desktopSearchBar: {
+    flex: 1,
+    maxWidth: 380,
+  },
+  statusChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
+  chip: {
+    borderRadius: 9999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  chipText: {
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+  },
+  subjectChipsContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  subjectChip: {
+    borderRadius: 9999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  subjectChipText: {
+    fontSize: 12,
+  },
+  feedGridGap: {
+    gap: 12,
+  },
+  desktopGridRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  desktopGridCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  feedListGap: {
+    gap: 10,
+  },
+  fineCard: {
+    flex: 1,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    padding: 14,
+    justifyContent: 'space-between',
+  },
+  fineTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 8,
+  },
+  fineBadgesLeft: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    minWidth: 0,
+  },
+  fineAmount: {
+    fontSize: 15,
+    fontVariant: ['tabular-nums'],
+    flexShrink: 0,
+  },
+  fineStudentBlock: {
+    gap: 3,
+  },
+  fineStudentNameLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    minWidth: 0,
+  },
+  fineRollText: {
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+    flexShrink: 0,
+  },
+  fineStudentName: {
+    fontSize: 14,
+    flexShrink: 1,
+  },
+  fineReason: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  fineBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    borderTopWidth: 1,
+    paddingTop: 10,
+    marginTop: 10,
+  },
+  statusSwitchPress: {
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  deleteCircleBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+});

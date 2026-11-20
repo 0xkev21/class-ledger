@@ -1,7 +1,8 @@
 import { LucideIcon, Plus } from 'lucide-react-native';
 import React from 'react';
-import { Platform, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { useAppTheme } from '@/src/context/TreasuryContext';
+import { fonts } from '@/src/theme';
 import { NativeIcon, NativeIconProps } from './NativeIcon';
 import { PressableScale } from './animated/PressableScale';
 
@@ -34,18 +35,16 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   style,
   testID,
 }) => {
-  const { themeColor, isDark } = useAppTheme();
-  const isWeb = Platform.OS === 'web';
+  const { palette, themeColor } = useAppTheme();
 
   return (
     <View
       testID={testID}
-      className="bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800/80"
       style={[
         styles.container,
         {
-          backgroundColor: isWeb ? 'var(--bg-card)' : isDark ? '#18181b' : '#ffffff',
-          borderColor: isWeb ? 'var(--border-card)' : isDark ? 'rgba(39, 39, 42, 0.8)' : 'rgba(228, 228, 231, 0.7)',
+          backgroundColor: palette.card,
+          borderColor: palette.line,
         },
         style,
       ]}
@@ -62,16 +61,32 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           sfSymbol={sfSymbol}
           materialName={materialName}
           FallbackIcon={icon}
-          size={32}
+          size={28}
           color={themeColor.primary}
         />
       </View>
 
-      <Text style={styles.title} className="text-zinc-900 dark:text-zinc-50">
+      <Text
+        style={[
+          styles.title,
+          {
+            color: palette.ink,
+            fontFamily: fonts.semibold,
+          },
+        ]}
+      >
         {title}
       </Text>
 
-      <Text style={styles.description} className="text-zinc-500 dark:text-zinc-400">
+      <Text
+        style={[
+          styles.description,
+          {
+            color: palette.muted,
+            fontFamily: fonts.regular,
+          },
+        ]}
+      >
         {description}
       </Text>
 
@@ -99,6 +114,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
               styles.actionButtonText,
               {
                 color: themeColor.onPrimary,
+                fontFamily: fonts.semibold,
               },
             ]}
           >
@@ -114,51 +130,45 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
+    paddingVertical: 44,
     paddingHorizontal: 24,
-    borderRadius: 24,
+    borderRadius: 16,
     borderCurve: 'continuous',
     borderWidth: 1,
     marginTop: 8,
   },
   iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    borderCurve: 'continuous',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   title: {
     fontSize: 16,
-    fontWeight: '700',
     marginBottom: 4,
     textAlign: 'center',
   },
   description: {
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 21,
     textAlign: 'center',
-    maxWidth: 280,
+    maxWidth: 360,
     marginBottom: 20,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
+    borderRadius: 12,
     borderCurve: 'continuous',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
   },
   actionButtonText: {
     marginLeft: 8,
     fontSize: 13,
-    fontWeight: '700',
   },
 });

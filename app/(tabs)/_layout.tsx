@@ -1,12 +1,15 @@
 import { BarChart3, Gavel, HeartHandshake, Settings2, Users } from 'lucide-react-native';
 import { ErrorBoundaryProps, Tabs } from 'expo-router';
 import { ErrorBoundary as DefaultErrorBoundary } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Platform, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DesktopTopNav } from '@/src/components/DesktopTopNav';
 import { NativeIcon } from '@/src/components/NativeIcon';
 import { AnimatedTabButton } from '@/src/components/animated/AnimatedTabButton';
 import { AnimatedTabItem } from '@/src/components/animated/AnimatedTabItem';
 import { useAppTheme, useTranslation } from '@/src/context/TreasuryContext';
+import { fonts } from '@/src/theme';
 
 /**
  * Resilient Tab Error Boundary:
@@ -38,45 +41,59 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 export default function TabLayout() {
-  const { themeColor, isDark } = useAppTheme();
+  const { themeColor, isDark, palette } = useAppTheme();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const isWeb = process.env.EXPO_OS === 'web';
+  const { width } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
+  const [hasMounted, setHasMounted] = useState(!isWeb);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  const isDesktop = hasMounted && width >= 1024;
 
   const bottomInset = isWeb ? 8 : Math.max(insets.bottom, 8);
-  const tabHeight = 56 + bottomInset;
+  const tabHeight = 60 + bottomInset;
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarShowLabel: false,
-        tabBarActiveTintColor: isDark ? themeColor.primaryLight : themeColor.primary,
-        tabBarInactiveTintColor: isWeb ? 'var(--tab-inactive)' : (isDark ? '#a1a1aa' : '#71717a'),
-        tabBarHideOnKeyboard: true,
-        tabBarButton: ({ ref, ...props }) => (
-          <AnimatedTabButton {...props} />
-        ),
-        tabBarItemStyle: {
-          justifyContent: 'center',
-          alignItems: 'center',
-        },
-        tabBarStyle: {
-          backgroundColor: isWeb ? 'var(--bg-tabbar)' : (isDark ? '#09090b' : '#ffffff'),
-          borderTopColor: isWeb ? 'var(--border-tabbar)' : (isDark ? '#27272a' : '#f4f4f5'),
-          borderTopWidth: 1,
-          elevation: isDark ? 0 : 4,
-          shadowColor: '#000000',
-          shadowOpacity: isDark ? 0 : 0.05,
-          shadowOffset: { width: 0, height: -2 },
-          shadowRadius: 8,
-          height: tabHeight,
-          paddingBottom: bottomInset,
-          paddingTop: 4,
-          paddingHorizontal: 4,
-        },
-      }}
-    >
+    <View style={{ flex: 1, backgroundColor: palette.bg }}>
+      {isDesktop ? <DesktopTopNav /> : null}
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarShowLabel: true,
+          tabBarLabelStyle: {
+            fontFamily: fonts.medium,
+            fontSize: 11,
+            marginTop: 2,
+          },
+          tabBarActiveTintColor: isDark ? themeColor.primaryLight : themeColor.primary,
+          tabBarInactiveTintColor: palette.muted,
+          tabBarHideOnKeyboard: true,
+          tabBarButton: ({ ref, ...props }) => (
+            <AnimatedTabButton {...props} />
+          ),
+          tabBarItemStyle: {
+            justifyContent: 'center',
+            alignItems: 'center',
+          },
+          tabBarStyle: isDesktop
+            ? { display: 'none' }
+            : {
+                backgroundColor: palette.card,
+                borderTopColor: palette.line,
+                borderTopWidth: 1,
+                elevation: 0,
+                shadowOpacity: 0,
+                height: tabHeight,
+                paddingBottom: bottomInset,
+                paddingTop: 6,
+                paddingHorizontal: 4,
+              },
+        }}
+      >
       <Tabs.Screen
         name="index"
         options={{
@@ -192,6 +209,7 @@ export default function TabLayout() {
           ),
         }}
       />
-    </Tabs>
+      </Tabs>
+    </View>
   );
 }

@@ -1,16 +1,16 @@
 export default {
   light: {
-    text: '#09090b',
-    background: '#ffffff',
-    tint: '#4f46e5',
-    tabIconDefault: '#a1a1aa',
-    tabIconSelected: '#4f46e5',
+    text: '#1f3038',
+    background: '#f7f9fa',
+    tint: '#0d7480',
+    tabIconDefault: '#5d6b72',
+    tabIconSelected: '#0d7480',
   },
   dark: {
-    text: '#ffffff',
-    background: '#09090b',
-    tint: '#6366f1',
-    tabIconDefault: '#71717a',
-    tabIconSelected: '#6366f1',
+    text: '#f7f9fa',
+    background: '#16232a',
+    tint: '#289aa7',
+    tabIconDefault: '#9ea7ab',
+    tabIconSelected: '#289aa7',
   },
 };

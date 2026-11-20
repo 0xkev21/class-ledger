@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DEFAULT_THEME_COLOR_ID } from '../theme/themeColors';
 import { AppDatabaseState, AppSettings } from '../types';
 
 const STORAGE_KEY = '@ec_treasury_app_db_v2';
@@ -7,7 +8,8 @@ const LEGACY_STORAGE_KEY = '@ec_treasury_app_db_v1';
 export const INITIAL_SETTINGS: AppSettings = {
   ecKbzpayName: '',
   ecKbzpayPhone: '',
-  themeColorId: 'indigo',
+  themeColorId: DEFAULT_THEME_COLOR_ID,
+  themeMode: 'system',
   language: 'my',
 };
 
@@ -37,7 +39,14 @@ export async function loadDatabase(): Promise<AppDatabaseState> {
       settings: {
         ecKbzpayName: parsed.settings?.ecKbzpayName || '',
         ecKbzpayPhone: parsed.settings?.ecKbzpayPhone || '',
-        themeColorId: parsed.settings?.themeColorId === 'custom' ? 'indigo' : (parsed.settings?.themeColorId || 'indigo'),
+        themeColorId:
+          parsed.settings?.themeColorId === 'custom'
+            ? DEFAULT_THEME_COLOR_ID
+            : parsed.settings?.themeColorId || DEFAULT_THEME_COLOR_ID,
+        themeMode:
+          parsed.settings?.themeMode === 'light' || parsed.settings?.themeMode === 'dark'
+            ? parsed.settings.themeMode
+            : 'system',
         language: parsed.settings?.language === 'en' ? 'en' : 'my',
       },
       students: Array.isArray(parsed.students) ? parsed.students : [],

@@ -1,19 +1,13 @@
-import {
-  BookOpen,
-  Edit2,
-  Phone,
-  Plus,
-  Trash2,
-  Users,
-  X,
-} from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import { BookOpen, Edit2, Phone, Plus, Trash2, Users } from 'lucide-react-native';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Platform,
   ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,14 +17,23 @@ import { EmptyState } from '@/src/components/EmptyState';
 import { FloatingActionButton } from '@/src/components/FloatingActionButton';
 import { NativeIcon } from '@/src/components/NativeIcon';
 import { SearchBar } from '@/src/components/SearchBar';
+import { StatusPill } from '@/src/components/StatusPill';
 import { ToastNotification } from '@/src/components/ToastNotification';
 import { AnimatedSegmentedControl } from '@/src/components/animated/AnimatedSegmentedControl';
-import { PressableScale } from '@/src/components/animated/PressableScale';
 import { StaggeredRow } from '@/src/components/animated/StaggeredRow';
 import { useAppTheme, useTreasury } from '@/src/context/TreasuryContext';
+import { fonts } from '@/src/theme';
 import { Student, Subject } from '@/src/types';
 import { formatMMK } from '@/src/utils/formatters';
 import { Haptics } from '@/src/utils/haptics';
+
+function chunkPairs<T>(items: T[]): Array<[T, T | null]> {
+  const pairs: Array<[T, T | null]> = [];
+  for (let i = 0; i < items.length; i += 2) {
+    pairs.push([items[i], items[i + 1] ?? null]);
+  }
+  return pairs;
+}
 
 export default function RosterScreen() {
   const {
@@ -42,17 +45,21 @@ export default function RosterScreen() {
     fines,
     t,
   } = useTreasury();
-  const { isDark, themeColor } = useAppTheme();
+  const { themeColor, palette } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
 
-  // Active Segment: 'students' or 'subjects'
-  const [segment, setSegment] = useState<'students' | 'subjects'>('students');
+  // Mount guard on web keeps static SSR and client hydration identical
+  const [hasMounted, setHasMounted] = useState(!isWeb);
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+  const isDesktop = hasMounted && width >= 1024;
 
-  // Search state
+  const [segment, setSegment] = useState<'students' | 'subjects'>('students');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Modals state
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
 
@@ -61,7 +68,6 @@ export default function RosterScreen() {
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Filtered lists
   const filteredStudents = useMemo(() => {
     if (!searchQuery.trim()) return students;
     const q = searchQuery.toLowerCase().trim();
@@ -77,6 +83,15 @@ export default function RosterScreen() {
     const q = searchQuery.toLowerCase().trim();
     return subjects.filter((s) => s.name.toLowerCase().includes(q));
   }, [subjects, searchQuery]);
+
+  const studentPairs = useMemo(
+    () => chunkPairs(filteredStudents),
+    [filteredStudents]
+  );
+  const subjectPairs = useMemo(
+    () => chunkPairs(filteredSubjects),
+    [filteredSubjects]
+  );
 
   const rosterTabs = useMemo(
     () => [
@@ -110,7 +125,19 @@ export default function RosterScreen() {
     [t, students.length, subjects.length]
   );
 
+  const performDeleteStudent = async (studentId: string) => {
+    await deleteStudent(studentId);
+    setToastMessage(t.roster.deleteStudentToast);
+  };
+
   const handleDeleteStudent = (student: Student) => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(t.roster.deleteStudentMsg(student.name))) {
+        void performDeleteStudent(student.id);
+      }
+      return;
+    }
+
     Alert.alert(
       t.roster.deleteStudentTitle,
       t.roster.deleteStudentMsg(student.name),
@@ -119,16 +146,27 @@ export default function RosterScreen() {
         {
           text: t.common.delete,
           style: 'destructive',
-          onPress: async () => {
-            await deleteStudent(student.id);
-            setToastMessage(t.roster.deleteStudentToast);
+          onPress: () => {
+            void performDeleteStudent(student.id);
           },
         },
       ]
     );
   };
 
+  const performDeleteSubject = async (subjectId: string) => {
+    await deleteSubject(subjectId);
+    setToastMessage(t.roster.deleteSubjectToast);
+  };
+
   const handleDeleteSubject = (subject: Subject) => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(t.roster.deleteSubjectMsg(subject.name))) {
+        void performDeleteSubject(subject.id);
+      }
+      return;
+    }
+
     Alert.alert(
       t.roster.deleteSubjectTitle,
       t.roster.deleteSubjectMsg(subject.name),
@@ -137,73 +175,374 @@ export default function RosterScreen() {
         {
           text: t.common.delete,
           style: 'destructive',
-          onPress: async () => {
-            await deleteSubject(subject.id);
-            setToastMessage(t.roster.deleteSubjectToast);
+          onPress: () => {
+            void performDeleteSubject(subject.id);
           },
         },
       ]
     );
   };
 
+  const openPrimaryCreate = () => {
+    Haptics.selectionAsync();
+    if (segment === 'students') {
+      setEditingStudent(null);
+      setShowAddStudent(true);
+    } else {
+      setEditingSubject(null);
+      setShowAddSubject(true);
+    }
+  };
+
+  const renderStudentCard = (student: Student) => {
+    const unpaidBalance = getStudentUnpaidFineBalance(student.id);
+
+    return (
+      <View
+        key={student.id}
+        style={[
+          styles.itemCard,
+          {
+            backgroundColor: palette.card,
+            borderColor: palette.line,
+          },
+        ]}
+      >
+        <View style={styles.cardLeft}>
+          <View style={styles.studentTitleRow}>
+            {student.rollNumber ? (
+              <StatusPill variant="neutral" mono label={student.rollNumber} />
+            ) : null}
+            <Text
+              selectable
+              numberOfLines={1}
+              style={[
+                styles.cardName,
+                { color: palette.ink, fontFamily: fonts.semibold },
+              ]}
+            >
+              {student.name}
+            </Text>
+          </View>
+
+          {student.phone ? (
+            <View style={styles.phoneRow}>
+              <NativeIcon
+                sfSymbol="phone.fill"
+                materialName="phone"
+                FallbackIcon={Phone}
+                size={12}
+                color={palette.muted}
+              />
+              <Text
+                selectable
+                style={[
+                  styles.phoneText,
+                  { color: palette.muted, fontFamily: fonts.mono },
+                ]}
+              >
+                {student.phone}
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.badgeWrap}>
+            <StatusPill
+              variant={unpaidBalance > 0 ? 'unpaid' : 'paid'}
+              mono={unpaidBalance > 0}
+              label={
+                unpaidBalance > 0
+                  ? `${t.roster.unpaidDues}: ${formatMMK(unpaidBalance)}`
+                  : t.roster.allClear
+              }
+            />
+          </View>
+        </View>
+
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              setEditingStudent(student);
+              setShowAddStudent(true);
+            }}
+            activeOpacity={0.72}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.edit}
+            style={[
+              styles.actionCircleBtn,
+              {
+                backgroundColor: palette.surface,
+              },
+            ]}
+          >
+            <NativeIcon
+              sfSymbol="pencil"
+              materialName="edit"
+              FallbackIcon={Edit2}
+              size={14}
+              color={palette.subtle}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => handleDeleteStudent(student)}
+            activeOpacity={0.72}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.delete}
+            style={[
+              styles.actionCircleBtn,
+              {
+                backgroundColor: palette.surface,
+              },
+            ]}
+          >
+            <NativeIcon
+              sfSymbol="trash"
+              materialName="delete-outline"
+              FallbackIcon={Trash2}
+              size={14}
+              color={palette.dangerText}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  const renderSubjectCard = (sub: Subject) => {
+    const subFines = fines.filter((f) => f.subjectId === sub.id);
+    const subTotal = subFines.reduce((sum, f) => sum + f.amount, 0);
+
+    return (
+      <View
+        key={sub.id}
+        style={[
+          styles.itemCard,
+          {
+            backgroundColor: palette.card,
+            borderColor: palette.line,
+          },
+        ]}
+      >
+        <View style={styles.cardLeft}>
+          <Text
+            selectable
+            numberOfLines={1}
+            style={[
+              styles.cardName,
+              { color: palette.ink, fontFamily: fonts.semibold },
+            ]}
+          >
+            {sub.name}
+          </Text>
+
+          <View style={styles.subjectMetaRow}>
+            <StatusPill
+              variant="neutral"
+              mono
+              label={t.fines.countFines(subFines.length)}
+            />
+            <Text
+              selectable
+              style={[
+                styles.subjectTotal,
+                { color: themeColor.text, fontFamily: fonts.monoMedium },
+              ]}
+            >
+              {formatMMK(subTotal)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              setEditingSubject(sub);
+              setShowAddSubject(true);
+            }}
+            activeOpacity={0.72}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.edit}
+            style={[
+              styles.actionCircleBtn,
+              {
+                backgroundColor: palette.surface,
+              },
+            ]}
+          >
+            <NativeIcon
+              sfSymbol="pencil"
+              materialName="edit"
+              FallbackIcon={Edit2}
+              size={14}
+              color={palette.subtle}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => handleDeleteSubject(sub)}
+            activeOpacity={0.72}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.delete}
+            style={[
+              styles.actionCircleBtn,
+              {
+                backgroundColor: palette.surface,
+              },
+            ]}
+          >
+            <NativeIcon
+              sfSymbol="trash"
+              materialName="delete-outline"
+              FallbackIcon={Trash2}
+              size={14}
+              color={palette.dangerText}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  const segmentedControl = (
+    <AnimatedSegmentedControl<'students' | 'subjects'>
+      tabs={rosterTabs}
+      activeId={segment}
+      onChange={(id) => {
+        setSegment(id);
+        setSearchQuery('');
+      }}
+      activeColor={palette.ink}
+      onActiveColor={palette.bg}
+      backgroundColor={palette.surface}
+      inactiveTextColor={palette.muted}
+      style={isDesktop ? styles.desktopSegmented : undefined}
+    />
+  );
+
   return (
-    <View className="flex-1 bg-zinc-50 dark:bg-zinc-950">
-      <ToastNotification message={toastMessage} onHide={() => setToastMessage(null)} />
+    <View style={[styles.screenRoot, { backgroundColor: palette.bg }]}>
+      <ToastNotification
+        message={toastMessage}
+        onHide={() => setToastMessage(null)}
+      />
 
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
-        style={{ flex: 1, height: '100%' }}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: Math.max(insets.top, 16),
-          paddingBottom: 120,
-          flexGrow: 1,
-        }}
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: isDesktop ? 24 : 20,
+            paddingTop: isDesktop ? 24 : insets.top + 16,
+            paddingBottom: isDesktop ? 40 : 120,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        <View className="w-full max-w-4xl mx-auto">
+        <View
+          style={[
+            styles.container,
+            { maxWidth: isDesktop ? 1280 : 760 },
+          ]}
+        >
           {/* Header */}
-          <View className="mb-5 pt-2">
-            <Text
-              selectable
-              className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-50 tracking-tight leading-relaxed py-0.5"
-            >
-              {t.roster.title}
-            </Text>
-            <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-              {t.roster.subtitle}
-            </Text>
+          <View style={styles.headerRow}>
+            <View style={styles.headerLeft}>
+              <Text
+                selectable
+                style={[
+                  styles.pageTitle,
+                  { color: palette.ink, fontFamily: fonts.bold },
+                ]}
+              >
+                {t.roster.title}
+              </Text>
+              <Text
+                style={[
+                  styles.pageSubtitle,
+                  { color: palette.muted, fontFamily: fonts.regular },
+                ]}
+              >
+                {t.roster.subtitle}
+              </Text>
+            </View>
+
+            {isDesktop ? (
+              <TouchableOpacity
+                onPress={openPrimaryCreate}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  segment === 'students'
+                    ? t.roster.addStudent
+                    : t.roster.addSubject
+                }
+                style={[
+                  styles.primaryActionBtn,
+                  {
+                    backgroundColor: themeColor.primary,
+                  },
+                ]}
+              >
+                <NativeIcon
+                  sfSymbol="plus"
+                  materialName="add"
+                  FallbackIcon={Plus}
+                  size={16}
+                  color={themeColor.onPrimary}
+                />
+                <Text
+                  style={[
+                    styles.primaryActionText,
+                    {
+                      color: themeColor.onPrimary,
+                      fontFamily: fonts.semibold,
+                    },
+                  ]}
+                >
+                  {segment === 'students'
+                    ? t.roster.addStudent
+                    : t.roster.addSubject}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
-          {/* Animated Segmented Controller */}
-          <AnimatedSegmentedControl
-            tabs={rosterTabs}
-            activeId={segment}
-            onChange={(id) => {
-              setSegment(id);
-              setSearchQuery('');
-            }}
-            activeColor={themeColor.primary}
-            onActiveColor={themeColor.onPrimary}
-            backgroundColor={isWeb ? 'var(--bg-surface)' : isDark ? '#18181b' : '#f4f4f5'}
-            inactiveTextColor={isWeb ? 'var(--text-muted)' : isDark ? '#a1a1aa' : '#71717a'}
-            className="mb-4"
-          />
+          {/* Toolbar: Segmented Control & SearchBar */}
+          {isDesktop ? (
+            <View style={styles.desktopToolbar}>
+              {segmentedControl}
+              <SearchBar
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={
+                  segment === 'students'
+                    ? t.roster.searchStudents
+                    : t.roster.searchSubjects
+                }
+                style={styles.flexOne}
+              />
+            </View>
+          ) : (
+            <View style={styles.mobileToolbar}>
+              {segmentedControl}
+              <SearchBar
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={
+                  segment === 'students'
+                    ? t.roster.searchStudents
+                    : t.roster.searchSubjects
+                }
+              />
+            </View>
+          )}
 
-          {/* Search Bar */}
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={
-              segment === 'students'
-                ? t.roster.searchStudents
-                : t.roster.searchSubjects
-            }
-            style={{ marginBottom: 16 }}
-          />
-
-          {/* Segment 1: Students View */}
+          {/* Segment Content */}
           {segment === 'students' ? (
             filteredStudents.length === 0 ? (
               <EmptyState
@@ -218,226 +557,75 @@ export default function RosterScreen() {
                   setShowAddStudent(true);
                 }}
               />
-            ) : (
-              <View className="gap-2.5">
-                {filteredStudents.map((student, index) => {
-                  const unpaidBalance = getStudentUnpaidFineBalance(student.id);
-
-                  return (
-                    <StaggeredRow key={student.id} index={index}>
-                      <View
-                        style={{ borderCurve: 'continuous' }}
-                        className="rounded-3xl bg-white dark:bg-zinc-900 p-4 border border-zinc-200/70 dark:border-zinc-800/80 shadow-none flex-row items-center justify-between"
-                      >
-                      <View className="flex-1 mr-3">
-                        <View className="flex-row items-center gap-2 mb-1">
-                          <Text
-                            selectable
-                            className="text-sm font-bold text-zinc-900 dark:text-zinc-50"
-                          >
-                            {student.name}
-                          </Text>
-                          {student.rollNumber ? (
-                            <View
-                              style={{ borderCurve: 'continuous' }}
-                              className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5"
-                            >
-                              <Text selectable className="text-2xs font-semibold text-zinc-500">
-                                {student.rollNumber}
-                              </Text>
-                            </View>
-                          ) : null}
-                        </View>
-
-                        {student.phone ? (
-                          <View className="flex-row items-center mt-0.5">
-                            <NativeIcon
-                              sfSymbol="phone.fill"
-                              materialName="phone"
-                              FallbackIcon={Phone}
-                              size={11}
-                              color="#9ca3af"
-                            />
-                            <Text selectable className="ml-1 text-xs-tight text-zinc-400">
-                              {student.phone}
-                            </Text>
-                          </View>
-                        ) : null}
-
-                        {/* Unpaid Fine Balance Badge */}
-                        <View className="mt-2 flex-row">
-                          <View
-                            style={{ borderCurve: 'continuous' }}
-                            className={`rounded-full px-2.5 py-0.5 ${
-                              unpaidBalance > 0
-                                ? 'bg-rose-500/15'
-                                : 'bg-emerald-500/15'
-                            }`}
-                          >
-                            <Text
-                              selectable
-                              style={{
-                                color: unpaidBalance > 0
-                                  ? (isDark ? '#fca5a5' : '#b91c1c')
-                                  : (isDark ? '#6ee7b7' : '#047857'),
-                                fontVariant: ['tabular-nums'],
-                              }}
-                              className="text-2xs font-bold"
-                            >
-                              {unpaidBalance > 0
-                                ? `${t.roster.unpaidDues}: ${formatMMK(unpaidBalance)}`
-                                : t.roster.allClear}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-
-                      {/* Actions: Edit & Delete */}
-                      <View className="flex-row items-center gap-1.5">
-                        <TouchableOpacity
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            setEditingStudent(student);
-                            setShowAddStudent(true);
-                          }}
-                          className="h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center active:bg-zinc-200 dark:active:bg-zinc-700"
-                        >
-                          <NativeIcon
-                            sfSymbol="pencil"
-                            materialName="edit"
-                            FallbackIcon={Edit2}
-                            size={14}
-                            color="#71717a"
-                          />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          onPress={() => handleDeleteStudent(student)}
-                          className="h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center active:bg-rose-50 dark:active:bg-rose-950/40"
-                        >
-                          <NativeIcon
-                            sfSymbol="trash"
-                            materialName="delete-outline"
-                            FallbackIcon={Trash2}
-                            size={14}
-                            color="#e11d48"
-                          />
-                        </TouchableOpacity>
-                      </View>
+            ) : isDesktop ? (
+              <View style={styles.gridGap}>
+                {studentPairs.map(([leftItem, rightItem]) => (
+                  <View key={leftItem.id} style={styles.desktopGridRow}>
+                    <View style={styles.desktopGridCol}>
+                      {renderStudentCard(leftItem)}
                     </View>
+                    <View style={styles.desktopGridCol}>
+                      {rightItem ? renderStudentCard(rightItem) : null}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.listGap}>
+                {filteredStudents.map((student, index) => (
+                  <StaggeredRow key={student.id} index={index}>
+                    {renderStudentCard(student)}
                   </StaggeredRow>
-                );
-              })}
+                ))}
               </View>
             )
+          ) : filteredSubjects.length === 0 ? (
+            <EmptyState
+              title={t.roster.emptySubjectsTitle}
+              description={t.roster.emptySubjectsDesc}
+              icon={BookOpen}
+              sfSymbol="book.fill"
+              materialName="menu-book"
+              actionLabel={t.roster.addSubject}
+              onActionPress={() => {
+                setEditingSubject(null);
+                setShowAddSubject(true);
+              }}
+            />
+          ) : isDesktop ? (
+            <View style={styles.gridGap}>
+              {subjectPairs.map(([leftItem, rightItem]) => (
+                <View key={leftItem.id} style={styles.desktopGridRow}>
+                  <View style={styles.desktopGridCol}>
+                    {renderSubjectCard(leftItem)}
+                  </View>
+                  <View style={styles.desktopGridCol}>
+                    {rightItem ? renderSubjectCard(rightItem) : null}
+                  </View>
+                </View>
+              ))}
+            </View>
           ) : (
-            /* Segment 2: Subjects View */
-            filteredSubjects.length === 0 ? (
-              <EmptyState
-                title={t.roster.emptySubjectsTitle}
-                description={t.roster.emptySubjectsDesc}
-                icon={BookOpen}
-                sfSymbol="book.fill"
-                materialName="menu-book"
-                actionLabel={t.roster.addSubject}
-                onActionPress={() => {
-                  setEditingSubject(null);
-                  setShowAddSubject(true);
-                }}
-              />
-            ) : (
-              <View className="gap-2.5">
-                {filteredSubjects.map((sub, index) => {
-                  const subFines = fines.filter((f) => f.subjectId === sub.id);
-                  const subTotal = subFines.reduce((sum, f) => sum + f.amount, 0);
-
-                  return (
-                    <StaggeredRow key={sub.id} index={index}>
-                      <View
-                        style={{ borderCurve: 'continuous' }}
-                        className="rounded-3xl bg-white dark:bg-zinc-900 p-4 border border-zinc-200/70 dark:border-zinc-800/80 shadow-none flex-row items-center justify-between"
-                      >
-                      <View className="flex-1 mr-3">
-                        <Text
-                          selectable
-                          className="text-sm font-bold text-zinc-900 dark:text-zinc-50 leading-relaxed py-0.5"
-                        >
-                          {sub.name}
-                        </Text>
-                        <View className="flex-row items-center gap-2 mt-1">
-                          <Text className="text-xs-tight text-zinc-400">
-                            {t.fines.countFines(subFines.length)}
-                          </Text>
-                          <Text
-                            selectable
-                            style={{
-                              color: themeColor.primary,
-                              fontVariant: ['tabular-nums'],
-                            }}
-                            className="text-xs-tight font-bold"
-                          >
-                            {formatMMK(subTotal)}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Actions */}
-                      <View className="flex-row items-center gap-1.5">
-                        <TouchableOpacity
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            setEditingSubject(sub);
-                            setShowAddSubject(true);
-                          }}
-                          className="h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center active:bg-zinc-200 dark:active:bg-zinc-700"
-                        >
-                          <NativeIcon
-                            sfSymbol="pencil"
-                            materialName="edit"
-                            FallbackIcon={Edit2}
-                            size={14}
-                            color="#71717a"
-                          />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          onPress={() => handleDeleteSubject(sub)}
-                          className="h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center active:bg-rose-50 dark:active:bg-rose-950/40"
-                        >
-                          <NativeIcon
-                            sfSymbol="trash"
-                            materialName="delete-outline"
-                            FallbackIcon={Trash2}
-                            size={14}
-                            color="#e11d48"
-                          />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </StaggeredRow>
-                );
-              })}
-              </View>
-            )
+            <View style={styles.listGap}>
+              {filteredSubjects.map((sub, index) => (
+                <StaggeredRow key={sub.id} index={index}>
+                  {renderSubjectCard(sub)}
+                </StaggeredRow>
+              ))}
+            </View>
           )}
         </View>
       </ScrollView>
 
-      {/* Prominent Floating Action Button with Safe Inset Positioning */}
-      <FloatingActionButton
-        onPress={() => {
-          if (segment === 'students') {
-            setEditingStudent(null);
-            setShowAddStudent(true);
-          } else {
-            setEditingSubject(null);
-            setShowAddSubject(true);
+      {!isDesktop ? (
+        <FloatingActionButton
+          onPress={openPrimaryCreate}
+          label={
+            segment === 'students' ? t.roster.addStudent : t.roster.addSubject
           }
-        }}
-        label={segment === 'students' ? t.roster.addStudent : t.roster.addSubject}
-      />
+        />
+      ) : null}
 
-      {/* Add / Edit Student Modal */}
       <AddStudentModal
         visible={showAddStudent}
         onClose={() => {
@@ -447,7 +635,6 @@ export default function RosterScreen() {
         editingStudent={editingStudent}
       />
 
-      {/* Add / Edit Subject Modal */}
       <AddSubjectModal
         visible={showAddSubject}
         onClose={() => {
@@ -459,3 +646,151 @@ export default function RosterScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+  },
+  scroll: {
+    flex: 1,
+    height: '100%',
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  container: {
+    width: '100%',
+    alignSelf: 'center',
+  },
+  flexOne: {
+    flex: 1,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 14,
+    marginBottom: 18,
+  },
+  headerLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
+  pageTitle: {
+    fontSize: 26,
+    lineHeight: 42,
+    paddingTop: 4,
+    letterSpacing: -0.3,
+    ...(Platform.OS === 'android' ? { includeFontPadding: true } : {}),
+  },
+  pageSubtitle: {
+    fontSize: 13,
+    lineHeight: 22,
+    marginTop: 2,
+  },
+  primaryActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexShrink: 0,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  primaryActionText: {
+    fontSize: 13,
+  },
+  desktopToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 18,
+  },
+  desktopSegmented: {
+    width: 340,
+    flexShrink: 0,
+  },
+  mobileToolbar: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  gridGap: {
+    gap: 12,
+  },
+  desktopGridRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  desktopGridCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  listGap: {
+    gap: 10,
+  },
+  itemCard: {
+    flex: 1,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  cardLeft: {
+    flex: 1,
+    minWidth: 0,
+    gap: 6,
+  },
+  studentTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 0,
+  },
+  cardName: {
+    fontSize: 15,
+    flexShrink: 1,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  phoneText: {
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+  },
+  badgeWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  subjectMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  subjectTotal: {
+    fontSize: 13,
+    fontVariant: ['tabular-nums'],
+  },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  actionCircleBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+});

@@ -1,14 +1,16 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, AppStateStatus, Platform } from 'react-native';
+import { Appearance, AppState, AppStateStatus, Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import { User } from '@supabase/supabase-js';
 import { useColorScheme } from '@/components/useColorScheme';
 import { INITIAL_STATE, loadDatabase, resetDatabaseToDefaults, saveDatabase } from '../storage/db';
 import {
   ActiveThemeColor,
+  DEFAULT_THEME_COLOR_ID,
   resolveThemeColor,
   ThemeColorId,
 } from '../theme/themeColors';
+import { surfaces } from '../theme';
 import {
   clearLastSyncedAt,
   createSessionFromUrl,
@@ -52,6 +54,7 @@ import {
   StudentFineStat,
   Subject,
   SubjectFineStat,
+  ThemeMode,
 } from '../types';
 import { getTranslations, Translations } from '../i18n';
 
@@ -65,6 +68,9 @@ interface TreasuryContextType {
   eventRecords: EventRecord[];
   fines: Fine[];
   isLoading: boolean;
+  isDark: boolean;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => Promise<void>;
   themeColor: ActiveThemeColor;
   language: AppLanguage;
   setLanguage: (lang: AppLanguage) => Promise<void>;
@@ -181,14 +187,45 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const isCloudConnected = isCloudConfigured();
 
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const systemColorScheme = useColorScheme();
+  const themeMode: ThemeMode =
+    state.settings.themeMode === 'light' || state.settings.themeMode === 'dark'
+      ? state.settings.themeMode
+      : 'system';
+  const isDark =
+    themeMode === 'system'
+      ? systemColorScheme === 'dark'
+      : themeMode === 'dark';
+
   const themeColor = useMemo(() => {
     return resolveThemeColor(
       state.settings.themeColorId,
       isDark
     );
   }, [state.settings.themeColorId, isDark]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (Platform.OS !== 'web') {
+      try {
+        if (typeof Appearance.setColorScheme === 'function') {
+          Appearance.setColorScheme(
+            (themeMode === 'system' ? 'unspecified' : themeMode) as any
+          );
+        }
+      } catch (err) {
+        console.warn('Failed to update native color scheme:', err);
+      }
+    } else if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem('cl-theme-mode', themeMode);
+      } catch {}
+    }
+  }, [themeMode, isLoading]);
+
+  const setThemeMode = async (mode: ThemeMode) => {
+    await updateSettings({ themeMode: mode });
+  };
 
   const language: AppLanguage = state.settings.language === 'en' ? 'en' : 'my';
   const t = useMemo(() => getTranslations(language), [language]);
@@ -208,7 +245,8 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const mergedSettings: AppSettings = {
         ecKbzpayName: cloudState.settings.ecKbzpayName || prev.settings.ecKbzpayName,
         ecKbzpayPhone: cloudState.settings.ecKbzpayPhone || prev.settings.ecKbzpayPhone,
-        themeColorId: prev.settings.themeColorId || cloudState.settings.themeColorId || 'indigo',
+        themeColorId: prev.settings.themeColorId || cloudState.settings.themeColorId || DEFAULT_THEME_COLOR_ID,
+        themeMode: prev.settings.themeMode || 'system',
         language: prev.settings.language || cloudState.settings.language || 'my',
       };
       const next: AppDatabaseState = {
@@ -569,7 +607,7 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           user_id: user.id,
           ec_kbzpay_name: next.settings.ecKbzpayName || '',
           ec_kbzpay_phone: next.settings.ecKbzpayPhone || '',
-          theme_color_id: next.settings.themeColorId || 'indigo',
+          theme_color_id: next.settings.themeColorId || DEFAULT_THEME_COLOR_ID,
           language: next.settings.language || 'my',
           updated_at: new Date().toISOString(),
         };
@@ -959,7 +997,11 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           settings: {
             ecKbzpayName: parsed.settings?.ecKbzpayName || '',
             ecKbzpayPhone: parsed.settings?.ecKbzpayPhone || '',
-            themeColorId: parsed.settings?.themeColorId || stateRef.current.settings.themeColorId || 'indigo',
+            themeColorId: parsed.settings?.themeColorId || stateRef.current.settings.themeColorId || DEFAULT_THEME_COLOR_ID,
+            themeMode:
+              parsed.settings?.themeMode === 'light' || parsed.settings?.themeMode === 'dark'
+                ? parsed.settings.themeMode
+                : (stateRef.current.settings.themeMode || 'system'),
             language: parsed.settings?.language === 'en' ? 'en' : (stateRef.current.settings.language || 'my'),
           },
           students: Array.isArray(parsed.students) ? parsed.students : [],
@@ -1105,6 +1147,9 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         eventRecords: state.eventRecords,
         fines: state.fines,
         isLoading,
+        isDark,
+        themeMode,
+        setThemeMode,
         themeColor,
         language,
         setLanguage,
@@ -1165,17 +1210,20 @@ export const useTreasury = () => {
 };
 
 export const useAppTheme = () => {
-  const { themeColor, settings, updateSettings } = useTreasury();
-  const colorScheme = useColorScheme();
+  const { themeColor, isDark, themeMode, setThemeMode, settings, updateSettings } =
+    useTreasury();
   return {
     themeColor,
-    isDark: colorScheme === 'dark',
-    themeColorId: (settings.themeColorId as ThemeColorId) || 'indigo',
+    isDark,
+    palette: isDark ? surfaces.dark : surfaces.light,
+    themeColorId: (settings.themeColorId as ThemeColorId) || DEFAULT_THEME_COLOR_ID,
     setThemeColor: async (themeColorId: ThemeColorId) => {
       await updateSettings({
         themeColorId,
       });
     },
+    themeMode,
+    setThemeMode,
   };
 };
 

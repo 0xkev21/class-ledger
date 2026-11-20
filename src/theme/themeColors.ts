@@ -1,11 +1,11 @@
 export type ThemeColorId =
+  | 'teal'
   | 'indigo'
   | 'blue'
   | 'emerald'
   | 'violet'
   | 'rose'
   | 'amber'
-  | 'teal'
   | 'crimson'
   | 'cyan';
 
@@ -13,16 +13,16 @@ export interface ThemeColorPreset {
   id: ThemeColorId;
   nameMm: string;
   nameEn: string;
-  primary: string; // The main vibrant solid color (e.g. #4f46e5)
-  primaryDark: string; // Darker shade for pressed/hover (e.g. #4338ca)
-  primaryLight: string; // Lighter shade (e.g. #6366f1)
-  surfaceLight: string; // Tinted card/badge background in light mode
-  surfaceDark: string; // Tinted card/badge background in dark mode
-  borderLight: string; // Tinted border in light mode
-  borderDark: string; // Tinted border in dark mode
-  textLight: string; // Text color on tinted surface in light mode
-  textDark: string; // Text color on tinted surface in dark mode
-  onPrimary: string; // Text on solid primary button (usually #ffffff)
+  primary: string;
+  primaryDark: string;
+  primaryLight: string;
+  surfaceLight: string;
+  surfaceDark: string;
+  borderLight: string;
+  borderDark: string;
+  textLight: string;
+  textDark: string;
+  onPrimary: string;
 }
 
 export interface ActiveThemeColor {
@@ -32,14 +32,29 @@ export interface ActiveThemeColor {
   primary: string;
   primaryDark: string;
   primaryLight: string;
-  surface: string; // Evaluated for current color scheme
-  border: string; // Evaluated for current color scheme
-  text: string; // Evaluated for current color scheme
+  surface: string;
+  border: string;
+  text: string;
   onPrimary: string;
   raw: ThemeColorPreset;
 }
 
 export const THEME_COLOR_PRESETS: Record<ThemeColorId, ThemeColorPreset> = {
+  teal: {
+    id: 'teal',
+    nameMm: 'စိမ်းပြာရောင် (မူလ)',
+    nameEn: 'Slate Teal',
+    primary: '#0d7480',
+    primaryDark: '#0a5f69',
+    primaryLight: '#289aa7',
+    surfaceLight: '#e4f1f3',
+    surfaceDark: 'rgba(13, 116, 128, 0.24)',
+    borderLight: '#b8dce0',
+    borderDark: 'rgba(40, 154, 167, 0.40)',
+    textLight: '#095861',
+    textDark: '#8ee0e8',
+    onPrimary: '#ffffff',
+  },
   indigo: {
     id: 'indigo',
     nameMm: 'မူလ Indigo',
@@ -130,21 +145,6 @@ export const THEME_COLOR_PRESETS: Record<ThemeColorId, ThemeColorPreset> = {
     textDark: '#fde68a',
     onPrimary: '#ffffff',
   },
-  teal: {
-    id: 'teal',
-    nameMm: 'သမုဒ္ဒရာ စိမ်းပြာ',
-    nameEn: 'Ocean Teal',
-    primary: '#0d9488',
-    primaryDark: '#0f766e',
-    primaryLight: '#14b8a6',
-    surfaceLight: '#f0fdfa',
-    surfaceDark: 'rgba(13, 148, 136, 0.20)',
-    borderLight: '#99f6e4',
-    borderDark: 'rgba(20, 184, 166, 0.40)',
-    textLight: '#0f766e',
-    textDark: '#99f6e4',
-    onPrimary: '#ffffff',
-  },
   crimson: {
     id: 'crimson',
     nameMm: 'ပတ္တမြားနီ',
@@ -179,7 +179,7 @@ export const THEME_COLOR_PRESETS: Record<ThemeColorId, ThemeColorPreset> = {
 
 export const THEME_COLOR_LIST = Object.values(THEME_COLOR_PRESETS);
 
-export const DEFAULT_THEME_COLOR_ID: ThemeColorId = 'indigo';
+export const DEFAULT_THEME_COLOR_ID: ThemeColorId = 'teal';
 
 export function isValidHexColor(hex: string): boolean {
   if (!hex) return false;
@@ -188,7 +188,7 @@ export function isValidHexColor(hex: string): boolean {
 }
 
 export function normalizeHexColor(hex: string): string {
-  if (!hex) return '#4F46E5';
+  if (!hex) return '#0D7480';
   let clean = hex.startsWith('#') ? hex.slice(1).trim() : hex.trim();
   if (clean.length === 3) {
     clean = clean
@@ -197,7 +197,7 @@ export function normalizeHexColor(hex: string): string {
       .join('');
   }
   if (!/^[0-9a-fA-F]{6}$/.test(clean)) {
-    return '#4F46E5';
+    return '#0D7480';
   }
   return `#${clean.toUpperCase()}`;
 }
@@ -235,11 +235,11 @@ export function getContrastTextColor(hex: string): string {
   const { r, g, b } = hexToRgb(hex);
   // Relative luminance calculation
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.65 ? '#18181b' : '#ffffff';
+  return luminance > 0.65 ? '#1f3038' : '#ffffff';
 }
 
 export function resolveThemeColor(
-  themeColorId: ThemeColorId | string = 'indigo',
+  themeColorId: ThemeColorId | string = DEFAULT_THEME_COLOR_ID,
   isDark = false
 ): ActiveThemeColor {
   let preset: ThemeColorPreset;
@@ -247,7 +247,7 @@ export function resolveThemeColor(
   if (themeColorId && themeColorId in THEME_COLOR_PRESETS) {
     preset = THEME_COLOR_PRESETS[themeColorId as ThemeColorId];
   } else {
-    preset = THEME_COLOR_PRESETS.indigo;
+    preset = THEME_COLOR_PRESETS[DEFAULT_THEME_COLOR_ID];
   }
 
   return {

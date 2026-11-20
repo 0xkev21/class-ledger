@@ -27,17 +27,17 @@ export function createAestheticTheme(themeColor: ActiveThemeColor): AestheticThe
   return {
     id: themeColor.id,
     name: themeColor.primary,
-    frameColor: blendHexWithWhite(primary, 0.22),
+    frameColor: blendHexWithWhite(primary, 0.14),
     numberBg: blendHexWithWhite(primary, 0.08),
     paperBg: '#FFFFFF',
-    borderColor: '#18181B',
-    textColor: '#18181B',
-    secondaryTextColor: '#52525B',
+    borderColor: primary,
+    textColor: '#1f3038',
+    secondaryTextColor: '#48565d',
     accentColor: primary,
-    badgePaidBg: '#EAF6EE',
-    badgePaidText: '#166534',
-    badgeUnpaidBg: '#FCEBEA',
-    badgeUnpaidText: '#991B1B',
+    badgePaidBg: '#e3f3ea',
+    badgePaidText: '#14532d',
+    badgeUnpaidBg: '#fbeedb',
+    badgeUnpaidText: '#78350f',
   };
 }
 

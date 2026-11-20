@@ -3,10 +3,13 @@ import { AppLanguage } from '../i18n/translations';
 
 export type { ThemeColorId, AppLanguage };
 
+export type ThemeMode = 'system' | 'light' | 'dark';
+
 export interface AppSettings {
   ecKbzpayName: string;
   ecKbzpayPhone: string;
   themeColorId?: ThemeColorId;
+  themeMode?: ThemeMode;
   language?: AppLanguage;
 }
 

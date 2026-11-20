@@ -149,4 +149,43 @@ const ghRvDist = path.join(__dirname, '..', 'node_modules', 'react-native-gestur
 patchGestureHandlerRootViewAndroid(ghRvSrc, true);
 patchGestureHandlerRootViewAndroid(ghRvDist, false);
 
+function patchNativeInteropFunctionStyle(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+  const content = fs.readFileSync(filePath, 'utf8');
+  const collectFnMatch = /function collectInlineRules\([\s\S]*?\n\}/.exec(content);
+  if (!collectFnMatch) {
+    console.warn(`collectInlineRules not found in ${path.relative(process.cwd(), filePath)}`);
+    return;
+  }
+
+  const originalFn = collectFnMatch[0];
+  if (originalFn.includes('typeof target !== "function"') || originalFn.includes("typeof target !== 'function'")) {
+    console.log(`Already patched collectInlineRules in ${path.relative(process.cwd(), filePath)}`);
+    return;
+  }
+
+  if (!originalFn.includes('else if (target) {')) {
+    console.warn(`Expected branch not found in collectInlineRules of ${path.relative(process.cwd(), filePath)}`);
+    return;
+  }
+
+  const updatedFn = originalFn.replace(
+    'else if (target) {',
+    'else if (target && typeof target !== "function") {'
+  );
+  const nextContent =
+    content.slice(0, collectFnMatch.index) +
+    updatedFn +
+    content.slice(collectFnMatch.index + originalFn.length);
+  fs.writeFileSync(filePath, nextContent, 'utf8');
+  console.log(`Successfully patched collectInlineRules in ${path.relative(process.cwd(), filePath)}`);
+}
+
+const cssInteropNativeDist = path.join(__dirname, '..', 'node_modules', 'react-native-css-interop', 'dist', 'runtime', 'native', 'native-interop.js');
+const cssInteropNativeSrc = path.join(__dirname, '..', 'node_modules', 'react-native-css-interop', 'src', 'runtime', 'native', 'native-interop.ts');
+patchNativeInteropFunctionStyle(cssInteropNativeDist);
+patchNativeInteropFunctionStyle(cssInteropNativeSrc);
+
 

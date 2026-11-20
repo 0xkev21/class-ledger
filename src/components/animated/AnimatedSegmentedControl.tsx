@@ -15,6 +15,8 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { useAppTheme } from '@/src/context/TreasuryContext';
+import { fonts } from '@/src/theme';
 import { Haptics } from '@/src/utils/haptics';
 import { EASE_IN_OUT } from '@/src/utils/motion';
 
@@ -29,8 +31,8 @@ export interface AnimatedSegmentedControlProps<T extends string = string> {
   tabs: TabItem<T>[];
   activeId: T;
   onChange: (id: T) => void;
-  activeColor: string;
-  onActiveColor: string;
+  activeColor?: string;
+  onActiveColor?: string;
   inactiveTextColor?: string;
   backgroundColor?: string;
   style?: StyleProp<ViewStyle>;
@@ -43,14 +45,20 @@ export function AnimatedSegmentedControl<T extends string = string>({
   onChange,
   activeColor,
   onActiveColor,
-  inactiveTextColor = '#71717a',
-  backgroundColor = '#f4f4f5',
+  inactiveTextColor,
+  backgroundColor,
   style,
   className = '',
 }: AnimatedSegmentedControlProps<T>) {
+  const { palette } = useAppTheme();
   const [layouts, setLayouts] = useState<Record<string, LayoutRectangle>>({});
   const [hasMeasured, setHasMeasured] = useState(false);
   const reducedMotion = useReducedMotion();
+
+  const resolvedTrackBg = backgroundColor ?? palette.surface;
+  const resolvedActiveBg = activeColor ?? palette.ink;
+  const resolvedActiveText = onActiveColor ?? palette.bg;
+  const resolvedInactiveText = inactiveTextColor ?? palette.muted;
 
   const x = useSharedValue(0);
   const w = useSharedValue(0);
@@ -112,24 +120,26 @@ export function AnimatedSegmentedControl<T extends string = string>({
     <View
       style={[
         styles.container,
-        { backgroundColor, borderCurve: 'continuous' },
+        {
+          backgroundColor: resolvedTrackBg,
+          borderColor: palette.line,
+          borderCurve: 'continuous',
+        },
         style,
       ]}
-      className={`relative flex-row p-1 rounded-full border border-zinc-200/70 dark:border-zinc-800/80 overflow-hidden ${className}`}
+      className={className}
     >
-      {/* Sliding Pill Indicator (out-of-flow absolute with no children) */}
       <Animated.View
         style={[
           styles.pill,
           {
-            backgroundColor: activeColor,
+            backgroundColor: resolvedActiveBg,
             borderCurve: 'continuous',
           },
           pillAnimatedStyle,
         ]}
       />
 
-      {/* Interactive Tabs */}
       {tabs.map((tab) => {
         const isActive = tab.id === activeId;
         const IconComponent = tab.icon;
@@ -142,19 +152,22 @@ export function AnimatedSegmentedControl<T extends string = string>({
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
             style={styles.tab}
-            className="flex-1 flex-row items-center justify-center py-2.5 rounded-full z-10"
           >
             {IconComponent ? (
               <IconComponent
-                size={16}
-                color={isActive ? onActiveColor : inactiveTextColor}
+                size={15}
+                color={isActive ? resolvedActiveText : resolvedInactiveText}
               />
             ) : null}
             <Text
-              style={{
-                color: isActive ? onActiveColor : inactiveTextColor,
-              }}
-              className={`${IconComponent ? 'ml-2' : ''} text-xs font-bold`}
+              style={[
+                styles.tabLabel,
+                {
+                  color: isActive ? resolvedActiveText : resolvedInactiveText,
+                  fontFamily: isActive ? fonts.semibold : fonts.medium,
+                  marginLeft: IconComponent ? 7 : 0,
+                },
+              ]}
             >
               {tab.label}
             </Text>
@@ -169,19 +182,28 @@ const styles = StyleSheet.create({
   container: {
     position: 'relative',
     flexDirection: 'row',
+    padding: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
   pill: {
     position: 'absolute',
     top: 4,
     left: 0,
-    borderRadius: 9999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderRadius: 9,
   },
   tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    borderRadius: 9,
+    zIndex: 10,
     backgroundColor: 'transparent',
+  },
+  tabLabel: {
+    fontSize: 13,
   },
 });

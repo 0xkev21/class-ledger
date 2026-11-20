@@ -1,18 +1,71 @@
 import { Link, Stack } from 'expo-router';
-import { StyleSheet } from 'react-native';
-
-import { Text, View } from '@/components/Themed';
+import { ArrowLeft } from 'lucide-react-native';
+import React from 'react';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BrandMark } from '@/src/components/BrandMark';
+import { StatusPill } from '@/src/components/StatusPill';
+import { useAppTheme } from '@/src/context/TreasuryContext';
+import { fonts } from '@/src/theme';
 
 export default function NotFoundScreen() {
+  const { palette, themeColor } = useAppTheme();
+
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
-      <View style={styles.container}>
-        <Text style={styles.title}>This screen doesn't exist.</Text>
+      <Stack.Screen options={{ title: 'Page Not Found', headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: palette.bg }]}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: palette.card, borderColor: palette.line },
+          ]}
+        >
+          <View style={styles.brandRow}>
+            <BrandMark size={40} accentColor={themeColor.primary} />
+            <StatusPill variant="neutral" mono label="404" />
+          </View>
 
-        <Link href="/" style={styles.link}>
-          <Text style={styles.linkText}>Go to home screen!</Text>
-        </Link>
+          <Text
+            style={[
+              styles.title,
+              { color: palette.ink, fontFamily: fonts.bold },
+            ]}
+          >
+            Page Not Found
+          </Text>
+
+          <Text
+            style={[
+              styles.description,
+              { color: palette.muted, fontFamily: fonts.regular },
+            ]}
+          >
+            This screen doesn&apos;t exist or has been moved. Return to Class Ledger to continue managing events, fines, and balances.
+          </Text>
+
+          <Link href="/" asChild>
+            <TouchableOpacity
+              activeOpacity={0.88}
+              accessibilityRole="button"
+              style={[
+                styles.button,
+                {
+                  backgroundColor: themeColor.primary,
+                },
+              ]}
+            >
+              <ArrowLeft size={16} color={themeColor.onPrimary} />
+              <Text
+                style={[
+                  styles.buttonText,
+                  { color: themeColor.onPrimary, fontFamily: fonts.semibold },
+                ]}
+              >
+                Return to Home
+              </Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
       </View>
     </>
   );
@@ -25,16 +78,43 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 20,
   },
+  card: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    padding: 24,
+    gap: 12,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 22,
+    lineHeight: 28,
   },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
-  },
-  linkText: {
+  description: {
     fontSize: 14,
-    color: '#2e78b7',
+    lineHeight: 21,
+  },
+  button: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  buttonText: {
+    fontSize: 14,
+    lineHeight: 18,
   },
 });

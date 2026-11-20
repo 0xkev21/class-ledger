@@ -2,7 +2,7 @@
   "expo": {
     "name": "Class Ledger",
     "slug": "class-ledger",
-    "version": "1.0.10",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "classledger",
@@ -10,17 +10,17 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.classledger.app",
-      "buildNumber": "10",
+      "buildNumber": "11",
       "infoPlist": {
         "CADisableMinimumFrameDurationOnPhone": true
       }
     },
     "android": {
       "package": "com.classledger.app",
-      "versionCode": 10,
+      "versionCode": 11,
       "permissions": ["android.permission.VIBRATE"],
       "adaptiveIcon": {
-        "backgroundColor": "#4f46e5",
+        "backgroundColor": "#1f3038",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -45,10 +45,10 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 180,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#f7f9fa",
           "dark": {
             "image": "./assets/images/splash-icon.png",
-            "backgroundColor": "#09090b"
+            "backgroundColor": "#16232a"
           }
         }
       ],

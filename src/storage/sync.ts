@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import { DEFAULT_THEME_COLOR_ID } from '../theme/themeColors';
 import {
   AppDatabaseState,
   AppSettings,
@@ -225,7 +226,9 @@ export async function pullCloudToLocal(
     const settings: AppSettings = {
       ecKbzpayName: cloudSettings.ecKbzpayName ?? currentSettings?.ecKbzpayName ?? '',
       ecKbzpayPhone: cloudSettings.ecKbzpayPhone ?? currentSettings?.ecKbzpayPhone ?? '',
-      themeColorId: currentSettings?.themeColorId ?? cloudSettings.themeColorId ?? 'indigo',
+      themeColorId:
+        currentSettings?.themeColorId ?? cloudSettings.themeColorId ?? DEFAULT_THEME_COLOR_ID,
+      themeMode: currentSettings?.themeMode ?? 'system',
       language: currentSettings?.language ?? cloudSettings.language ?? 'my',
     };
 

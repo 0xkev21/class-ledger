@@ -1,0 +1,1512 @@
+<!doctype html>
+<html lang="en" data-ground="sage" data-radius="soft" data-buttons="tonal" data-motion>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Class Ledger: Class dues ledger for student reps</title>
+  <meta name="description" content="Offline-first class dues and subject fines ledger in MMK for student treasurers and class representatives. Export 1200px PNG/SVG stationery sheets, sanitized CSV, JSON backups, Burmese KBZPay notices, and optional Supabase sync.">
+  <meta name="site-kind" content="software">
+  <meta name="theme-color" content="#f7f9fa">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Class Ledger: Class dues ledger for student reps">
+  <meta name="twitter:description" content="Offline-first dues, subject fines, and MMK balances on Android, Linux desktop, and the web under the MIT license.">
+  <meta property="og:title" content="Class Ledger: Class dues ledger for student reps">
+  <meta property="og:description" content="Track fixed fees, donation drives, subject fines, and class rosters offline in MMK. Export PNG/SVG stationery tables, formula-safe CSV, JSON, and Burmese chat notices.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="share.jpg">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="assets/system.css">
+  <link rel="stylesheet" href="assets/ui/base.css">
+  <link rel="stylesheet" href="assets/ui/cards.css">
+  <link rel="stylesheet" href="assets/motion/motion.css">
+  <link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
+  <link rel="stylesheet" href="assets/layout/layout.css">
+  <link rel="stylesheet" href="assets/icons/icon.css">
+  <link rel="stylesheet" href="assets/diagrams/diagram.css">
+  <link rel="stylesheet" href="assets/moments/cursor-spotlight/moment.css">
+
+  <style>
+    :root {
+      --p-bg: #f7f9fa; --p-surface: #ecf0f2; --p-ink: #1f3038; --p-muted: #5d6b72;
+      --p-accent: #0d7480; --p-accent-ink: #ffffff; --p-action: #0d7480; --p-action-ink: #ffffff;
+      --p-inv-bg: #1f3038; --p-inv-surface: #2c3c44; --p-inv-ink: #f7f9fa; --p-inv-muted: #9ea7ab;
+      --p-inv-accent: #f7f9fa; --p-inv-accent-ink: #1f3038; --p-inv-action: #f7f9fa; --p-inv-action-ink: #1f3038;
+      --font-display: "Outfit", system-ui, sans-serif;
+      --font-text: "Outfit", system-ui, sans-serif;
+      --font-mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      --display-weight: 400;
+      --display-tracking: -0.03em;
+      --display-tracking-xl: -0.04em;
+    }
+
+    /* ── Scoped Product Mockup Primitives (reuses system tokens only) ── */
+    .cl-piece {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      height: 100%;
+      padding: 14px 16px;
+      background: var(--p-bg);
+      color: var(--p-ink);
+      border: 1px solid color-mix(in oklab, var(--p-ink) 12%, transparent);
+      border-radius: var(--r-md);
+      box-shadow: 0 2px 6px rgb(31 48 56 / .06), 0 14px 28px -18px rgb(31 48 56 / .24);
+      overflow: hidden;
+      font-size: max(13px, 2.2cqw);
+      line-height: 1.35;
+    }
+    .cl-piece--surface {
+      background: var(--p-surface);
+    }
+    .cl-piece--accent {
+      background: #0a5f69;
+      color: #ffffff;
+      border-color: transparent;
+    }
+    .cl-piece--clear-br {
+      padding-bottom: 48px;
+    }
+    .cl-piece__eyebrow {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #48565d;
+    }
+    .cl-piece--accent .cl-piece__eyebrow,
+    .cl-piece--accent .cl-sub {
+      color: #ffffff;
+    }
+    .cl-figure {
+      font-family: var(--font-display);
+      font-size: clamp(22px, 4.4cqw, 30px);
+      font-weight: 500;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.05;
+    }
+    .cl-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 0;
+      border-top: 1px solid color-mix(in oklab, var(--p-ink) 10%, transparent);
+      font-size: 13px;
+    }
+    .cl-row:first-child { border-top: 0; padding-top: 0; }
+    .cl-sub { font-size: 12px; color: #48565d; }
+    .cl-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+    .cl-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .cl-pill--paid {
+      background: #e3f3ea;
+      color: #14532d;
+    }
+    .cl-pill--unpaid {
+      background: #fbeedb;
+      color: #78350f;
+    }
+    .cl-pill--brand {
+      background: #e4f1f3;
+      color: #095861;
+    }
+    .cl-pill--inv {
+      background: rgb(255 255 255 / .18);
+      color: #ffffff;
+    }
+    .cl-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .cl-chip {
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--p-surface);
+      border: 1px solid color-mix(in oklab, var(--p-ink) 11%, transparent);
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .cl-chip--on {
+      background: var(--p-ink);
+      color: var(--p-bg);
+      border-color: var(--p-ink);
+    }
+
+    /* Hero composition rules per layout-v4 triptych */
+    .hero--triptych .ly-piece > .cl-piece { width: 100%; height: 100%; }
+    .hero--triptych .hero__cta .btn { height: 56px; font-size: 18px; }
+    @media (max-width: 1023px) {
+      .hero--triptych .ly-collage { min-height: 360px; }
+    }
+    @media (min-width: 640px) and (max-width: 1023px) {
+      .hero--triptych .hero__cta { justify-content: flex-start; }
+      .hero--triptych .hero__cta .btn { width: auto; }
+    }
+
+    /* ── #ledger App Frame (Section 2) ── */
+    .cl-appframe {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgb(31 48 56 / .05), 0 20px 44px -26px rgb(31 48 56 / .22);
+    }
+    .cl-appbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 20px;
+      background: var(--p-bg);
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+    }
+    .cl-appbar__tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .cl-appbar__tab {
+      padding: 2px 4px;
+      border-radius: 0;
+      border-bottom: 2px solid transparent;
+      font-weight: 500;
+      color: var(--muted);
+      line-height: 1.2;
+    }
+    .cl-appbar__tab.is-on {
+      background: transparent;
+      color: var(--p-accent);
+      border-bottom-color: var(--p-accent);
+      font-weight: 600;
+    }
+    .cl-appbody {
+      display: grid;
+      grid-template-columns: 5fr 7fr;
+      flex: 1 1 0;
+      min-height: 0;
+    }
+    .cl-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px 20px;
+      background: var(--p-surface);
+      border-right: 1px solid var(--line);
+      overflow: hidden;
+    }
+    .cl-totalcard {
+      padding: 14px 16px;
+      border-radius: var(--r-md);
+      background: #0a5f69;
+      color: #ffffff;
+    }
+    .cl-evcard {
+      padding: 12px 14px;
+      border-radius: var(--r-md);
+      background: var(--p-bg);
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 4px;
+    }
+    .cl-evcard.is-on {
+      border-color: var(--p-accent);
+      box-shadow: inset 3px 0 0 var(--p-accent);
+    }
+    .cl-modalpane {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px 22px;
+      background: var(--p-bg);
+      min-height: 0;
+      overflow: hidden;
+    }
+    .cl-modalhead {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .cl-modalhead__amt { text-align: right; }
+    .cl-rostergrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 14px;
+    }
+    .cl-rosteritem {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--p-surface);
+      border-radius: var(--r-sm);
+      font-size: 13px;
+    }
+    @media (max-width: 1279px) {
+      .cl-tab-hide { display: none !important; }
+    }
+    @media (min-width: 1024px) and (max-width: 1279px) {
+      .cl-sidebar, .cl-modalpane { padding: 12px 16px; gap: 8px; }
+      #reports .rows > li { padding-block: 10px; }
+      #reports .cl-stationery-frame { padding: 12px; }
+      #reports .cl-stationery-sheet { padding: 12px 14px; gap: 8px; }
+      #reports .cl-stats-foot { margin-top: var(--s-3); }
+    }
+    @media (max-width: 1023px) {
+      .cl-md-hide { display: none !important; }
+      .cl-appbody { grid-template-columns: 1fr; }
+      .cl-sidebar { border-right: 0; border-bottom: 1px solid var(--line); }
+      .cl-rostergrid { grid-template-columns: 1fr; }
+    }
+    @media (min-width: 640px) and (max-width: 1023px) {
+      #ledger .fill { display: flex; flex-direction: column; flex: 1 0 auto; }
+      .cl-appframe { height: auto; flex: 1 0 auto; }
+      .cl-appbody { display: flex; flex-direction: column; flex: 1 0 auto; }
+      .cl-sidebar {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        padding: 14px 16px;
+        overflow: visible;
+        flex: none;
+      }
+      .cl-modalpane { padding: 16px 18px; gap: 10px; overflow: visible; flex: 1 0 auto; }
+    }
+
+    /* ── #features Card Panels & smooth sage surface ── */
+    #features.bg-band { --g-noise-soft: linear-gradient(transparent, transparent); }
+    #features .section-head { margin-bottom: var(--s-5); }
+    #features .card--open h3 { font-size: var(--t-lead); line-height: 1.35; }
+    .cl-panelinner {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      height: 100%;
+      padding: 14px 16px;
+      color: var(--ink);
+      font-size: 14px;
+    }
+    .cl-sheetbox {
+      flex: 1;
+      align-content: space-between;
+      background: var(--p-bg);
+      color: var(--p-ink);
+      border: 1px solid color-mix(in oklab, var(--ink) 12%, transparent);
+      border-radius: var(--r-md);
+      padding: 12px 14px;
+      display: grid;
+      gap: 8px;
+    }
+    .cl-sheetbox__head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px 10px;
+    }
+    .cl-mm-text {
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--p-ink);
+      background: var(--p-surface);
+      border-radius: var(--r-sm);
+      padding: 8px 10px;
+    }
+    #features .panel { --p-h: 224px; }
+    #features .panel:has(> .dg) {
+      min-height: 264px;
+    }
+    @media (min-width: 640px) and (max-width: 1023px) {
+      #features .group:nth-child(1) .panel { --p-h: clamp(420px, 47svh, 560px); min-height: clamp(420px, 47svh, 560px); }
+      #features .group:nth-child(2) .panel,
+      #features .group:nth-child(2) .panel:has(> .dg) { --p-h: clamp(480px, 56svh, 640px); min-height: clamp(480px, 56svh, 640px); }
+      #features .cl-sheetbox { align-content: space-evenly; }
+    }
+
+    /* ── #reports Stationery Dual-Column Paper Sheet (1200px style) ── */
+    .cl-stationery-frame {
+      display: block;
+      width: 100%;
+      padding: 18px;
+      background: color-mix(in oklab, var(--p-accent) 11%, var(--p-bg));
+      border-radius: var(--r-lg);
+      border: 1px solid color-mix(in oklab, var(--p-accent) 22%, transparent);
+    }
+    .cl-stationery-sheet {
+      background: #ffffff;
+      color: #1f3038;
+      border: 2px solid #0d7480;
+      box-shadow: 5px 5px 0 color-mix(in oklab, #0d7480 28%, transparent);
+      padding: 18px 20px;
+      display: grid;
+      gap: 12px;
+    }
+    .cl-st-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 4px 12px;
+    }
+    .cl-st-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 2px 12px;
+      font-size: 12px;
+      color: #48565d;
+    }
+    .cl-stationery-title {
+      font-family: var(--font-display);
+      font-size: clamp(22px, 2.2vw, 30px);
+      line-height: 1;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: baseline;
+    }
+    .cl-word-hollow {
+      color: #0a5f69;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+    }
+    .cl-word-solid {
+      color: #1f3038;
+      font-weight: 700;
+    }
+    .cl-stationery-cols {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 16px;
+      border-top: 1.5px solid #1f3038;
+      border-bottom: 1.5px solid #1f3038;
+      padding: 8px 0;
+      font-size: 13px;
+    }
+    .cl-st-row {
+      display: grid;
+      grid-template-columns: 54px 1fr auto;
+      gap: 8px;
+      padding: 4px 0;
+      border-bottom: 1px solid #e5ecef;
+      font-variant-numeric: tabular-nums;
+    }
+    .cl-st-row:nth-last-child(-n+2) { border-bottom: 0; }
+    .cl-stationery-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .cl-st-box {
+      padding: 8px 10px;
+      border: 1px solid color-mix(in oklab, #0d7480 32%, transparent);
+      background: #f7f9fa;
+      font-variant-numeric: tabular-nums;
+    }
+    .cl-st-box span { display: block; font-size: 12px; color: #48565d; }
+    .cl-st-box strong { font-size: 15px; font-weight: 600; color: #1f3038; }
+
+    /* Stats row in #reports (separated by air alone, no 100% hairline rule) */
+    .cl-stats-foot {
+      margin-top: var(--s-5);
+      padding-top: 0;
+    }
+    .cl-stats-foot .t-stat {
+      font-size: clamp(24px, 1vw + 20px, 34px);
+    }
+
+    /* #sync Panel height for Bowtie */
+    #sync .panel.ui-diagram {
+      min-height: 440px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--r-lg);
+    }
+
+    /* Release sizes spec table in #questions */
+    .cl-spec-table {
+      display: grid;
+      margin-top: var(--s-4);
+    }
+    .cl-spec-table > li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: var(--t-small);
+    }
+    .cl-spec-table > li:first-child { border-top: 1px solid var(--line); }
+    .cl-spec-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    @media (min-width: 1024px) {
+      #questions .cl-spec-table > li { padding: 13px 0; }
+      #questions .faq > .faq__item { padding: 26px 0; }
+      #questions .faq > .faq__item > p { max-width: 42ch; }
+    }
+
+    @media (min-width: 640px) and (max-width: 1023px) {
+      #reports .section-head { gap: var(--s-2); }
+      #reports .grid--top { row-gap: var(--s-3); }
+      #reports .stack-4 > * + * { margin-top: var(--s-2); }
+      #reports .rows > li { padding-block: 6px; }
+      #reports .cl-stats-foot { margin-top: var(--s-3); }
+      .cl-stationery-frame { padding: 10px; }
+      .cl-stationery-sheet { padding: 10px 14px; gap: 6px; }
+      .cl-st-row:nth-of-type(3), .cl-st-row:nth-of-type(4) { border-bottom: 0; }
+      #sync .panel.ui-diagram { min-height: 350px; }
+      #sync .section-head { margin-bottom: var(--s-4); }
+      #questions .faq > .faq__item { padding: var(--s-4) 0; }
+      .cl-spec-table > li { padding: 6px 0; }
+    }
+
+    main > section[id], footer[id] { scroll-margin-top: var(--nav); }
+
+    @media (max-width: 639px) {
+      :root {
+        --gut: 20px;
+        --padt: 56px;
+        --padb: 56px;
+        --hgap: 28px;
+        --hpadb: 32px;
+        --head-gap: 24px;
+      }
+
+      body { font-size: 16px; }
+      .cl-mob-hide { display: none !important; }
+      .cl-mob-trim { display: none; }
+
+      /* Natural mobile section rhythm (eliminate forced 100lvh/200lvh empty voids) */
+      main > :is(.hero, .section--hero) {
+        height: auto;
+        min-height: 0;
+      }
+      main > :is(section, .section):not(.hero, .section--hero),
+      footer.closing {
+        height: auto;
+        min-height: 0;
+        padding-block: var(--padt) calc(var(--padb) + var(--bar));
+      }
+      main > :is(section, .section).g2:not(.g2m) > :is(.wrap, .container) {
+        display: flex;
+        flex-direction: column;
+        gap: var(--s-6);
+      }
+      main > :is(section, .section).g2:not(.g2m) > :is(.wrap, .container) > :last-child {
+        margin-block: 0;
+      }
+      main > :is(section, .section).g2m > :is(.wrap, .container),
+      footer.closing.g2m > .wrap {
+        display: flex;
+        flex-direction: column;
+        gap: var(--s-7);
+      }
+
+      /* Hero: convert absolute triptych into a clean 2-col responsive grid with full-width primary tiles */
+      .hero--triptych h1 {
+        font-size: clamp(32px, 9.2vw, 40px);
+        line-height: 1.06;
+      }
+      .hero--triptych .hero__lead {
+        margin-top: var(--s-3);
+        font-size: 16px;
+        line-height: 1.5;
+        max-width: none;
+      }
+      .hero--triptych .ly-collage {
+        height: auto;
+        min-height: 0;
+        flex: none;
+        margin-block: var(--s-5);
+      }
+      .hero--triptych .ly-collage__set:not(.is-on) { display: none; }
+      .hero--triptych .ly-collage__set.is-on {
+        position: static;
+        inset: auto;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .hero--triptych .ly-collage .ly-piece {
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
+        width: auto !important;
+        height: auto !important;
+        overflow: visible;
+      }
+      .hero--triptych .ly-collage__set > .ly-piece:nth-child(1),
+      .hero--triptych .ly-collage__set > .ly-piece:nth-child(4) {
+        grid-column: 1 / -1;
+      }
+      .cl-piece {
+        height: 100%;
+        padding: 12px 14px;
+        gap: 6px;
+        font-size: 13px;
+        overflow: visible;
+      }
+      .cl-piece--clear-br { padding-bottom: 12px; }
+      .cl-figure { font-size: clamp(22px, 6.5vw, 28px); }
+      .cl-row { gap: 6px; font-size: 13px; }
+      .cl-row > strong.cl-mono { white-space: nowrap; }
+      .cl-chip { padding: 2px 7px; font-size: 11px; line-height: 1.2; }
+      .cl-pill { padding: 2px 7px; font-size: 11px; line-height: 1.2; flex-shrink: 0; }
+      .hero--triptych .hero__cta .btn { height: 50px; font-size: 16px; }
+
+      /* #ledger app frame */
+      #ledger .section-head { margin-bottom: var(--s-4); gap: var(--s-3); }
+      #ledger .fill { flex: 1 0 auto; }
+      .cl-appframe { height: auto; }
+      .cl-appbar { padding: 10px 14px; flex-wrap: wrap; gap: 6px 12px; font-size: 13px; }
+      .cl-totalcard { padding: 12px 14px; }
+      .cl-appbody { flex: 1 0 auto; }
+      .cl-sidebar, .cl-modalpane { overflow: visible; padding: 12px 14px; gap: 10px; }
+      .cl-modalhead {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .cl-modalhead__amt { text-align: left; }
+      .cl-rosteritem { padding: 8px 10px; font-size: 13px; }
+      .cl-rosteritem > span:first-child { min-width: 0; }
+
+      /* #features cards & panels */
+      #features .section-head { margin-bottom: var(--s-4); gap: var(--s-3); }
+      #features .grid { row-gap: var(--s-6); }
+      #features .card--row { gap: var(--s-2); }
+      #features .card__body p { font-size: 15px; line-height: 1.45; }
+      main > section#features.g2 .card--open > .panel { margin-top: var(--s-4); }
+      main > section#features.g2 .card--open > .panel:not(:has(> .dg)) {
+        --p-h: auto;
+        min-height: 0;
+      }
+      main > section#features.g2 .card--open > .panel:has(> .dg) {
+        min-height: 264px;
+      }
+      #features .cl-panelinner { padding: 12px; height: auto; }
+      #features .cl-sheetbox { padding: 12px; gap: 8px; }
+      #features .cl-row { flex-wrap: wrap; gap: 4px 8px; }
+      .cl-mm-text { line-height: 1.65; overflow-wrap: anywhere; }
+
+      /* Clean stacked key-value .rows on mobile (overrides system.css max-width: 11ch) */
+      .rows > li {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        padding-block: 12px;
+      }
+      .rows > li > .rows__name {
+        font-size: 13px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .rows > li > .rows__value {
+        text-align: left;
+        white-space: normal;
+        max-width: none;
+        text-wrap: pretty;
+        font-size: 15px;
+        color: var(--ink);
+        overflow-wrap: anywhere;
+      }
+
+      /* #reports stationery sheet & stats */
+      #reports .section-head { gap: var(--s-3); }
+      #reports .grid--top,
+      #questions .grid--top { row-gap: var(--s-6); }
+      .cl-stationery-frame { padding: 10px; }
+      .cl-stationery-sheet {
+        padding: 14px;
+        gap: 10px;
+        box-shadow: 4px 4px 0 color-mix(in oklab, #0d7480 28%, transparent);
+      }
+      .cl-stationery-title { font-size: 20px; gap: 6px; }
+      .cl-stationery-cols { grid-template-columns: 1fr; }
+      .cl-st-row {
+        grid-template-columns: 50px minmax(0, 1fr) auto;
+        gap: 6px;
+        padding: 7px 0;
+        font-size: 13px;
+      }
+      .cl-st-row:nth-of-type(4) { border-bottom: 0; }
+      .cl-stationery-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .cl-st-box { padding: 8px 10px; }
+      .cl-st-box strong { font-size: 14px; white-space: nowrap; }
+      .cl-stationery-stats .cl-st-box:last-child {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .cl-stats-foot { margin-top: var(--s-6); padding-top: 0; }
+      .cl-stats-foot .grid { row-gap: var(--s-5); }
+      .cl-stats-foot .grid > .span-3 { grid-column: auto / span 6; }
+      .cl-stats-foot .t-stat { font-size: clamp(22px, 6vw, 28px); }
+
+      /* #sync */
+      #sync .section-head { margin-bottom: var(--s-4); gap: var(--s-3); }
+      #sync .grid { row-gap: var(--s-5); }
+      #sync .panel.ui-diagram { min-height: 248px; }
+
+      /* #questions spec table & FAQ */
+      #questions .cl-spec-table { margin-top: var(--s-4); }
+      #questions .cl-spec-table > li {
+        padding: 11px 0;
+        gap: 10px;
+        font-size: 14px;
+      }
+      #questions .cl-spec-table > li > strong {
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      #questions .cl-spec-label {
+        min-width: 0;
+        gap: 8px;
+      }
+      #questions .cl-spec-label img { flex-shrink: 0; }
+      #questions .faq > .faq__item { padding: var(--s-4) 0; }
+      #questions .faq > .faq__item > h3 { font-size: 17px; line-height: 1.35; }
+      #questions .faq > .faq__item > p { font-size: 15px; line-height: 1.5; }
+
+      /* Footer closing & links */
+      footer.closing .closing__cta { gap: var(--s-5); }
+      footer.closing .closing__links {
+        gap: var(--s-5);
+        padding-top: var(--s-5);
+        border-top: 1px solid var(--line);
+      }
+      footer.closing .closing__links > .grid { row-gap: var(--s-5); }
+      footer.closing .footer__lede { font-size: 15px; line-height: 1.5; }
+      footer.closing :is(h3, h4):not(.closing__cta *) {
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: var(--s-2);
+      }
+      footer.closing ul { font-size: 15px; }
+      footer.closing .footer__legal {
+        padding-top: var(--s-4);
+        gap: var(--s-3) var(--s-4);
+        align-items: center;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      footer.closing .footer__legal .socials a { justify-content: center; }
+    }
+
+    @media (max-width: 389px) {
+      :root { --gut: 16px; }
+      .nav__bar { gap: 6px; }
+      .nav__logo { font-size: 15px; gap: 5px; }
+      .nav__logo img { width: 20px; height: 20px; }
+      .nav:not(.is-open) .nav__actions .btn { padding-inline: 10px; font-size: 13px; white-space: nowrap; }
+    }
+
+    @media (max-width: 359px) {
+      .nav__logo { font-size: 14px; gap: 4px; }
+      .nav__logo img { width: 18px; height: 18px; }
+      .nav:not(.is-open) .nav__actions .btn { height: 38px; padding-inline: 9px; font-size: 12.5px; }
+      .nav__toggle { width: 38px; height: 38px; }
+      .cl-piece { padding: 10px; }
+    }
+  </style>
+
+  <script src="assets/backgrounds/backgrounds.js"></script>
+  <script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
+  <script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+  <link rel="modulepreload" href="assets/moments/moments.js">
+  <link rel="modulepreload" href="assets/moments/lib.js">
+  <link rel="modulepreload" href="assets/moments/cursor-spotlight/moment.js">
+</head>
+<body id="top">
+
+  <header class="nav nav--centre">
+    <a class="skip-link" href="#main">Skip to ledger</a>
+    <div class="wrap nav__bar">
+      <a class="nav__logo" href="#top">
+        <img src="favicon.svg" alt="" width="24" height="24" loading="lazy">
+        <span>Class Ledger</span>
+      </a>
+
+      <nav class="nav__links" aria-label="Main">
+        <span class="nav__item"><a class="nav__link" href="#ledger" aria-current="page">Events</a></span>
+        <span class="nav__item"><a class="nav__link" href="#features">Features</a></span>
+        <span class="nav__item"><a class="nav__link" href="#reports">Reports</a></span>
+        <span class="nav__item"><a class="nav__link" href="#sync">Sync</a></span>
+        <span class="nav__item"><a class="nav__link" href="#questions">Questions</a></span>
+      </nav>
+
+      <div class="nav__actions">
+        <a class="nav__link" href="https://github.com/0xkev21/class-ledger" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a class="btn btn--primary" href="../">Open the ledger</a>
+      </div>
+
+      <button class="nav__toggle" type="button" aria-label="Menu" aria-expanded="false">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- 1. HERO: Triptych 3-set real Class Ledger collage -->
+    <section class="hero hero--triptych" data-enter aria-labelledby="hero-h">
+      <div class="wrap" data-moment="cursor-spotlight" data-moment-opts='{"rest": [0.72, 0.28], "radius": 420}'>
+        <div class="hero-text grid hero__grid">
+          <div class="span-3">
+            <h1 id="hero-h">Class dues ledger for student reps</h1>
+            <p class="hero__lead">Track 5-tab class dues in MMK and subject fines offline on Android, Linux desktop, and the web under the MIT license.</p>
+          </div>
+
+          <div class="ly-collage span-6 start-4" role="img" aria-label="Class Ledger workflows across Events, Batch Fines, Stationery Exports, and Supabase Sync">
+            <!-- Set 0: Events, Presets, Navigation, Collection Roster -->
+            <div class="ly-collage__set is-on">
+              <div class="ly-piece" style="left: 0%; top: 0%; width: 49%; height: 43%;">
+                <div class="cl-piece cl-piece--accent">
+                  <span class="cl-piece__eyebrow">Total Collected</span>
+                  <div class="cl-figure">932,500 MMK</div>
+                  <div class="cl-sub">Fixed fees + donation drives across term</div>
+                  <div class="cl-row" style="margin-top: auto; border-color: rgb(255 255 255 / .2);">
+                    <span>October Dues</span>
+                    <strong class="cl-mono">420,000 MMK</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ly-piece" style="left: 52%; top: 0%; width: 48%; height: 41%;">
+                <div class="cl-piece cl-piece--surface">
+                  <span class="cl-piece__eyebrow">Quick Amounts</span>
+                  <div class="cl-chips">
+                    <span class="cl-chip">1,000 K</span>
+                    <span class="cl-chip">2,000 K</span>
+                    <span class="cl-chip cl-chip--on">5,000 K</span>
+                    <span class="cl-chip">10,000 K</span>
+                  </div>
+                  <span class="cl-sub" style="margin-top: auto;">One tap fills fixed fees or donations</span>
+                </div>
+              </div>
+
+              <div class="ly-piece" style="left: 0%; top: 46%; width: 43%; height: 50%;">
+                <div class="cl-piece" style="gap: 4px;">
+                  <span class="cl-piece__eyebrow">5 App Tabs</span>
+                  <div class="cl-row" style="padding: 3px 0; font-size: 12px;"><span>Events</span><span class="cl-pill cl-pill--brand">Active</span></div>
+                  <div class="cl-row" style="padding: 3px 0; font-size: 12px;"><span>Fines</span><span class="cl-sub">Subjects</span></div>
+                  <div class="cl-row" style="padding: 3px 0; font-size: 12px;"><span>Roster</span><span class="cl-sub">Students</span></div>
+                  <div class="cl-row" style="padding: 3px 0; font-size: 12px;"><span>Reports</span><span class="cl-sub">Exports</span></div>
+                  <div class="cl-row" style="padding: 3px 0; font-size: 12px;"><span>Settings</span><span class="cl-sub">Theme</span></div>
+                </div>
+              </div>
+
+              <div class="ly-piece" style="left: 47%; top: 44%; width: 49%; height: 52%;">
+                <div class="cl-piece cl-piece--clear-br">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span class="cl-piece__eyebrow">Collection Roster</span>
+                    <span class="cl-mono cl-sub">42 / 48 paid</span>
+                  </div>
+                  <div class="cl-row"><span><strong class="cl-mono">5EC-01</strong> Su Myat Noe</span><span class="cl-pill cl-pill--paid">Paid</span></div>
+                  <div class="cl-row"><span><strong class="cl-mono">5EC-02</strong> Kaung Htet</span><span class="cl-pill cl-pill--paid">Paid</span></div>
+                  <div class="cl-row"><span><strong class="cl-mono">5EC-03</strong> Hnin Wai</span><span class="cl-pill cl-pill--unpaid">Unpaid</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Set 1: Batch Fines, Subject Summary, Filter Chips, Burmese Notice -->
+            <div class="ly-collage__set" aria-hidden="true">
+              <div class="ly-piece" style="left: 0%; top: 0%; width: 49%; height: 43%;">
+                <div class="cl-piece">
+                  <span class="cl-piece__eyebrow">Batch Fine Issue</span>
+                  <strong>Computer Networks</strong>
+                  <span class="cl-sub">Late Lab Submission</span>
+                  <div class="cl-chips">
+                    <span class="cl-chip">500 K</span>
+                    <span class="cl-chip cl-chip--on">1,000 K</span>
+                    <span class="cl-chip">2,000 K</span>
+                    <span class="cl-chip">3,000 K</span>
+                  </div>
+                  <div class="cl-row" style="margin-top:auto;"><span>Live Total</span><strong class="cl-mono">6 students = 6,000 MMK</strong></div>
+                </div>
+              </div>
+
+              <div class="ly-piece" style="left: 52%; top: 0%; width: 48%; height: 41%;">
+                <div class="cl-piece cl-piece--accent">
+                  <span class="cl-piece__eyebrow">Subject Fines</span>
+                  <div class="cl-row" style="border-color: rgb(255 255 255 / .2);"><span>Paid Fines</span><strong class="cl-mono">42,000 MMK</strong></div>
+                  <div class="cl-row" style="border-color: rgb(255 255 255 / .2);"><span>Pending Dues</span><strong class="cl-mono">14,000 MMK</strong></div>
+                </div>
+              </div>
+
+              <div class="ly-piece" style="left: 0%; top: 46%; width: 43%; height: 50%;">
+                <div class="cl-piece cl-piece--surface">
+                  <span class="cl-piece__eyebrow">Queue Filters</span>
+                  <div class="cl-chips">
+                    <span class="cl-chip cl-chip--on">All</span>
+                    <span class="cl-chip">Unpaid</span>
+                    <span class="cl-chip">Paid</span>
+                  </div>
+                  <span class="cl-sub" style="margin-top:auto;">Filter events and fines in one tap</span>
+                </div>
+              </div>
+
+              <div class="ly-piece" style="left: 47%; top: 44%; width: 49%; height: 52%;">
+                <div class="cl-piece cl-piece--clear-br">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span class="cl-piece__eyebrow">Initial Notice (MY)</span>
+                    <span class="cl-pill cl-pill--brand">Ready to Copy</span>
+                  </div>
+                  <div class="cl-mm-text">
+                    <strong>စာရင်းကောက်ခံမှု အစောပိုင်းကြေညာချက်</strong><br>
+                    October Class Dues · 10,000 MMK<br>
+                    KBZPay: EC Treasurer (Saved in Settings)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Set 2: Stationery Report, Formats, Bilingual, Supabase Sync -->
+            <div class="ly-collage__set" aria-hidden="true">
+              <div class="ly-piece" style="left: 0%; top: 0%; width: 49%; height: 43%;">
+                <div class="cl-piece">
+                  <span class="cl-piece__eyebrow">Stationery Sheet</span>
+                  <div class="cl-stationery-title" style="font-size:16px;">
+                    <span class="cl-word-hollow">FINES</span>
+                    <span class="cl-word-solid">ASSESSMENT</span>
+                  </div>
+                  <span class="cl-sub">1200px dual-column or summary table</span>
+                  <div class="cl-row" style="margin-top:auto;"><span>Overall Total</span><strong class="cl-mono">56,000 MMK</strong></div>
+                </div>
+              </div>
+
+              <div class="ly-piece" style="left: 52%; top: 0%; width: 48%; height: 41%;">
+                <div class="cl-piece cl-piece--surface">
+                  <span class="cl-piece__eyebrow">Export Outputs</span>
+                  <div class="cl-chips">
+                    <span class="cl-chip cl-chip--on">PNG</span>
+                    <span class="cl-chip">SVG</span>
+                    <span class="cl-chip">CSV</span>
+                    <span class="cl-chip">JSON</span>
+                  </div>
+                  <span class="cl-sub" style="margin-top:auto;">CSV escapes leading = + - @ tabs</span>
+                </div>
+              </div>
+
+              <div class="ly-piece" style="left: 0%; top: 46%; width: 43%; height: 50%;">
+                <div class="cl-piece">
+                  <span class="cl-piece__eyebrow">Display</span>
+                  <div class="cl-row"><span>English</span><span class="cl-pill cl-pill--brand">Instant</span></div>
+                  <div class="cl-row"><span>မြန်မာစာ</span><span class="cl-sub">All Tabs</span></div>
+                  <div class="cl-row"><span>Themes</span><span class="cl-sub">9 Accents</span></div>
+                </div>
+              </div>
+
+              <div class="ly-piece" style="left: 47%; top: 44%; width: 49%; height: 52%;">
+                <div class="cl-piece cl-piece--accent cl-piece--clear-br">
+                  <span class="cl-piece__eyebrow">Optional Cloud Sync</span>
+                  <strong style="font-size:16px;">Built-in Supabase RLS</strong>
+                  <span class="cl-sub">Google OAuth, Email/Password, or 8-digit OTP</span>
+                  <div class="cl-row" style="margin-top:auto; border-color: rgb(255 255 255 / .2);">
+                    <span>6 Synced Tables</span>
+                    <span class="cl-pill cl-pill--inv">auth.uid()</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="span-3 start-10 hero__cta">
+            <a class="btn btn--primary" href="../">Open the ledger</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. LEDGER SCREEN (app-frame): Events & Funds + EventDetailModal -->
+    <section class="section" id="ledger" style="--h: 1">
+      <div class="wrap">
+        <div class="section-head section-head--split">
+          <div>
+            <h2>Events and class dues ledger</h2>
+            <p>Record fixed dues or donations, then toggle each roll number Paid or Unpaid in one tap.</p>
+          </div>
+          <a class="link" href="#features">See fine features</a>
+        </div>
+
+        <div class="fill">
+          <div class="frame ui ui-ledger cl-appframe" role="img" aria-label="Class Ledger Events tab showing 932,500 MMK collected beside the October Class Dues collection roster">
+            <div class="cl-appbar">
+              <strong>Class Ledger v2.0.0 · Second Semester</strong>
+              <div class="cl-appbar__tabs cl-mob-hide" aria-hidden="true">
+                <span class="cl-appbar__tab is-on">Events</span>
+                <span class="cl-appbar__tab">Fines</span>
+                <span class="cl-appbar__tab">Roster</span>
+                <span class="cl-appbar__tab">Reports</span>
+                <span class="cl-appbar__tab">Settings</span>
+              </div>
+            </div>
+
+            <div class="cl-appbody">
+              <div class="cl-sidebar">
+                <div class="cl-totalcard">
+                  <div class="cl-piece__eyebrow" style="color:#ffffff;">Total Collected</div>
+                  <div class="cl-figure" style="margin-top:4px;">932,500 MMK</div>
+                </div>
+
+                <div class="cl-evcard is-on cl-mob-hide">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <strong>October Class Dues</strong>
+                    <span class="cl-pill cl-pill--brand">Fixed Fee</span>
+                  </div>
+                  <span class="cl-sub">10,000 MMK per student · Due 25/10/26</span>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
+                    <strong class="cl-mono">420,000 MMK</strong>
+                    <span class="cl-sub cl-mono">42 / 48 paid</span>
+                  </div>
+                </div>
+
+                <div class="cl-evcard cl-md-hide">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <strong>Lab Monitor Drive</strong>
+                    <span class="cl-pill cl-pill--paid">Donation</span>
+                  </div>
+                  <span class="cl-sub">Custom amounts · +1,000 to +10,000 K chips</span>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
+                    <strong class="cl-mono">285,000 MMK</strong>
+                    <span class="cl-sub cl-mono">19 donors</span>
+                  </div>
+                </div>
+
+                <div class="cl-evcard cl-tab-hide">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <strong>Excursion Deposit</strong>
+                    <span class="cl-pill cl-pill--brand">Fixed Fee</span>
+                  </div>
+                  <span class="cl-sub">5,000 MMK per student · Due 02/11/26</span>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
+                    <strong class="cl-mono">227,500 MMK</strong>
+                    <span class="cl-sub cl-mono">45 / 48 paid</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="cl-modalpane">
+                <div class="cl-modalhead">
+                  <div>
+                    <div class="cl-sub">Event Detail · Collection Roster</div>
+                    <strong style="font-size:18px;">October Class Dues</strong>
+                  </div>
+                  <div class="cl-modalhead__amt">
+                    <div class="cl-figure" style="font-size:22px;">420,000 MMK</div>
+                    <div class="cl-sub cl-mono">Paid: 42 / 48 · Unpaid: 6</div>
+                  </div>
+                </div>
+
+                <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:center;">
+                  <div class="cl-chips">
+                    <span class="cl-chip cl-chip--on">All (48)</span>
+                    <span class="cl-chip">Unpaid (6)</span>
+                    <span class="cl-chip">Paid (42)</span>
+                  </div>
+                  <div class="cl-chips cl-mob-hide">
+                    <span class="cl-chip">Initial Notice</span>
+                    <span class="cl-chip">Closing Report</span>
+                    <span class="cl-chip">Export Image</span>
+                  </div>
+                </div>
+
+                <div class="cl-rostergrid">
+                  <div class="cl-rosteritem"><span><strong class="cl-mono">5EC-01</strong> Su Myat Noe</span><span class="cl-pill cl-pill--paid">Paid</span></div>
+                  <div class="cl-rosteritem"><span><strong class="cl-mono">5EC-02</strong> Kaung Htet</span><span class="cl-pill cl-pill--paid">Paid</span></div>
+                  <div class="cl-rosteritem"><span><strong class="cl-mono">5EC-03</strong> Hnin Wai</span><span class="cl-pill cl-pill--unpaid">Unpaid</span></div>
+                  <div class="cl-rosteritem cl-mob-hide"><span><strong class="cl-mono">5EC-04</strong> Min Khant</span><span class="cl-pill cl-pill--paid">Paid</span></div>
+                  <div class="cl-rosteritem cl-mob-hide"><span><strong class="cl-mono">5EC-05</strong> Aye Chan</span><span class="cl-pill cl-pill--paid">Paid</span></div>
+                  <div class="cl-rosteritem cl-mob-hide"><span><strong class="cl-mono">5EC-06</strong> Thura Aung</span><span class="cl-pill cl-pill--unpaid">Unpaid</span></div>
+                  <div class="cl-rosteritem cl-tab-hide"><span><strong class="cl-mono">5EC-07</strong> Poe Ei San</span><span class="cl-pill cl-pill--paid">Paid</span></div>
+                  <div class="cl-rosteritem cl-tab-hide"><span><strong class="cl-mono">5EC-08</strong> Kyaw Zin</span><span class="cl-pill cl-pill--paid">Paid</span></div>
+                  <div class="cl-rosteritem cl-tab-hide"><span><strong class="cl-mono">5EC-09</strong> Phyo Wai</span><span class="cl-pill cl-pill--paid">Paid</span></div>
+                  <div class="cl-rosteritem cl-tab-hide"><span><strong class="cl-mono">5EC-10</strong> May Thu</span><span class="cl-pill cl-pill--unpaid">Unpaid</span></div>
+                  <div class="cl-rosteritem cl-tab-hide"><span><strong class="cl-mono">5EC-11</strong> Ye Yint</span><span class="cl-pill cl-pill--paid">Paid</span></div>
+                  <div class="cl-rosteritem cl-tab-hide"><span><strong class="cl-mono">5EC-12</strong> Nandar</span><span class="cl-pill cl-pill--paid">Paid</span></div>
+                </div>
+
+                <div class="cl-mob-hide" style="margin-top:auto;padding-top:8px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;">
+                  <span class="cl-sub">One tap toggles Paid or Unpaid · Auto-saves offline in AsyncStorage</span>
+                  <span class="cl-mono cl-sub">5EC-01 to 5EC-48</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3-4. FEATURES (features-2x2, g2, bg-band on sage) -->
+    <section class="g2 bg-band" id="features">
+      <div class="wrap">
+        <div class="group">
+          <div class="section-head section-head--split">
+            <div>
+              <h2>Class Ledger features and fines</h2>
+              <p>Batch subject fines, Burmese chat announcements, and student arrears run offline in MMK.</p>
+            </div>
+            <a class="link" href="#reports">See report outputs</a>
+          </div>
+
+          <div class="grid">
+            <article class="card card--row card--open span-6">
+              <div class="card__body">
+                <h3>Batch subject fines ledger</h3>
+                <p>Pick a subject, tap a preset from 500 K to 3,000 K, and select roll numbers.</p>
+              </div>
+              <div class="panel">
+                <div class="ui ui-card cl-panelinner" role="img" aria-label="Batch subject fine selection card for Computer Networks">
+                  <div class="cl-sheetbox">
+                    <div class="cl-sheetbox__head">
+                      <strong>Computer Networks · Late Lab Report</strong>
+                      <span class="cl-pill cl-pill--brand cl-mono">1,000 MMK</span>
+                    </div>
+                    <div class="cl-chips cl-mob-hide">
+                      <span class="cl-chip">500 K</span>
+                      <span class="cl-chip cl-chip--on">1,000 K</span>
+                      <span class="cl-chip">1,500 K</span>
+                      <span class="cl-chip">2,000 K</span>
+                      <span class="cl-chip">3,000 K</span>
+                    </div>
+                    <div class="cl-row"><span><strong class="cl-mono">5EC-03</strong> Hnin Wai</span><span class="cl-pill cl-pill--brand">Selected</span></div>
+                    <div class="cl-row cl-mob-hide"><span><strong class="cl-mono">5EC-06</strong> Thura Aung</span><span class="cl-pill cl-pill--brand">Selected</span></div>
+                    <div class="cl-row"><span>Live Batch Total</span><strong class="cl-mono">6 students · 6,000 MMK</strong></div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="card card--row card--open span-6">
+              <div class="card__body">
+                <h3>Burmese KBZPay dues notices</h3>
+                <p>Copy initial and closing Burmese notices using the KBZPay account saved in Settings.</p>
+              </div>
+              <div class="panel">
+                <div class="ui ui-card cl-panelinner" role="img" aria-label="Burmese KBZPay announcement card">
+                  <div class="cl-sheetbox" style="align-content: start;">
+                    <div class="cl-chips">
+                      <span class="cl-chip cl-chip--on">Initial Notice</span>
+                      <span class="cl-chip">Closing Report</span>
+                    </div>
+                    <div class="cl-mm-text">
+                      <strong>စာရင်းကောက်ခံမှု အစောပိုင်းကြေညာချက်</strong><br>
+                      October Class Dues · 10,000 MMK · Due 25/10/26<br>
+                      KBZPay: Class Treasurer (Saved in Settings)
+                    </div>
+                    <div class="cl-mm-text cl-mob-hide" style="background: transparent; border: 1px solid var(--line); padding: 6px 10px; font-size: 13px;">
+                      <strong>စာရင်းပိတ် ကြေညာချက်</strong> · Collected 420,000 MMK (42 / 48 paid)
+                    </div>
+                    <div class="cl-mob-hide" style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+                      <span class="cl-sub">No phone numbers printed on public sheets</span>
+                      <span class="cl-pill cl-pill--paid">Copy to Clipboard</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="grid">
+            <article class="card card--row card--open span-6">
+              <div class="card__body">
+                <h3>Student roster and dues status</h3>
+                <p>Switch between Students (48) and Subjects (5) to check Pending Dues or All Clear.</p>
+              </div>
+              <div class="panel">
+                <div class="ui ui-card cl-panelinner" role="img" aria-label="Student and Subject balance roster">
+                  <div class="cl-sheetbox">
+                    <div class="cl-chips">
+                      <span class="cl-chip cl-chip--on">Students (48)</span>
+                      <span class="cl-chip">Subjects (5)</span>
+                    </div>
+                    <div class="cl-row">
+                      <span><strong class="cl-mono">5EC-01</strong> Su Myat Noe</span>
+                      <span class="cl-pill cl-pill--paid">All Clear</span>
+                    </div>
+                    <div class="cl-row">
+                      <span><strong class="cl-mono">5EC-03</strong> Hnin Wai</span>
+                      <span class="cl-pill cl-pill--unpaid cl-mono">Pending: 2,000 MMK</span>
+                    </div>
+                    <div class="cl-row cl-mob-hide">
+                      <span><strong class="cl-mono">5EC-06</strong> Thura Aung</span>
+                      <span class="cl-pill cl-pill--unpaid cl-mono">Pending: 3,000 MMK</span>
+                    </div>
+                    <div class="cl-row cl-mob-hide">
+                      <span><strong class="cl-mono">5EC-07</strong> Poe Ei San</span>
+                      <span class="cl-pill cl-pill--paid">All Clear</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="card card--row card--open span-6">
+              <div class="card__body">
+                <h3>Export ledger to 4 formats</h3>
+                <p>Generate 1200px stationery PNG/SVG sheets, Burmese notices, safe CSV, and JSON locally.</p>
+              </div>
+              <div class="panel ui ui-diagram">
+                <div id="diagram-exports" data-diagram data-icon-base="assets/icons">
+                  <script type="application/json">
+                  {
+                    "layout": "lanes",
+                    "curve": "curve",
+                    "input": { "label": "Storage", "icon": "ui:database", "cap": false },
+                    "core": { "label": "Ledger", "icon": "ui:book-open" },
+                    "lanes": [
+                      [ { "label": "PNG / SVG", "icon": "image", "done": true, "cap": false } ],
+                      [ { "label": "Notices", "icon": "telegram", "done": true, "cap": false } ],
+                      [ { "label": "CSV / JSON", "icon": "xlsx", "done": true, "cap": false } ]
+                    ]
+                  }
+                  </script>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. REPORTS (split on .ground-surface) -->
+    <section class="section ground-surface" id="reports" style="--h: 1; --hm: 2">
+      <div class="wrap">
+        <div class="grid grid--top">
+          <div class="span-6 stack-4">
+            <div class="section-head" style="margin-bottom: 0;">
+              <h2>Stationery reports in 1200px PNG</h2>
+              <p>Render dual-column or summary-table sheets from four sources in your active accent theme.</p>
+            </div>
+
+            <ul class="rows">
+              <li>
+                <span class="rows__name">Layouts</span>
+                <span class="rows__value">Dual Column · Summary Table</span>
+              </li>
+              <li>
+                <span class="rows__name">Data Sources</span>
+                <span class="rows__value">Student · Subject · Donors · Ledger</span>
+              </li>
+              <li>
+                <span class="rows__name">Image Width</span>
+                <span class="rows__value cl-mono">1200px PNG · SVG Vector</span>
+              </li>
+              <li>
+                <span class="rows__name">Spreadsheet Export</span>
+                <span class="rows__value cl-mono">CSV (= + - @ safe) · JSON</span>
+              </li>
+            </ul>
+
+            <div><a class="link" href="#sync">Review cloud sync</a></div>
+          </div>
+
+          <div class="span-6">
+            <div class="frame ui ui-sheet cl-stationery-frame" role="img" aria-label="1200px dual-column stationery assessment export sheet in MMK">
+              <div class="cl-stationery-sheet">
+                <div class="cl-st-head">
+                  <div class="cl-stationery-title">
+                    <span class="cl-word-hollow">FINES</span>
+                    <span class="cl-word-solid">ASSESSMENT</span>
+                  </div>
+                  <span class="cl-mono" style="font-size:12px;color:#48565d;">1200px · Dual Column</span>
+                </div>
+
+                <div class="cl-st-meta">
+                  <span>Source: Complete Fines Ledger · Dual Column</span>
+                  <span class="cl-mono">Currency: MMK</span>
+                </div>
+
+                <div class="cl-stationery-cols">
+                  <div class="cl-st-row"><strong>5EC-01</strong><span>Su Myat Noe</span><strong>2,000 MMK</strong></div>
+                  <div class="cl-st-row"><strong>5EC-06</strong><span>Thura Aung</span><strong>3,000 MMK</strong></div>
+                  <div class="cl-st-row"><strong>5EC-02</strong><span>Kaung Htet</span><strong>1,000 MMK</strong></div>
+                  <div class="cl-st-row"><strong>5EC-07</strong><span>Poe Ei San</span><strong>1,000 MMK</strong></div>
+                  <div class="cl-st-row cl-mob-trim cl-md-hide"><strong>5EC-03</strong><span>Hnin Wai</span><strong>2,000 MMK</strong></div>
+                  <div class="cl-st-row cl-mob-trim cl-md-hide"><strong>5EC-08</strong><span>Kyaw Zin</span><strong>2,000 MMK</strong></div>
+                  <div class="cl-st-row cl-mob-trim cl-md-hide"><strong>5EC-04</strong><span>Min Khant</span><strong>1,500 MMK</strong></div>
+                  <div class="cl-st-row cl-mob-trim cl-md-hide"><strong>5EC-09</strong><span>Phyo Wai</span><strong>1,000 MMK</strong></div>
+                  <div class="cl-st-row cl-mob-trim cl-tab-hide"><strong>5EC-05</strong><span>Aye Chan</span><strong>1,500 MMK</strong></div>
+                  <div class="cl-st-row cl-mob-trim cl-tab-hide"><strong>5EC-10</strong><span>May Thu</span><strong>2,000 MMK</strong></div>
+                </div>
+
+                <div class="cl-stationery-stats">
+                  <div class="cl-st-box"><span>Total Paid</span><strong>42,000 MMK</strong></div>
+                  <div class="cl-st-box"><span>Total Owed</span><strong>14,000 MMK</strong></div>
+                  <div class="cl-st-box"><span>Overall Total</span><strong>56,000 MMK</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cl-stats-foot">
+          <div class="grid">
+            <div class="span-3"><p class="t-stat">1200px</p><p class="t-small muted">Stationery canvas width</p></div>
+            <div class="span-3"><p class="t-stat">4 sources</p><p class="t-small muted">Student, subject, donors, ledger</p></div>
+            <div class="span-3"><p class="t-stat">6 tables</p><p class="t-small muted">RLS-protected Supabase sync</p></div>
+            <div class="span-3"><p class="t-stat">9 themes</p><p class="t-small muted">Carried into PNG and SVG</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. SYNC (bg-dusk, bowtie diagram + 6 RLS tables) -->
+    <section class="bg-dusk" id="sync" style="--h: 1">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Cloud sync for 6 ledger tables</h2>
+          <p>Everything saves offline first; sign in via Google, Email, or 8-digit OTP to sync.</p>
+        </div>
+
+        <div class="grid grid--top">
+          <div class="span-6 stack-4">
+            <ul class="rows">
+              <li>
+                <span class="rows__name">Local Store</span>
+                <span class="rows__value">AsyncStorage JSON</span>
+              </li>
+              <li>
+                <span class="rows__name">Sign-In Options</span>
+                <span class="rows__value">Google · Email · OTP</span>
+              </li>
+              <li>
+                <span class="rows__name">Access Policy</span>
+                <span class="rows__value cl-mono">auth.uid() = user_id</span>
+              </li>
+              <li>
+                <span class="rows__name">Synced Tables</span>
+                <span class="rows__value">All 6 ledger tables</span>
+              </li>
+            </ul>
+
+            <div class="cl-mob-hide"><a class="link" href="#questions">Read downloads and FAQ</a></div>
+          </div>
+
+          <div class="span-6">
+            <div class="panel ui ui-diagram">
+              <div id="diagram-sync" data-diagram data-icon-base="assets/icons">
+                <script type="application/json">
+                {
+                  "layout": "bowtie",
+                  "sources": [
+                    { "label": "Android APK", "icon": "android" },
+                    { "label": "Linux Desktop", "icon": "tauri" },
+                    { "label": "Web App", "icon": "chrome" }
+                  ],
+                  "core": { "label": "Supabase RLS", "icon": "supabase" },
+                  "targets": [
+                    { "label": "students", "icon": "ui:users" },
+                    { "label": "events", "icon": "ui:calendar", "done": true },
+                    { "label": "fines", "icon": "ui:receipt", "done": true },
+                    { "label": "settings", "icon": "ui:settings" }
+                  ]
+                }
+                </script>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. QUESTIONS + PLATFORMS (plain, --h: 1, --hm: 2) -->
+    <section class="section" id="questions" style="--h: 1; --hm: 2">
+      <div class="wrap">
+        <div class="grid grid--top">
+          <div class="span-6 stack-4">
+            <h2>Questions and app downloads</h2>
+            <p class="t-lead">Install Android, Linux, or web builds directly.</p>
+            <div><a class="link" href="https://github.com/0xkev21/class-ledger/issues" target="_blank" rel="noopener noreferrer">Report an issue on GitHub</a></div>
+
+            <ul class="cl-spec-table">
+              <li>
+                <span class="cl-spec-label"><img class="ic ic-24" data-icon="android" src="assets/icons/android.svg" alt="" width="24" height="24" loading="lazy">Android arm64-v8a.apk</span>
+                <strong class="cl-mono">~15 MB</strong>
+              </li>
+              <li>
+                <span class="cl-spec-label"><img class="ic ic-24" data-icon="android" src="assets/icons/android.svg" alt="" width="24" height="24" loading="lazy">Android Universal .apk</span>
+                <strong class="cl-mono">~42 MB</strong>
+              </li>
+              <li>
+                <span class="cl-spec-label"><img class="ic ic-24" data-icon="tauri" src="assets/icons/tauri.svg" alt="" width="24" height="24" loading="lazy">Linux Debian .deb</span>
+                <strong class="cl-mono">~4.5 MB</strong>
+              </li>
+              <li>
+                <span class="cl-spec-label"><img class="ic ic-24" data-icon="tauri" src="assets/icons/tauri.svg" alt="" width="24" height="24" loading="lazy">Linux Portable .AppImage</span>
+                <strong class="cl-mono">~55 MB</strong>
+              </li>
+              <li>
+                <span class="cl-spec-label"><img class="ic ic-24" data-icon="chrome" src="assets/icons/chrome.svg" alt="" width="24" height="24" loading="lazy">Web App</span>
+                <strong>Zero install</strong>
+              </li>
+            </ul>
+          </div>
+
+          <div class="span-6">
+            <div class="faq">
+              <div class="faq__item">
+                <h3>Does Class Ledger process KBZPay transfers?</h3>
+                <p>No. Receive KBZPay transfers directly, then tap Paid.</p>
+              </div>
+              <div class="faq__item">
+                <h3>Does the offline ledger need an account?</h3>
+                <p>No. Events, fines, and rosters persist in AsyncStorage.</p>
+              </div>
+              <div class="faq__item">
+                <h3>How does cloud sync protect ledger data?</h3>
+                <p>Google, Email, or OTP uses Supabase auth.uid() RLS.</p>
+              </div>
+              <div class="faq__item">
+                <h3>How does CSV ledger export stay safe?</h3>
+                <p>Cells starting with =, +, -, @, tab, or CR get prefixed.</p>
+              </div>
+              <div class="faq__item">
+                <h3>How do ledger themes and languages switch?</h3>
+                <p>Toggle English, Burmese, dark mode, or 9 accents.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 8. CLOSING + FOOTER (close-type + footer-dark) -->
+  <footer class="footer closing g2m footer--dark ground-inverse" id="closing">
+    <div class="wrap">
+      <div class="closing__cta close--type">
+        <div class="section-head">
+          <h2>Keep one clear ledger for every term.</h2>
+          <p class="t-lead">Open Class Ledger in your browser or install the Android APK or Linux desktop build.</p>
+        </div>
+        <a class="btn btn--primary btn--xl" href="../">Open the ledger</a>
+      </div>
+
+      <div class="closing__links">
+        <div class="grid">
+          <div class="span-4">
+            <a class="footer__mark" href="#top">Class Ledger</a>
+            <p class="footer__lede muted">Offline-first MMK dues and subject fines ledger for student reps.</p>
+          </div>
+
+          <div class="footer__col span-2">
+            <h3>Sections</h3>
+            <ul role="list">
+              <li><a href="#ledger">Events</a></li>
+              <li><a href="#features">Features</a></li>
+              <li><a href="#reports">Reports</a></li>
+            </ul>
+          </div>
+
+          <div class="footer__col span-2">
+            <h3>Platform</h3>
+            <ul role="list">
+              <li><a href="#sync">Sync</a></li>
+              <li><a href="#questions">Questions</a></li>
+              <li><a href="../">Web App</a></li>
+            </ul>
+          </div>
+
+          <div class="footer__col span-2">
+            <h3>Downloads</h3>
+            <ul role="list">
+              <li><a href="https://github.com/0xkev21/class-ledger/releases" target="_blank" rel="noopener noreferrer">Android APK</a></li>
+              <li><a href="https://github.com/0xkev21/class-ledger/releases" target="_blank" rel="noopener noreferrer">Linux .deb</a></li>
+              <li><a href="https://github.com/0xkev21/class-ledger/releases" target="_blank" rel="noopener noreferrer">Linux .AppImage</a></li>
+            </ul>
+          </div>
+
+          <div class="footer__col span-2">
+            <h3>Project</h3>
+            <ul role="list">
+              <li><a href="https://github.com/0xkev21/class-ledger" target="_blank" rel="noopener noreferrer">Source Code</a></li>
+              <li><a href="https://github.com/0xkev21/class-ledger/releases" target="_blank" rel="noopener noreferrer">Releases</a></li>
+              <li><a href="https://github.com/0xkev21/class-ledger/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="footer__legal">
+          <span>&copy; 2026 Class Ledger &middot; v2.0.0 &middot; MIT License &middot; Product names and logos are trademarks of their owners.</span>
+          <div class="socials">
+            <a href="https://github.com/0xkev21/class-ledger" target="_blank" rel="noopener noreferrer" aria-label="Class Ledger on GitHub">
+              <img class="ic ic-16 ic-ink" data-icon="github" src="assets/icons/github.svg" alt="" width="16" height="16" loading="lazy">
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="assets/system.js"></script>
+  <script type="module" src="assets/motion/motion.js"></script>
+  <script type="module" src="assets/layout/layout.js"></script>
+  <script type="module" src="assets/diagrams/mount.js"></script>
+  <script type="module">
+    const links = [...document.querySelectorAll('.nav__links a[href^="#"]')];
+    const pairs = links.map(a => ({ a, el: document.querySelector(a.getAttribute('href')) })).filter(p => p.el);
+    const update = () => {
+      const y = scrollY + innerHeight * 0.32;
+      let cur = pairs[0];
+      for (const p of pairs) if (p.el.getBoundingClientRect().top + scrollY <= y) cur = p;
+      for (const p of pairs) {
+        if (p === cur) p.a.setAttribute('aria-current', 'page');
+        else p.a.removeAttribute('aria-current');
+      }
+    };
+    let raf = 0;
+    addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; update(); }); }, { passive: true });
+    update();
+  </script>
+</body>
+</html>

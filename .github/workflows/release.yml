@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      allow_ephemeral_signing:
+        description: 'Allow throwaway self-signed keystore (test only; cannot update existing installs)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -34,6 +39,51 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Validate Release Version & Signing Config
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ALLOW_EPHEMERAL_SIGNING: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_ephemeral_signing == true }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const cfg = JSON.parse(fs.readFileSync("app.json", "utf8")).expo || {};
+            const version = cfg.version;
+            const vc = cfg.android && cfg.android.versionCode;
+            if (!Number.isInteger(vc) || vc <= 0) {
+              console.error("::error::app.json expo.android.versionCode must be a positive integer (got: " + vc + ")");
+              process.exit(1);
+            }
+            const ref = process.env.GITHUB_REF_NAME || "";
+            if (ref.startsWith("v") && version !== ref.slice(1)) {
+              console.log("::warning::app.json expo.version (" + version + ") does not match tag " + ref);
+            }
+            console.log("Validated app.json: version=" + version + ", android.versionCode=" + vc);
+          '
+
+          missing=()
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then missing+=("ANDROID_KEYSTORE_BASE64"); fi
+          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ]; then missing+=("ANDROID_KEYSTORE_PASSWORD"); fi
+          if [ -z "$ANDROID_KEY_ALIAS" ]; then missing+=("ANDROID_KEY_ALIAS"); fi
+          if [ -z "$ANDROID_KEY_PASSWORD" ]; then missing+=("ANDROID_KEY_PASSWORD"); fi
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            if [ "$ALLOW_EPHEMERAL_SIGNING" = "true" ]; then
+              echo "::warning::Missing signing secrets (${missing[*]}). Ephemeral self-signed test key enabled via workflow_dispatch; resulting APKs CANNOT update existing installs in place."
+              exit 0
+            fi
+            echo "::error::Missing required Android signing secrets: ${missing[*]}. Persistent signing secrets are required so users can install new versions directly without uninstalling first. See RELEASE.md for setup instructions."
+            exit 1
+          fi
+
+          TMP_KS=$(mktemp)
+          trap 'rm -f "$TMP_KS"' EXIT
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$TMP_KS"
+          keytool -list -keystore "$TMP_KS" -storepass:env ANDROID_KEYSTORE_PASSWORD -alias "$ANDROID_KEY_ALIAS" >/dev/null
+          echo "Verified persistent Android keystore and alias '$ANDROID_KEY_ALIAS'."
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
@@ -51,48 +101,77 @@ jobs:
 
       - name: Sign & Prepare Android Artifacts
         id: sign-apk
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ALLOW_EPHEMERAL_SIGNING: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_ephemeral_signing == true }}
         run: |
           mkdir -p android-artifacts
-          VERSION="${GITHUB_REF_NAME:-v1.0.0}"
+          if [[ "${GITHUB_REF_NAME:-}" == v* ]]; then
+            VERSION="$GITHUB_REF_NAME"
+          else
+            VERSION="v$(node -p "require('./app.json').expo.version")"
+          fi
+          APP_VERSION="$(node -p "require('./app.json').expo.version")"
+          VERSION_CODE="$(node -p "require('./app.json').expo.android.versionCode")"
 
           # Locate Android build tools (apksigner & zipalign)
-          BUILD_TOOLS_DIR=$(ls -d ${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools/* 2>/dev/null | sort -V | tail -n 1)
-          APKSIGNER="${BUILD_TOOLS_DIR}/apksigner"
-          ZIPALIGN="${BUILD_TOOLS_DIR}/zipalign"
-
-          if [ ! -x "$APKSIGNER" ]; then
-            APKSIGNER=$(which apksigner || true)
+          BUILD_TOOLS_DIR=$(ls -d "${ANDROID_HOME:-/usr/local/lib/android/sdk}"/build-tools/* 2>/dev/null | sort -V | tail -n 1 || true)
+          APKSIGNER=""
+          ZIPALIGN=""
+          if [ -n "$BUILD_TOOLS_DIR" ] && [ -x "$BUILD_TOOLS_DIR/apksigner" ]; then
+            APKSIGNER="$BUILD_TOOLS_DIR/apksigner"
+          else
+            APKSIGNER=$(command -v apksigner || true)
           fi
-          if [ ! -x "$ZIPALIGN" ]; then
-            ZIPALIGN=$(which zipalign || true)
+          if [ -n "$BUILD_TOOLS_DIR" ] && [ -x "$BUILD_TOOLS_DIR/zipalign" ]; then
+            ZIPALIGN="$BUILD_TOOLS_DIR/zipalign"
+          else
+            ZIPALIGN=$(command -v zipalign || true)
+          fi
+
+          if [ ! -x "$ZIPALIGN" ] || [ ! -x "$APKSIGNER" ]; then
+            echo "::error::Android build-tools zipalign ('$ZIPALIGN') or apksigner ('$APKSIGNER') not found or not executable."
+            exit 1
           fi
 
           echo "Using apksigner: $APKSIGNER"
           echo "Using zipalign: $ZIPALIGN"
 
-          # Determine Keystore to use
           KEYSTORE_FILE="release.keystore"
-          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            echo "Using production keystore from repository secrets..."
-            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$KEYSTORE_FILE"
-            KS_PASS="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
-            KEY_ALIAS="${{ secrets.ANDROID_KEY_ALIAS }}"
-            KEY_PASS="${{ secrets.ANDROID_KEY_PASSWORD }}"
-          else
-            echo "No production keystore secret found. Generating self-signed release keystore for direct installation..."
-            KS_PASS="classledger123"
+          trap 'rm -f "$KEYSTORE_FILE" aligned_tmp.apk' EXIT
+
+          SIGNING_MODE="persistent"
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+            echo "Using persistent production keystore from repository secrets..."
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$KEYSTORE_FILE"
+            export KS_PASS="$ANDROID_KEYSTORE_PASSWORD"
+            KEY_ALIAS="$ANDROID_KEY_ALIAS"
+            export KEY_PASS="$ANDROID_KEY_PASSWORD"
+          elif [ "$ALLOW_EPHEMERAL_SIGNING" = "true" ]; then
+            SIGNING_MODE="ephemeral-test"
+            echo "::warning::Generating self-signed ephemeral test keystore (workflow_dispatch override; APKs cannot update existing installs)."
+            export KS_PASS="classledger123"
             KEY_ALIAS="classledger"
-            KEY_PASS="classledger123"
+            export KEY_PASS="classledger123"
             keytool -genkeypair -v \
               -keystore "$KEYSTORE_FILE" \
               -alias "$KEY_ALIAS" \
               -keyalg RSA \
               -keysize 2048 \
               -validity 10000 \
-              -storepass "$KS_PASS" \
-              -keypass "$KEY_PASS" \
+              -storepass:env KS_PASS \
+              -keypass:env KEY_PASS \
               -dname "CN=ClassLedger, OU=ClassLedger, O=ClassLedger, C=US"
+          else
+            echo "::error::Missing required Android signing secrets. Persistent keystore is mandatory for upgradeable releases."
+            exit 1
           fi
+
+          CERT_SHA256=""
+          SIGNED_COUNT=0
 
           sign_and_align_apk() {
             local src="$1"
@@ -100,43 +179,36 @@ jobs:
             echo "Signing APK: $src -> $dest"
             local aligned_tmp="aligned_tmp.apk"
 
-            # 1. zipalign BEFORE apksigner (mandatory for v2/v3 signing schemes)
-            if [ -x "$ZIPALIGN" ]; then
-              "$ZIPALIGN" -f -v 4 "$src" "$aligned_tmp"
-            else
-              cp "$src" "$aligned_tmp"
-            fi
+            # 1. zipalign -f -p 4 BEFORE apksigner (mandatory for v2/v3 signing schemes and page alignment)
+            "$ZIPALIGN" -f -p 4 "$src" "$aligned_tmp"
 
             # 2. apksigner applies v1, v2, and v3 signature schemes (required for Android 11+)
-            if [ -x "$APKSIGNER" ]; then
-              "$APKSIGNER" sign \
-                --ks "$KEYSTORE_FILE" \
-                --ks-pass "pass:$KS_PASS" \
-                --ks-key-alias "$KEY_ALIAS" \
-                --key-pass "pass:$KEY_PASS" \
-                --v1-signing-enabled true \
-                --v2-signing-enabled true \
-                --v3-signing-enabled true \
-                --v4-signing-enabled false \
-                --out "$dest" \
-                "$aligned_tmp"
+            "$APKSIGNER" sign \
+              --ks "$KEYSTORE_FILE" \
+              --ks-pass "env:KS_PASS" \
+              --ks-key-alias "$KEY_ALIAS" \
+              --key-pass "env:KEY_PASS" \
+              --v1-signing-enabled true \
+              --v2-signing-enabled true \
+              --v3-signing-enabled true \
+              --v4-signing-enabled false \
+              --out "$dest" \
+              "$aligned_tmp"
 
-              # 3. Verify signature
-              "$APKSIGNER" verify --verbose "$dest"
-            else
-              # Fallback to jarsigner if apksigner is unavailable
-              jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
-                -keystore "$KEYSTORE_FILE" \
-                -storepass "$KS_PASS" \
-                -keypass "$KEY_PASS" \
-                "$aligned_tmp" "$KEY_ALIAS"
-              cp "$aligned_tmp" "$dest"
+            # 3. Verify signature and print certificate fingerprint
+            local verify_out
+            verify_out=$("$APKSIGNER" verify --verbose --print-certs "$dest")
+            printf '%s\n' "$verify_out"
+            if [ -z "$CERT_SHA256" ]; then
+              CERT_SHA256=$(printf '%s\n' "$verify_out" | grep -m1 'certificate SHA-256 digest:' | awk '{print $NF}' || true)
             fi
+
             rm -f "$aligned_tmp"
+            SIGNED_COUNT=$((SIGNED_COUNT + 1))
           }
 
           # Process Split and Universal APKs
-          for apk in $(find android/app/build/outputs/apk/release -name "*.apk"); do
+          while IFS= read -r apk; do
             filename=$(basename "$apk")
             if [[ "$filename" == *"arm64-v8a"* ]]; then
               sign_and_align_apk "$apk" "android-artifacts/ClassLedger-${VERSION}-arm64-v8a.apk"
@@ -147,7 +219,12 @@ jobs:
             elif [[ "$filename" == *"universal"* ]]; then
               sign_and_align_apk "$apk" "android-artifacts/ClassLedger-${VERSION}-universal.apk"
             fi
-          done
+          done < <(find android/app/build/outputs/apk/release -name "*.apk" | sort)
+
+          if [ "$SIGNED_COUNT" -eq 0 ]; then
+            echo "::error::No release APKs found to sign in android/app/build/outputs/apk/release."
+            exit 1
+          fi
 
           # Default APK alias (use arm64-v8a as primary lightweight APK for standard download links)
           if [ -f "android-artifacts/ClassLedger-${VERSION}-arm64-v8a.apk" ]; then
@@ -158,19 +235,32 @@ jobs:
 
           # Process AAB (if generated)
           if [ -d "android/app/build/outputs/bundle/release" ]; then
-            for aab in $(find android/app/build/outputs/bundle/release -name "*.aab"); do
+            while IFS= read -r aab; do
               dest="android-artifacts/ClassLedger-${VERSION}.aab"
               jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
                 -keystore "$KEYSTORE_FILE" \
-                -storepass "$KS_PASS" \
-                -keypass "$KEY_PASS" \
+                -storepass:env KS_PASS \
+                -keypass:env KEY_PASS \
                 "$aab" "$KEY_ALIAS" || true
               cp "$aab" "$dest"
-            done
+            done < <(find android/app/build/outputs/bundle/release -name "*.aab" | sort)
           fi
 
           # Remove any .idsig files so they are not uploaded
           rm -f android-artifacts/*.idsig
+
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              echo "### Android Release Build & Signing Summary"
+              echo ""
+              echo "- **Version:** \`${APP_VERSION}\` (\`versionCode: ${VERSION_CODE}\`, release tag \`${VERSION}\`)"
+              echo "- **Signing Mode:** \`${SIGNING_MODE}\`"
+              echo "- **Signed APKs:** ${SIGNED_COUNT}"
+              if [ -n "$CERT_SHA256" ]; then
+                echo "- **Signer Certificate SHA-256:** \`${CERT_SHA256}\`"
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload Android APK Artifacts
         uses: actions/upload-artifact@v4

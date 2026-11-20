@@ -16,7 +16,9 @@ export default function Root({ children }: PropsWithChildren) {
           name="viewport"
           content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1.00001, viewport-fit=cover"
         />
+        <meta name="theme-color" content="#f7f9fa" />
         <title>Class Ledger | အတန်းရန်ပုံငွေ</title>
+        <link rel="icon" href="/landing/favicon.svg" type="image/svg+xml" />
 
         {/* Ensures proper reset for React Native Web ScrollViews & full height */}
         <ScrollViewStyleReset />
@@ -30,8 +32,17 @@ export default function Root({ children }: PropsWithChildren) {
             __html: `
               (function() {
                 try {
-                  var mediaQuery = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
-                  if (mediaQuery && mediaQuery.matches) {
+                  var storedMode = window.localStorage && window.localStorage.getItem('cl-theme-mode');
+                  var shouldUseDark = false;
+                  if (storedMode === 'dark') {
+                    shouldUseDark = true;
+                  } else if (storedMode === 'light') {
+                    shouldUseDark = false;
+                  } else {
+                    var mediaQuery = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+                    shouldUseDark = Boolean(mediaQuery && mediaQuery.matches);
+                  }
+                  if (shouldUseDark) {
                     document.documentElement.classList.add('dark');
                   } else {
                     document.documentElement.classList.remove('dark');

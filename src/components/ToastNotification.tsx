@@ -1,6 +1,6 @@
 import { CheckCircle2 } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
-import { Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -9,6 +9,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppTheme } from '@/src/context/TreasuryContext';
+import { fonts, surfaces } from '@/src/theme';
 import { EASE_OUT } from '@/src/utils/motion';
 
 interface ToastNotificationProps {
@@ -23,6 +25,7 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
   duration = 2400,
 }) => {
   const insets = useSafeAreaInsets();
+  const { isDark } = useAppTheme();
   const reducedMotion = useReducedMotion();
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(-20);
@@ -34,14 +37,12 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
     let hideTimer: ReturnType<typeof setTimeout> | null = null;
 
     if (message) {
-      // Entrance
       opacity.value = withTiming(1, { duration: 200, easing: EASE_OUT });
       translateY.value = reducedMotion
         ? 0
         : withSpring(0, { duration: 300, dampingRatio: 1 });
 
       exitTimer = setTimeout(() => {
-        // Exit
         opacity.value = withTiming(0, { duration: 180, easing: EASE_OUT });
         if (!reducedMotion) {
           translateY.value = withTiming(-20, { duration: 180, easing: EASE_OUT });
@@ -69,6 +70,10 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
 
   if (!message) return null;
 
+  const toastBg = isDark ? surfaces.light.bg : surfaces.dark.card;
+  const toastText = isDark ? surfaces.light.ink : surfaces.dark.ink;
+  const iconColor = isDark ? surfaces.light.paidText : '#34d399';
+
   return (
     <Animated.View
       style={[
@@ -84,12 +89,46 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
       ]}
       pointerEvents="none"
     >
-      <View className="flex-row items-center rounded-full bg-zinc-900/95 dark:bg-white/95 px-5 py-3 shadow-lg">
-        <CheckCircle2 size={18} color="#10b981" />
-        <Text className="ml-2.5 text-xs font-bold text-white dark:text-zinc-900">
+      <View
+        style={[
+          styles.toast,
+          {
+            backgroundColor: toastBg,
+          },
+        ]}
+      >
+        <CheckCircle2 size={18} color={iconColor} />
+        <Text
+          style={[
+            styles.message,
+            {
+              color: toastText,
+              fontFamily: fonts.medium,
+            },
+          ]}
+        >
           {message}
         </Text>
       </View>
     </Animated.View>
   );
 };
+
+const styles = StyleSheet.create({
+  toast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 9999,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    shadowColor: '#1f3038',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  message: {
+    marginLeft: 10,
+    fontSize: 13,
+  },
+});

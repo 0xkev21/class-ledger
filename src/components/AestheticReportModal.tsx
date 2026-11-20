@@ -1,24 +1,21 @@
 import {
   Check,
-  ChevronDown,
   Copy,
   Download,
   Eye,
   Image as ImageIcon,
-  Palette,
-  Settings2,
   Share2,
   Sliders,
-  Sparkles,
   X,
-  ZoomIn,
 } from 'lucide-react-native';
 import React, { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -27,6 +24,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme, useTreasury } from '../context/TreasuryContext';
+import { fonts } from '../theme';
 import { StudentFineStat } from '../types';
 import {
   AestheticReportModel,
@@ -48,6 +46,7 @@ import { formatDate, formatMMK, getTodayFormatted } from '../utils/formatters';
 import { AestheticReportView } from './AestheticReportView';
 import { AestheticSvgReport } from './AestheticSvgReport';
 import { NativeIcon } from './NativeIcon';
+import { StatusPill } from './StatusPill';
 
 interface AestheticReportModalProps {
   visible: boolean;
@@ -84,7 +83,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
     language,
     t,
   } = useTreasury();
-  const { isDark, themeColor } = useAppTheme();
+  const { themeColor, palette } = useAppTheme();
 
   // State
   const [reportType, setReportType] = useState<ReportSourceType>(initialReportType);
@@ -228,8 +227,8 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
           leftItems,
           rightItems,
           stats: [
-            { label: 'Total Paid', value: formatMMK(totalPaid), color: '#166534' },
-            { label: 'Total Owed', value: formatMMK(totalUnpaid), color: '#991B1B' },
+            { label: 'Total Paid', value: formatMMK(totalPaid), color: '#14532d' },
+            { label: 'Total Owed', value: formatMMK(totalUnpaid), color: '#78350f' },
             { label: 'Overall Total', value: formatMMK(totalAll) },
           ],
           footerNote: 'Class Ledger • Student Fine Assessment Sheet',
@@ -262,8 +261,8 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
             col3: formatMMK(totalAll),
           },
           stats: [
-            { label: 'Total Paid', value: formatMMK(totalPaid), color: '#166534' },
-            { label: 'Total Owed', value: formatMMK(totalUnpaid), color: '#991B1B' },
+            { label: 'Total Paid', value: formatMMK(totalPaid), color: '#14532d' },
+            { label: 'Total Owed', value: formatMMK(totalUnpaid), color: '#78350f' },
             { label: 'Overall Total', value: formatMMK(totalAll) },
           ],
           footerNote: 'Class Ledger • Detailed Student Dues Ledger',
@@ -321,8 +320,8 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
           leftItems,
           rightItems,
           stats: [
-            { label: 'Paid Fines', value: formatMMK(finesSummary.totalPaid), color: '#166534' },
-            { label: 'Unpaid Fines', value: formatMMK(finesSummary.totalUnpaid), color: '#991B1B' },
+            { label: 'Paid Fines', value: formatMMK(finesSummary.totalPaid), color: '#14532d' },
+            { label: 'Unpaid Fines', value: formatMMK(finesSummary.totalUnpaid), color: '#78350f' },
             { label: 'Total Fine Pool', value: formatMMK(finesSummary.totalAll) },
           ],
           footerNote: 'Class Ledger • Subject Fine Summary',
@@ -355,8 +354,8 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
             col3: formatMMK(finesSummary.totalAll),
           },
           stats: [
-            { label: 'Paid Fines', value: formatMMK(finesSummary.totalPaid), color: '#166534' },
-            { label: 'Unpaid Fines', value: formatMMK(finesSummary.totalUnpaid), color: '#991B1B' },
+            { label: 'Paid Fines', value: formatMMK(finesSummary.totalPaid), color: '#14532d' },
+            { label: 'Unpaid Fines', value: formatMMK(finesSummary.totalUnpaid), color: '#78350f' },
             { label: 'Total Fine Pool', value: formatMMK(finesSummary.totalAll) },
           ],
           footerNote: 'Class Ledger • End of Year Subject Analysis',
@@ -422,7 +421,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
           rightItems,
           stats: [
             { label: 'Total Donors', value: `${records.length} Persons` },
-            { label: 'Total Collected', value: formatMMK(totalCollected), color: '#166534' },
+            { label: 'Total Collected', value: formatMMK(totalCollected), color: '#14532d' },
           ],
           footerNote: `Class Ledger • ${evName} Participation Record`,
         };
@@ -458,7 +457,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
           },
           stats: [
             { label: 'Total Contributors', value: `${records.length} Persons` },
-            { label: 'Total Amount', value: formatMMK(totalCollected), color: '#166534' },
+            { label: 'Total Amount', value: formatMMK(totalCollected), color: '#14532d' },
           ],
           footerNote: `Class Ledger • ${evName} Donor List`,
         };
@@ -504,8 +503,8 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
         col3: formatMMK(finesSummary.totalAll),
       },
       stats: [
-        { label: 'Paid Fines', value: formatMMK(finesSummary.totalPaid), color: '#166534' },
-        { label: 'Unpaid Fines', value: formatMMK(finesSummary.totalUnpaid), color: '#991B1B' },
+        { label: 'Paid Fines', value: formatMMK(finesSummary.totalPaid), color: '#14532d' },
+        { label: 'Unpaid Fines', value: formatMMK(finesSummary.totalUnpaid), color: '#78350f' },
         { label: 'Overall', value: formatMMK(finesSummary.totalAll) },
       ],
       footerNote: 'Class Ledger • Class Fines Ledger Records',
@@ -705,6 +704,9 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
     }
   };
 
+  const webOutlineStyle =
+    Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {};
+
   if (!visible) return null;
 
   return (
@@ -714,16 +716,21 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
       transparent={false}
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-slate-100 dark:bg-zinc-950">
+      <View style={[styles.root, { backgroundColor: palette.bg }]}>
         {/* Top Header Bar */}
         <View
-          style={{ paddingTop: Math.max(insets.top, 12), borderCurve: 'continuous' }}
-          className="bg-white dark:bg-zinc-900 px-4 pb-3 border-b border-slate-200 dark:border-zinc-800 flex-row items-center justify-between"
+          style={[
+            styles.topBar,
+            {
+              paddingTop: Math.max(insets.top, 12),
+              backgroundColor: palette.card,
+              borderBottomColor: palette.line,
+            },
+          ]}
         >
-          <View className="flex-row items-center flex-1 mr-2">
+          <View style={styles.topBarLeft}>
             <View
-              style={{ backgroundColor: themeColor.surface }}
-              className="h-8 w-8 rounded-full items-center justify-center mr-2.5 shrink-0"
+              style={[styles.iconBadge, { backgroundColor: themeColor.surface }]}
             >
               <NativeIcon
                 sfSymbol="photo.artframe"
@@ -733,11 +740,23 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
                 color={themeColor.primary}
               />
             </View>
-            <View className="flex-1">
-              <Text numberOfLines={1} className="text-base font-extrabold text-zinc-900 dark:text-zinc-50">
+            <View style={styles.flexMinZero}>
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.topTitle,
+                  { color: palette.ink, fontFamily: fonts.semibold },
+                ]}
+              >
                 {t.modals.aesthetic.title}
               </Text>
-              <Text numberOfLines={1} className="text-[10px] text-zinc-500 dark:text-zinc-400">
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.topSub,
+                  { color: palette.muted, fontFamily: fonts.regular },
+                ]}
+              >
                 {t.modals.aesthetic.subtitle}
               </Text>
             </View>
@@ -745,467 +764,719 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
 
           <TouchableOpacity
             onPress={onClose}
-            className="h-8 w-8 rounded-full bg-slate-100 dark:bg-zinc-800 items-center justify-center shrink-0"
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.close}
+            style={[
+              styles.closeCircle,
+              { backgroundColor: palette.surface },
+            ]}
           >
             <NativeIcon
               sfSymbol="xmark"
               materialName="close"
               FallbackIcon={X}
               size={16}
-              color="#71717a"
+              color={palette.subtle}
             />
           </TouchableOpacity>
         </View>
 
         {/* Mobile Segmented Navigation Tabs */}
-        {!isLargeScreen && (
-          <View className="flex-row bg-white dark:bg-zinc-900 px-4 py-2 border-b border-slate-200 dark:border-zinc-800 items-center justify-between">
-            <View className="flex-row p-1 bg-slate-100 dark:bg-zinc-800 rounded-full flex-1 mr-3">
-              <TouchableOpacity
+        {!isLargeScreen ? (
+          <View
+            style={[
+              styles.mobileTabBar,
+              {
+                backgroundColor: palette.card,
+                borderBottomColor: palette.line,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.mobileTabTrack,
+                { backgroundColor: palette.surface },
+              ]}
+            >
+              <Pressable
                 onPress={() => setMobileTab('preview')}
-                style={{ borderCurve: 'continuous' }}
-                className={`flex-1 py-1.5 rounded-full items-center justify-center flex-row ${
-                  mobileTab === 'preview' ? 'bg-white dark:bg-zinc-900 shadow-sm' : ''
-                }`}
+                style={[
+                  styles.mobileTabBtn,
+                  mobileTab === 'preview'
+                    ? { backgroundColor: palette.card }
+                    : null,
+                ]}
               >
                 <NativeIcon
                   sfSymbol="eye.fill"
                   materialName="visibility"
                   FallbackIcon={Eye}
                   size={13}
-                  color={mobileTab === 'preview' ? themeColor.primary : '#71717a'}
+                  color={
+                    mobileTab === 'preview' ? themeColor.primary : palette.muted
+                  }
                 />
                 <Text
-                  className={`ml-1 text-xs font-bold ${
-                    mobileTab === 'preview'
-                      ? 'text-zinc-900 dark:text-zinc-50'
-                      : 'text-zinc-500 dark:text-zinc-400'
-                  }`}
+                  style={[
+                    styles.mobileTabText,
+                    {
+                      color:
+                        mobileTab === 'preview' ? palette.ink : palette.muted,
+                      fontFamily:
+                        mobileTab === 'preview'
+                          ? fonts.semibold
+                          : fonts.medium,
+                    },
+                  ]}
                 >
                   {t.modals.aesthetic.previewTab}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
 
-              <TouchableOpacity
+              <Pressable
                 onPress={() => setMobileTab('settings')}
-                style={{ borderCurve: 'continuous' }}
-                className={`flex-1 py-1.5 rounded-full items-center justify-center flex-row ${
-                  mobileTab === 'settings' ? 'bg-white dark:bg-zinc-900 shadow-sm' : ''
-                }`}
+                style={[
+                  styles.mobileTabBtn,
+                  mobileTab === 'settings'
+                    ? { backgroundColor: palette.card }
+                    : null,
+                ]}
               >
                 <NativeIcon
                   sfSymbol="slider.horizontal.3"
                   materialName="tune"
                   FallbackIcon={Sliders}
                   size={13}
-                  color={mobileTab === 'settings' ? themeColor.primary : '#71717a'}
+                  color={
+                    mobileTab === 'settings'
+                      ? themeColor.primary
+                      : palette.muted
+                  }
                 />
                 <Text
-                  className={`ml-1 text-xs font-bold ${
-                    mobileTab === 'settings'
-                      ? 'text-zinc-900 dark:text-zinc-50'
-                      : 'text-zinc-500 dark:text-zinc-400'
-                  }`}
+                  style={[
+                    styles.mobileTabText,
+                    {
+                      color:
+                        mobileTab === 'settings' ? palette.ink : palette.muted,
+                      fontFamily:
+                        mobileTab === 'settings'
+                          ? fonts.semibold
+                          : fonts.medium,
+                    },
+                  ]}
                 >
                   {t.modals.aesthetic.optionsTab}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
-            {/* Quick Layout Mode Pill */}
-            <TouchableOpacity
+            <Pressable
               onPress={() =>
-                setLayoutMode(layoutMode === 'dual_column' ? 'summary_table' : 'dual_column')
+                setLayoutMode(
+                  layoutMode === 'dual_column'
+                    ? 'summary_table'
+                    : 'dual_column'
+                )
               }
-              style={{
-                backgroundColor: themeColor.surface,
-                borderColor: themeColor.border,
-                borderCurve: 'continuous',
-              }}
-              className="px-2.5 py-1.5 rounded-full border"
+              style={[
+                styles.layoutToggleChip,
+                {
+                  backgroundColor: themeColor.surface,
+                  borderColor: themeColor.border,
+                },
+              ]}
             >
-              <Text style={{ color: themeColor.text }} className="text-[10px] font-bold">
-                {layoutMode === 'dual_column' ? '📄 ' + t.modals.aesthetic.layoutDual : '📊 ' + t.modals.aesthetic.layoutTable}
+              <Text
+                style={[
+                  styles.layoutToggleText,
+                  { color: themeColor.text, fontFamily: fonts.medium },
+                ]}
+              >
+                {layoutMode === 'dual_column'
+                  ? t.modals.aesthetic.layoutDual
+                  : t.modals.aesthetic.layoutTable}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
-        )}
+        ) : null}
 
-        {/* Active App Theme Indicator */}
-        <View className="bg-white/90 dark:bg-zinc-900/90 px-4 py-2 border-b border-slate-200 dark:border-zinc-800 flex-row items-center justify-between">
-          <View className="flex-row items-center">
+        {/* Active App Theme Strip */}
+        <View
+          style={[
+            styles.themeStrip,
+            { backgroundColor: palette.bg, borderBottomColor: palette.line },
+          ]}
+        >
+          <View style={styles.themeStripLeft}>
             <View
-              style={{ backgroundColor: themeColor.primary }}
-              className="w-3.5 h-3.5 rounded-full mr-2 shadow-xs"
+              style={[
+                styles.themeDot,
+                { backgroundColor: themeColor.primary },
+              ]}
             />
-            <Text className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300 font-mono">
+            <Text
+              style={[
+                styles.themeHex,
+                { color: palette.subtle, fontFamily: fonts.mono },
+              ]}
+            >
               HEX: {themeColor.primary}
             </Text>
           </View>
-          <View
-            style={{
-              backgroundColor: themeColor.surface,
-              borderColor: themeColor.border,
-              borderCurve: 'continuous',
-            }}
-            className="px-2.5 py-0.5 rounded-full border"
-          >
-            <Text style={{ color: themeColor.text }} className="text-[10px] font-semibold">
-              {language === 'en' ? 'Theme Synced' : 'Theme နှင့် တစ်ပြေးညီ'}
-            </Text>
-          </View>
+          <StatusPill
+            variant="brand"
+            label={language === 'en' ? 'Theme Synced' : 'Theme နှင့် တစ်ပြေးညီ'}
+          />
         </View>
 
         {/* Main Content Area */}
-        <View className="flex-1 flex-col md:flex-row">
-          {/* Controls Panel (Desktop: Left Column | Mobile: Settings Tab) */}
-          {(isLargeScreen || mobileTab === 'settings') && (
+        <View
+          style={[
+            styles.mainBody,
+            { flexDirection: isLargeScreen ? 'row' : 'column' },
+          ]}
+        >
+          {/* Controls Panel */}
+          {isLargeScreen || mobileTab === 'settings' ? (
             <ScrollView
-              className={`p-4 md:w-96 md:border-r border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 ${
-                isLargeScreen ? 'max-w-md' : 'flex-1'
-              }`}
+              style={[
+                styles.controlsScroll,
+                isLargeScreen
+                  ? {
+                      maxWidth: 390,
+                      borderRightWidth: 1,
+                      borderRightColor: palette.line,
+                      backgroundColor: palette.card,
+                    }
+                  : { flex: 1, backgroundColor: palette.card },
+              ]}
+              contentContainerStyle={styles.controlsContent}
               showsVerticalScrollIndicator={false}
             >
               {/* 1. Report Type Selector */}
-              <View className="mb-4">
-                <Text className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider mb-2">
-                  {language === 'en' ? '1. Report Type' : '၁။ အစီရင်ခံစာ အမျိုးအစား'}
+              <View style={styles.sectionBlock}>
+                <Text
+                  style={[
+                    styles.sectionEyebrow,
+                    { color: palette.muted, fontFamily: fonts.medium },
+                  ]}
+                >
+                  {language === 'en'
+                    ? '1. Report Type'
+                    : '၁။ အစီရင်ခံစာ အမျိုးအစား'}
                 </Text>
-                <View className="flex-row flex-wrap gap-2">
-                  {[
-                    { id: 'student_fines', label: `📋 ${t.modals.aesthetic.sourceStudentFines}` },
-                    { id: 'subject_fines', label: `📊 ${t.modals.aesthetic.sourceSubjectFines}` },
-                    { id: 'event_donors', label: `🎯 ${t.modals.aesthetic.sourceEventDonors}` },
-                    { id: 'fines_ledger', label: `📑 ${t.modals.aesthetic.sourceFinesLedger}` },
-                  ].map((item) => (
-                    <TouchableOpacity
-                      key={item.id}
-                      onPress={() => setReportType(item.id as ReportSourceType)}
-                      style={{ borderCurve: 'continuous' }}
-                      className={`flex-1 min-w-[130px] px-3 py-2.5 rounded-xl border ${
-                        reportType === item.id
-                          ? 'bg-zinc-900 dark:bg-white border-zinc-900 dark:border-white'
-                          : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700'
-                      }`}
-                    >
-                      <Text
-                        className={`text-xs font-bold text-center ${
-                          reportType === item.id
-                            ? 'text-white dark:text-zinc-900'
-                            : 'text-zinc-700 dark:text-zinc-300'
-                        }`}
-                      >
-                        {item.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              {/* Student Fine Filter Selector if student_fines */}
-              {reportType === 'student_fines' && (
-                <View className="mb-4 p-3 bg-slate-50 dark:bg-zinc-800/60 rounded-2xl border border-slate-200 dark:border-zinc-700">
-                  <Text className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 mb-2">
-                    {language === 'en' ? 'Filter Students:' : 'ကျောင်းသား စစ်ထုတ်ရန်:'}
-                  </Text>
-                  <View className="flex-row flex-wrap gap-1.5">
-                    {[
-                      { id: 'all', label: t.modals.aesthetic.filterAll },
-                      { id: 'with_fines', label: t.modals.aesthetic.filterWithFines },
-                      { id: 'unpaid', label: t.modals.aesthetic.filterUnpaid },
-                      { id: 'paid', label: t.modals.aesthetic.filterPaid },
-                    ].map((item) => (
+                <View style={styles.reportTypeGrid}>
+                  {(
+                    [
+                      {
+                        id: 'student_fines',
+                        label: t.modals.aesthetic.sourceStudentFines,
+                      },
+                      {
+                        id: 'subject_fines',
+                        label: t.modals.aesthetic.sourceSubjectFines,
+                      },
+                      {
+                        id: 'event_donors',
+                        label: t.modals.aesthetic.sourceEventDonors,
+                      },
+                      {
+                        id: 'fines_ledger',
+                        label: t.modals.aesthetic.sourceFinesLedger,
+                      },
+                    ] as const
+                  ).map((item) => {
+                    const isSelected = reportType === item.id;
+                    return (
                       <TouchableOpacity
                         key={item.id}
-                        onPress={() => setStudentFineFilter(item.id as any)}
-                        style={{
-                          backgroundColor:
-                            studentFineFilter === item.id
-                              ? themeColor.primary
-                              : isDark
-                              ? '#18181b'
-                              : '#ffffff',
-                          borderColor:
-                            studentFineFilter === item.id
-                              ? themeColor.primary
-                              : isDark
-                              ? '#3f3f46'
-                              : '#e4e4e7',
-                          borderCurve: 'continuous',
-                        }}
-                        className="px-2.5 py-1.5 rounded-lg border"
+                        onPress={() => setReportType(item.id)}
+                        activeOpacity={0.8}
+                        style={[
+                          styles.reportTypeBtn,
+                          {
+                            backgroundColor: isSelected
+                              ? palette.ink
+                              : palette.surface,
+                            borderColor: isSelected
+                              ? palette.ink
+                              : palette.line,
+                          },
+                        ]}
                       >
                         <Text
-                          style={{
-                            color:
-                              studentFineFilter === item.id
-                                ? themeColor.onPrimary
-                                : isDark
-                                ? '#d4d4d8'
-                                : '#27272a',
-                          }}
-                          className="text-[11px] font-bold"
+                          style={[
+                            styles.reportTypeText,
+                            {
+                              color: isSelected ? palette.bg : palette.ink,
+                              fontFamily: fonts.medium,
+                            },
+                          ]}
                         >
                           {item.label}
                         </Text>
                       </TouchableOpacity>
-                    ))}
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Student Filter Selector */}
+              {reportType === 'student_fines' ? (
+                <View
+                  style={[
+                    styles.subFilterBox,
+                    {
+                      backgroundColor: palette.surface,
+                      borderColor: palette.line,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.subFilterLabel,
+                      { color: palette.subtle, fontFamily: fonts.medium },
+                    ]}
+                  >
+                    {language === 'en'
+                      ? 'Filter Students:'
+                      : 'ကျောင်းသား စစ်ထုတ်ရန်:'}
+                  </Text>
+                  <View style={styles.filterChipsWrap}>
+                    {(
+                      [
+                        { id: 'all', label: t.modals.aesthetic.filterAll },
+                        {
+                          id: 'with_fines',
+                          label: t.modals.aesthetic.filterWithFines,
+                        },
+                        {
+                          id: 'unpaid',
+                          label: t.modals.aesthetic.filterUnpaid,
+                        },
+                        { id: 'paid', label: t.modals.aesthetic.filterPaid },
+                      ] as const
+                    ).map((item) => {
+                      const isSelected = studentFineFilter === item.id;
+                      return (
+                        <TouchableOpacity
+                          key={item.id}
+                          onPress={() => setStudentFineFilter(item.id)}
+                          activeOpacity={0.8}
+                          style={[
+                            styles.filterChip,
+                            {
+                              backgroundColor: isSelected
+                                ? themeColor.primary
+                                : palette.card,
+                              borderColor: isSelected
+                                ? themeColor.primary
+                                : palette.line,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.filterChipText,
+                              {
+                                color: isSelected
+                                  ? themeColor.onPrimary
+                                  : palette.ink,
+                                fontFamily: fonts.medium,
+                              },
+                            ]}
+                          >
+                            {item.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 </View>
-              )}
+              ) : null}
 
-              {/* Event Selector if event_donors */}
-              {reportType === 'event_donors' && events.length > 0 && (
-                <View className="mb-4 p-3 bg-slate-50 dark:bg-zinc-800/60 rounded-2xl border border-slate-200 dark:border-zinc-700">
-                  <Text className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 mb-2">
-                    {language === 'en' ? 'Selected Event:' : 'ရွေးချယ်ထားသော အခမ်းအနား:'}
+              {/* Event Selector */}
+              {reportType === 'event_donors' && events.length > 0 ? (
+                <View
+                  style={[
+                    styles.subFilterBox,
+                    {
+                      backgroundColor: palette.surface,
+                      borderColor: palette.line,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.subFilterLabel,
+                      { color: palette.subtle, fontFamily: fonts.medium },
+                    ]}
+                  >
+                    {language === 'en'
+                      ? 'Selected Event:'
+                      : 'ရွေးချယ်ထားသော အခမ်းအနား:'}
                   </Text>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}
+                    contentContainerStyle={styles.eventChipsScroll}
                   >
-                    {events.map((ev) => (
-                      <TouchableOpacity
-                        key={ev.id}
-                        onPress={() => setSelectedEventId(ev.id)}
-                        style={{
-                          backgroundColor:
-                            selectedEventId === ev.id
-                              ? themeColor.primary
-                              : isDark
-                              ? '#18181b'
-                              : '#ffffff',
-                          borderColor:
-                            selectedEventId === ev.id
-                              ? themeColor.primary
-                              : isDark
-                              ? '#3f3f46'
-                              : '#e4e4e7',
-                          borderCurve: 'continuous',
-                        }}
-                        className="px-3 py-1.5 rounded-lg border"
-                      >
-                        <Text
-                          style={{
-                            color:
-                              selectedEventId === ev.id
-                                ? themeColor.onPrimary
-                                : isDark
-                                ? '#d4d4d8'
-                                : '#27272a',
-                          }}
-                          className="text-xs font-bold"
+                    {events.map((ev) => {
+                      const isSelected = selectedEventId === ev.id;
+                      return (
+                        <TouchableOpacity
+                          key={ev.id}
+                          onPress={() => setSelectedEventId(ev.id)}
+                          activeOpacity={0.8}
+                          style={[
+                            styles.filterChip,
+                            {
+                              backgroundColor: isSelected
+                                ? themeColor.primary
+                                : palette.card,
+                              borderColor: isSelected
+                                ? themeColor.primary
+                                : palette.line,
+                            },
+                          ]}
                         >
-                          {ev.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                          <Text
+                            style={[
+                              styles.filterChipText,
+                              {
+                                color: isSelected
+                                  ? themeColor.onPrimary
+                                  : palette.ink,
+                                fontFamily: fonts.medium,
+                              },
+                            ]}
+                          >
+                            {ev.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </ScrollView>
                 </View>
-              )}
+              ) : null}
 
               {/* 2. Layout Mode Switcher */}
-              <View className="mb-4">
-                <Text className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider mb-2">
+              <View style={styles.sectionBlock}>
+                <Text
+                  style={[
+                    styles.sectionEyebrow,
+                    { color: palette.muted, fontFamily: fonts.medium },
+                  ]}
+                >
                   {language === 'en' ? '2. Layout' : '၂။ ဇယားပုံစံ'}
                 </Text>
-                <View className="flex-row gap-2">
+                <View style={styles.layoutCardsRow}>
                   <TouchableOpacity
                     onPress={() => setLayoutMode('dual_column')}
-                    style={{
-                      backgroundColor: layoutMode === 'dual_column' ? themeColor.surface : undefined,
-                      borderColor: layoutMode === 'dual_column' ? themeColor.primary : (isDark ? '#3f3f46' : '#e4e4e7'),
-                      borderCurve: 'continuous',
-                    }}
-                    className={`flex-1 py-2.5 px-3 rounded-xl border items-center ${
-                      layoutMode === 'dual_column'
-                        ? ''
-                        : 'bg-slate-50 dark:bg-zinc-800'
-                    }`}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.layoutModeCard,
+                      {
+                        backgroundColor:
+                          layoutMode === 'dual_column'
+                            ? themeColor.surface
+                            : palette.surface,
+                        borderColor:
+                          layoutMode === 'dual_column'
+                            ? themeColor.primary
+                            : palette.line,
+                      },
+                    ]}
                   >
                     <Text
-                      style={{
-                        color: layoutMode === 'dual_column' ? themeColor.text : (isDark ? '#d4d4d8' : '#52525b'),
-                      }}
-                      className="text-xs font-bold"
+                      style={[
+                        styles.layoutCardTitle,
+                        {
+                          color:
+                            layoutMode === 'dual_column'
+                              ? themeColor.text
+                              : palette.ink,
+                          fontFamily: fonts.semibold,
+                        },
+                      ]}
                     >
-                      📄 {t.modals.aesthetic.layoutDual}
+                      {t.modals.aesthetic.layoutDual}
                     </Text>
-                    <Text className="text-[10px] text-zinc-400 mt-0.5">
-                      {language === 'en' ? '2-column sheet' : 'ကော်လံ ၂ ခု ခွဲထားသော ပုံစံ'}
+                    <Text
+                      style={[
+                        styles.layoutCardSub,
+                        { color: palette.muted, fontFamily: fonts.regular },
+                      ]}
+                    >
+                      {language === 'en'
+                        ? '2-column sheet'
+                        : 'ကော်လံ ၂ ခု ခွဲထားသော ပုံစံ'}
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     onPress={() => setLayoutMode('summary_table')}
-                    style={{
-                      backgroundColor: layoutMode === 'summary_table' ? themeColor.surface : undefined,
-                      borderColor: layoutMode === 'summary_table' ? themeColor.primary : (isDark ? '#3f3f46' : '#e4e4e7'),
-                      borderCurve: 'continuous',
-                    }}
-                    className={`flex-1 py-2.5 px-3 rounded-xl border items-center ${
-                      layoutMode === 'summary_table'
-                        ? ''
-                        : 'bg-slate-50 dark:bg-zinc-800'
-                    }`}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.layoutModeCard,
+                      {
+                        backgroundColor:
+                          layoutMode === 'summary_table'
+                            ? themeColor.surface
+                            : palette.surface,
+                        borderColor:
+                          layoutMode === 'summary_table'
+                            ? themeColor.primary
+                            : palette.line,
+                      },
+                    ]}
                   >
                     <Text
-                      style={{
-                        color: layoutMode === 'summary_table' ? themeColor.text : (isDark ? '#d4d4d8' : '#52525b'),
-                      }}
-                      className="text-xs font-bold"
+                      style={[
+                        styles.layoutCardTitle,
+                        {
+                          color:
+                            layoutMode === 'summary_table'
+                              ? themeColor.text
+                              : palette.ink,
+                          fontFamily: fonts.semibold,
+                        },
+                      ]}
                     >
-                      📊 {t.modals.aesthetic.layoutTable}
+                      {t.modals.aesthetic.layoutTable}
                     </Text>
-                    <Text className="text-[10px] text-zinc-400 mt-0.5">
+                    <Text
+                      style={[
+                        styles.layoutCardSub,
+                        { color: palette.muted, fontFamily: fonts.regular },
+                      ]}
+                    >
                       {language === 'en' ? 'Structured table' : 'ဇယားကွက်ပုံစံ'}
                     </Text>
                   </TouchableOpacity>
                 </View>
               </View>
 
-              {/* 3. Title Customizer (Optional) */}
-              <View className="mb-5 pt-3 border-t border-slate-200 dark:border-zinc-800">
-                <Text className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  {language === 'en' ? 'Custom Title (Optional)' : 'ခေါင်းစဉ် စိတ်ကြိုက်ပြင်ရန်'}
+              {/* 3. Custom Title */}
+              <View
+                style={[
+                  styles.customTitleSection,
+                  { borderTopColor: palette.line },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.sectionEyebrow,
+                    { color: palette.muted, fontFamily: fonts.medium },
+                  ]}
+                >
+                  {language === 'en'
+                    ? 'Custom Title (Optional)'
+                    : 'ခေါင်းစဉ် စိတ်ကြိုက်ပြင်ရန်'}
                 </Text>
-                <View className="flex-row gap-2 mb-2">
+                <View style={styles.customTitleRow}>
                   <TextInput
                     placeholder={reportModel.titleWord1}
-                    placeholderTextColor="#9ca3af"
+                    placeholderTextColor={palette.muted}
                     value={customWord1}
                     onChangeText={setCustomWord1}
-                    style={{ borderCurve: 'continuous' }}
-                    className="flex-1 rounded-xl bg-slate-100 dark:bg-zinc-800 px-3 py-2 text-xs text-zinc-900 dark:text-zinc-50"
+                    style={[
+                      styles.customInputHalf,
+                      {
+                        backgroundColor: palette.bg,
+                        borderColor: palette.line,
+                        color: palette.ink,
+                        fontFamily: fonts.medium,
+                      },
+                      webOutlineStyle,
+                    ]}
                   />
                   <TextInput
                     placeholder={reportModel.titleWord2}
-                    placeholderTextColor="#9ca3af"
+                    placeholderTextColor={palette.muted}
                     value={customWord2}
                     onChangeText={setCustomWord2}
-                    style={{ borderCurve: 'continuous' }}
-                    className="flex-1 rounded-xl bg-slate-100 dark:bg-zinc-800 px-3 py-2 text-xs text-zinc-900 dark:text-zinc-50"
+                    style={[
+                      styles.customInputHalf,
+                      {
+                        backgroundColor: palette.bg,
+                        borderColor: palette.line,
+                        color: palette.ink,
+                        fontFamily: fonts.medium,
+                      },
+                      webOutlineStyle,
+                    ]}
                   />
                 </View>
                 <TextInput
                   placeholder="Subtitle e.g. Class: Class Ledger (2025-2026)"
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor={palette.muted}
                   value={customMetaLeft}
                   onChangeText={setCustomMetaLeft}
-                  style={{ borderCurve: 'continuous' }}
-                  className="w-full rounded-xl bg-slate-100 dark:bg-zinc-800 px-3 py-2 text-xs text-zinc-900 dark:text-zinc-50"
+                  style={[
+                    styles.customInputFull,
+                    {
+                      backgroundColor: palette.bg,
+                      borderColor: palette.line,
+                      color: palette.ink,
+                      fontFamily: fonts.regular,
+                    },
+                    webOutlineStyle,
+                  ]}
                 />
               </View>
 
-              {!isLargeScreen && (
+              {!isLargeScreen ? (
                 <TouchableOpacity
                   onPress={() => setMobileTab('preview')}
-                  style={{
-                    backgroundColor: themeColor.primary,
-                    borderCurve: 'continuous',
-                  }}
-                  className="w-full py-3.5 rounded-full items-center justify-center shadow-sm mb-6"
+                  activeOpacity={0.85}
+                  style={[
+                    styles.backPreviewBtn,
+                    {
+                      backgroundColor: themeColor.primary,
+                    },
+                  ]}
                 >
-                  <Text style={{ color: themeColor.onPrimary }} className="text-xs font-bold">
-                    {language === 'en' ? 'Back to Preview' : 'အစမ်းမြင်ကွင်းသို့ ပြန်သွားမည်'}
+                  <Text
+                    style={[
+                      styles.backPreviewText,
+                      {
+                        color: themeColor.onPrimary,
+                        fontFamily: fonts.semibold,
+                      },
+                    ]}
+                  >
+                    {language === 'en'
+                      ? 'Back to Preview'
+                      : 'အစမ်းမြင်ကွင်းသို့ ပြန်သွားမည်'}
                   </Text>
                 </TouchableOpacity>
-              )}
+              ) : null}
             </ScrollView>
-          )}
+          ) : null}
 
-          {/* Preview & Action Panel (Desktop: Right Column | Mobile: Preview Tab) */}
-          {(isLargeScreen || mobileTab === 'preview') && (
-            <View className="flex-1 flex-col bg-slate-200/70 dark:bg-zinc-900/60 p-3 md:p-4">
-              {/* Preview Mode Switcher & Scale Info Bar */}
-              <View className="flex-row items-center justify-between mb-2">
-                <View className="flex-row items-center">
-                  <Text className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider mr-2">
+          {/* Preview & Action Panel */}
+          {isLargeScreen || mobileTab === 'preview' ? (
+            <View
+              style={[
+                styles.previewPane,
+                { backgroundColor: palette.surface },
+              ]}
+            >
+              <View style={styles.previewToolbar}>
+                <View style={styles.previewToolbarLeft}>
+                  <Text
+                    style={[
+                      styles.previewEyebrow,
+                      { color: palette.subtle, fontFamily: fonts.medium },
+                    ]}
+                  >
                     {language === 'en' ? 'Live Preview' : 'အစမ်းမြင်ကွင်း'}
                   </Text>
-                  <View className="flex-row p-0.5 bg-slate-300/80 dark:bg-zinc-800 rounded-lg">
-                    <TouchableOpacity
+                  <View
+                    style={[
+                      styles.rendererSwitchTrack,
+                      {
+                        backgroundColor: palette.card,
+                        borderColor: palette.line,
+                      },
+                    ]}
+                  >
+                    <Pressable
                       onPress={() => setPreviewRenderer('svg')}
-                      className={`px-2 py-0.5 rounded-md ${
-                        previewRenderer === 'svg' ? 'bg-white dark:bg-zinc-900' : ''
-                      }`}
+                      style={[
+                        styles.rendererSwitchBtn,
+                        previewRenderer === 'svg'
+                          ? { backgroundColor: palette.ink }
+                          : null,
+                      ]}
                     >
                       <Text
-                        style={{
-                          color:
-                            previewRenderer === 'svg'
-                              ? themeColor.primary
-                              : isDark
-                              ? '#a1a1aa'
-                              : '#71717a',
-                        }}
-                        className="text-[10px] font-bold"
+                        style={[
+                          styles.rendererSwitchText,
+                          {
+                            color:
+                              previewRenderer === 'svg'
+                                ? palette.bg
+                                : palette.muted,
+                            fontFamily: fonts.medium,
+                          },
+                        ]}
                       >
                         Fit to Screen
                       </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
+                    </Pressable>
+                    <Pressable
                       onPress={() => setPreviewRenderer('view')}
-                      className={`px-2 py-0.5 rounded-md ${
-                        previewRenderer === 'view' ? 'bg-white dark:bg-zinc-900' : ''
-                      }`}
+                      style={[
+                        styles.rendererSwitchBtn,
+                        previewRenderer === 'view'
+                          ? { backgroundColor: palette.ink }
+                          : null,
+                      ]}
                     >
                       <Text
-                        style={{
-                          color:
-                            previewRenderer === 'view'
-                              ? themeColor.primary
-                              : isDark
-                              ? '#a1a1aa'
-                              : '#71717a',
-                        }}
-                        className="text-[10px] font-bold"
+                        style={[
+                          styles.rendererSwitchText,
+                          {
+                            color:
+                              previewRenderer === 'view'
+                                ? palette.bg
+                                : palette.muted,
+                            fontFamily: fonts.medium,
+                          },
+                        ]}
                       >
                         Detail View
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 </View>
 
-                <View className="flex-row items-center">
+                <View style={styles.themeNameWrap}>
                   <View
-                    style={{ backgroundColor: currentTheme.frameColor, borderColor: themeColor.primary }}
-                    className="w-3.5 h-3.5 rounded-full mr-1.5 border"
+                    style={[
+                      styles.themeSwatchMini,
+                      {
+                        backgroundColor: currentTheme.frameColor,
+                        borderColor: themeColor.primary,
+                      },
+                    ]}
                   />
-                  <Text className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300">
+                  <Text
+                    style={[
+                      styles.themeNameText,
+                      { color: palette.subtle, fontFamily: fonts.medium },
+                    ]}
+                  >
                     {currentTheme.name}
                   </Text>
                 </View>
               </View>
 
-              {/* Scrollable Aesthetic Preview Card */}
               <ScrollView
-                className="flex-1 rounded-2xl bg-white dark:bg-zinc-900 p-2 md:p-3 shadow-inner border border-slate-300 dark:border-zinc-800"
-                contentContainerStyle={{
-                  alignItems: 'center',
-                  paddingVertical: 10,
-                  paddingHorizontal: 2,
-                }}
+                style={[
+                  styles.previewCanvasCard,
+                  {
+                    backgroundColor: palette.card,
+                    borderColor: palette.line,
+                  },
+                ]}
+                contentContainerStyle={styles.previewCanvasContent}
                 showsVerticalScrollIndicator={false}
               >
-                <View className="w-full max-w-2xl">
+                <View style={styles.previewSheetWrap}>
                   {previewRenderer === 'svg' ? (
-                    /* Scale-to-Fit Native Vector SVG (Never Cropped or Collapsed on Mobile) */
                     <AestheticSvgReport ref={svgRef} model={reportModel} />
                   ) : (
-                    /* Detailed Scrollable View Component */
                     <AestheticReportView model={reportModel} />
                   )}
                 </View>
               </ScrollView>
 
-              {/* Hidden offscreen Svg component for capturing PNG if previewRenderer is 'view' */}
-              {previewRenderer === 'view' && (
+              {previewRenderer === 'view' ? (
                 <View
                   style={{
                     position: 'absolute',
@@ -1217,72 +1488,106 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
                 >
                   <AestheticSvgReport ref={svgRef} model={reportModel} />
                 </View>
-              )}
+              ) : null}
 
-              {/* Export Action Buttons Toolbar */}
-              <View className="pt-3 flex-row flex-wrap gap-2 items-center justify-between">
-                {/* Copy Image Button */}
+              {/* Bottom Export Toolbar */}
+              <View style={styles.bottomActionsRow}>
                 <TouchableOpacity
                   onPress={handleCopyImage}
                   disabled={isExporting}
-                  style={{ borderCurve: 'continuous' }}
-                  className="flex-row items-center justify-center bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 px-3.5 py-3 rounded-full active:bg-slate-100"
+                  activeOpacity={0.78}
+                  style={[
+                    styles.secondaryActionBtn,
+                    {
+                      backgroundColor: palette.card,
+                      borderColor: palette.line,
+                    },
+                  ]}
                 >
                   <NativeIcon
                     sfSymbol="doc.on.doc"
                     materialName="content-copy"
                     FallbackIcon={Copy}
                     size={14}
-                    color="#4f46e5"
+                    color={themeColor.primary}
                   />
-                  <Text className="ml-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                  <Text
+                    style={[
+                      styles.secondaryActionText,
+                      { color: palette.ink, fontFamily: fonts.medium },
+                    ]}
+                  >
                     {t.modals.aesthetic.copyImage}
                   </Text>
                 </TouchableOpacity>
 
-                {/* Share Image Button */}
                 <TouchableOpacity
                   onPress={handleShareImage}
                   disabled={isExporting}
-                  style={{ borderCurve: 'continuous' }}
-                  className="flex-row items-center justify-center bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 px-3.5 py-3 rounded-full active:bg-slate-100"
+                  activeOpacity={0.78}
+                  style={[
+                    styles.secondaryActionBtn,
+                    {
+                      backgroundColor: palette.card,
+                      borderColor: palette.line,
+                    },
+                  ]}
                 >
                   <NativeIcon
                     sfSymbol="square.and.arrow.up"
                     materialName="share"
                     FallbackIcon={Share2}
                     size={14}
-                    color="#0284c7"
+                    color={themeColor.primary}
                   />
-                  <Text className="ml-1.5 text-xs font-bold text-sky-600 dark:text-sky-400">
+                  <Text
+                    style={[
+                      styles.secondaryActionText,
+                      { color: palette.ink, fontFamily: fonts.medium },
+                    ]}
+                  >
                     {t.modals.aesthetic.shareImage}
                   </Text>
                 </TouchableOpacity>
 
-                {/* SVG Vector Button */}
                 <TouchableOpacity
                   onPress={handleExportSVG}
                   disabled={isExporting}
-                  style={{ borderCurve: 'continuous' }}
-                  className="flex-row items-center justify-center bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 px-3 py-3 rounded-full active:bg-slate-100"
+                  activeOpacity={0.78}
+                  style={[
+                    styles.svgBtn,
+                    {
+                      backgroundColor: palette.card,
+                      borderColor: palette.line,
+                    },
+                  ]}
                 >
-                  <Text className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300">
+                  <Text
+                    style={[
+                      styles.svgBtnText,
+                      { color: palette.subtle, fontFamily: fonts.monoMedium },
+                    ]}
+                  >
                     SVG
                   </Text>
                 </TouchableOpacity>
 
-                {/* Primary Action: Download High-Res PNG Button */}
                 <TouchableOpacity
                   onPress={handleDownloadPNG}
                   disabled={isExporting}
-                  style={{
-                    backgroundColor: themeColor.primary,
-                    borderCurve: 'continuous',
-                  }}
-                  className="flex-1 min-w-[150px] flex-row items-center justify-center px-4 py-3 rounded-full shadow-sm"
+                  activeOpacity={0.85}
+                  style={[
+                    styles.downloadPngBtn,
+                    {
+                      backgroundColor: themeColor.primary,
+                    },
+                  ]}
                 >
                   {isExporting ? (
-                    <ActivityIndicator size="small" color={themeColor.onPrimary} />
+                    <ActivityIndicator
+                      size="small"
+                      color={themeColor.onPrimary}
+                    />
                   ) : (
                     <>
                       <NativeIcon
@@ -1293,8 +1598,13 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
                         color={themeColor.onPrimary}
                       />
                       <Text
-                        style={{ color: themeColor.onPrimary }}
-                        className="ml-2 text-xs font-extrabold"
+                        style={[
+                          styles.downloadPngText,
+                          {
+                            color: themeColor.onPrimary,
+                            fontFamily: fonts.semibold,
+                          },
+                        ]}
                       >
                         {t.modals.aesthetic.downloadPNG}
                       </Text>
@@ -1303,9 +1613,374 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
                 </TouchableOpacity>
               </View>
             </View>
-          )}
+          ) : null}
         </View>
       </View>
     </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  flexMinZero: {
+    flex: 1,
+    minWidth: 0,
+  },
+  topBar: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  topBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    gap: 10,
+  },
+  iconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderCurve: 'continuous',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  topTitle: {
+    fontSize: 16,
+    lineHeight: 21,
+  },
+  topSub: {
+    fontSize: 11,
+  },
+  closeCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  mobileTabBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    gap: 10,
+  },
+  mobileTabTrack: {
+    flex: 1,
+    flexDirection: 'row',
+    borderRadius: 9999,
+    padding: 3,
+  },
+  mobileTabBtn: {
+    flex: 1,
+    borderRadius: 9999,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  mobileTabText: {
+    fontSize: 12,
+  },
+  layoutToggleChip: {
+    borderRadius: 9999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  layoutToggleText: {
+    fontSize: 11,
+  },
+  themeStrip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  themeStripLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  themeDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  themeHex: {
+    fontSize: 11,
+    fontVariant: ['tabular-nums'],
+  },
+  mainBody: {
+    flex: 1,
+    minHeight: 0,
+  },
+  controlsScroll: {
+    width: '100%',
+  },
+  controlsContent: {
+    padding: 16,
+    paddingBottom: 28,
+  },
+  sectionBlock: {
+    marginBottom: 16,
+  },
+  sectionEyebrow: {
+    fontSize: 11,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  reportTypeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  reportTypeBtn: {
+    flex: 1,
+    minWidth: 130,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  reportTypeText: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  subFilterBox: {
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 16,
+  },
+  subFilterLabel: {
+    fontSize: 11,
+    marginBottom: 8,
+  },
+  filterChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  eventChipsScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  filterChip: {
+    borderRadius: 8,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  filterChipText: {
+    fontSize: 11,
+  },
+  layoutCardsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  layoutModeCard: {
+    flex: 1,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  layoutCardTitle: {
+    fontSize: 12,
+  },
+  layoutCardSub: {
+    fontSize: 10,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  customTitleSection: {
+    paddingTop: 14,
+    borderTopWidth: 1,
+    marginBottom: 18,
+  },
+  customTitleRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  customInputHalf: {
+    flex: 1,
+    minWidth: 0,
+    borderRadius: 10,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 12,
+  },
+  customInputFull: {
+    width: '100%',
+    minWidth: 0,
+    borderRadius: 10,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 12,
+  },
+  backPreviewBtn: {
+    width: '100%',
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  backPreviewText: {
+    fontSize: 13,
+  },
+  previewPane: {
+    flex: 1,
+    padding: 16,
+    minHeight: 0,
+  },
+  previewToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 10,
+  },
+  previewToolbarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  previewEyebrow: {
+    fontSize: 11,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  rendererSwitchTrack: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 2,
+    gap: 2,
+  },
+  rendererSwitchBtn: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  rendererSwitchText: {
+    fontSize: 11,
+  },
+  themeNameWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  themeSwatchMini: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  themeNameText: {
+    fontSize: 11,
+  },
+  previewCanvasCard: {
+    flex: 1,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    padding: 12,
+  },
+  previewCanvasContent: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+  },
+  previewSheetWrap: {
+    width: '100%',
+    maxWidth: 680,
+  },
+  bottomActionsRow: {
+    paddingTop: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
+  secondaryActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  secondaryActionText: {
+    fontSize: 12,
+  },
+  svgBtn: {
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  svgBtnText: {
+    fontSize: 11,
+  },
+  downloadPngBtn: {
+    flex: 1,
+    minWidth: 150,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  downloadPngText: {
+    fontSize: 13,
+  },
+});

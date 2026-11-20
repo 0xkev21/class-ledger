@@ -1,40 +1,46 @@
+import { useRouter } from 'expo-router';
 import {
   ArrowRight,
-  BookOpen,
   CheckCircle2,
   Cloud,
   Code2,
   Download,
-  ExternalLink,
   FileSpreadsheet,
   Gavel,
   Globe,
   HeartHandshake,
   Image as ImageIcon,
-  Lock,
-  Moon,
   Smartphone,
-  Sun,
   Users,
 } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Linking,
   Platform,
+  Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BrandMark } from '@/src/components/BrandMark';
+import { StatusPill } from '@/src/components/StatusPill';
 import { useAppTheme } from '@/src/context/TreasuryContext';
+import { fonts } from '@/src/theme';
 
 export default function ProductLandingPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isDark, themeColor } = useAppTheme();
+  const { width } = useWindowDimensions();
+  const { palette, themeColor } = useAppTheme();
 
+  // The web landing page is the static page in public/landing/; this route hands over to it.
+  useEffect(() => {
+    if (Platform.OS === 'web') window.location.replace('./landing/');
+  }, []);
 
   const handleOpenApp = () => {
     router.push('/(tabs)');
@@ -48,395 +54,543 @@ export default function ProductLandingPage() {
     Linking.openURL('https://github.com/0xkev21/class-ledger/releases');
   };
 
+  if (Platform.OS === 'web') return null;
+
+  const isWide = width >= 768;
+
+  const capabilities = [
+    {
+      title: 'Events & Bulk Assessment',
+      description:
+        'Assess fixed fees or collect voluntary donation drives across your entire class roster with 1-tap contribution tracking.',
+      Icon: HeartHandshake,
+    },
+    {
+      title: 'Subject-Wise Fines',
+      description:
+        'Keep disciplinary fines organized by academic course and subject. Track paid vs owed balances with automatic rollups.',
+      Icon: Gavel,
+    },
+    {
+      title: 'Aesthetic Visual Reports',
+      description:
+        'Generate high-resolution PNG & SVG report cards and donor lists ready to share directly into class chat groups on Viber & Telegram.',
+      Icon: ImageIcon,
+    },
+    {
+      title: 'Cloud Sync & Multi-Tenancy',
+      description:
+        'Store data locally first. Optionally sign in with Google or email via Supabase for encrypted, user-isolated real-time synchronization.',
+      Icon: Cloud,
+    },
+    {
+      title: 'Safe Data Export & Portability',
+      description:
+        'Download JSON database backups and CSV exports with automated sanitization guarding against spreadsheet formula injection.',
+      Icon: FileSpreadsheet,
+    },
+    {
+      title: 'Bilingual: English & Myanmar',
+      description:
+        'Native language toggling between English and Myanmar (Burmese) with localized currency (MMK) and payment formatters.',
+      Icon: Globe,
+    },
+  ];
+
+  const platforms = [
+    {
+      title: 'Web App',
+      description:
+        'Zero installation. Open directly in Chrome, Safari, Firefox, or Edge on any computer.',
+      cta: 'Open in Browser',
+      onPress: handleOpenApp,
+      Icon: Globe,
+      ActionIcon: ArrowRight,
+    },
+    {
+      title: 'Android APK & F-Droid',
+      description:
+        'Standalone APK available on GitHub Releases and via F-Droid / IzzyOnDroid.',
+      cta: 'Get APK',
+      onPress: handleOpenReleases,
+      Icon: Smartphone,
+      ActionIcon: Download,
+    },
+    {
+      title: 'Linux Desktop',
+      description:
+        'Native desktop packages (.deb and .AppImage) powered by Tauri for high performance.',
+      cta: 'Download Linux App',
+      onPress: handleOpenReleases,
+      Icon: Users,
+      ActionIcon: Download,
+    },
+  ];
+
+  const faqs = [
+    {
+      q: 'Is Class Ledger completely free to use?',
+      a: 'Yes, Class Ledger is 100% free and open-source under the MIT license. There are no paid tiers, no advertisements, and no tracking.',
+    },
+    {
+      q: 'Can I use it completely offline?',
+      a: 'Yes! All students, fines, events, and dues are saved locally to your device storage. You only need an internet connection if you choose to sync your class data to the cloud.',
+    },
+    {
+      q: 'How does cloud synchronization work?',
+      a: 'Cloud sync uses Supabase with multi-tenant Row Level Security (RLS). When you sign in with Google or Email, your data is securely isolated so only your account can read or update your classroom data.',
+    },
+  ];
+
   return (
-    <View className="flex-1 bg-white dark:bg-zinc-950">
-      {/* Top Navbar */}
+    <View style={[styles.root, { backgroundColor: palette.bg }]}>
+      {/* Top Header */}
       <View
-        style={{ paddingTop: Math.max(insets.top, 14), borderBottomWidth: 1 }}
-        className="border-zinc-200/80 bg-white/90 backdrop-blur-md px-5 pb-3.5 dark:border-zinc-800/80 dark:bg-zinc-950/90"
+        style={[
+          styles.navbar,
+          {
+            paddingTop: Math.max(insets.top, 14),
+            backgroundColor: palette.card,
+            borderBottomColor: palette.line,
+          },
+        ]}
       >
-        <View className="mx-auto flex-row w-full max-w-5xl items-center justify-between">
-          <View className="flex-row items-center space-x-2.5">
-            <View
-              style={{ backgroundColor: themeColor.primary }}
-              className="h-9 w-9 items-center justify-center rounded-xl shadow-sm"
-            >
-              <BookOpen size={20} color={themeColor.onPrimary} />
-            </View>
-            <View className="ml-2.5">
-              <Text className="text-base font-bold text-zinc-900 dark:text-zinc-50">
+        <View style={styles.navbarInner}>
+          <View style={styles.brandGroup}>
+            <BrandMark size={32} accentColor={themeColor.primary} />
+            <View>
+              <Text
+                style={[
+                  styles.brandTitle,
+                  { color: palette.ink, fontFamily: fonts.bold },
+                ]}
+              >
                 Class Ledger
               </Text>
-              <Text className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+              <Text
+                style={[
+                  styles.brandSubtitle,
+                  { color: palette.muted, fontFamily: fonts.medium },
+                ]}
+              >
                 Student Treasury & Dues
               </Text>
             </View>
           </View>
 
-          <View className="flex-row items-center space-x-2">
-            <TouchableOpacity
-              onPress={handleOpenApp}
-              style={{ backgroundColor: themeColor.primary }}
-              className="flex-row items-center rounded-xl px-4 py-2 shadow-sm"
+          <TouchableOpacity
+            onPress={handleOpenApp}
+            activeOpacity={0.88}
+            accessibilityRole="button"
+            style={[
+              styles.navCta,
+              {
+                backgroundColor: themeColor.primary,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.navCtaText,
+                { color: themeColor.onPrimary, fontFamily: fonts.semibold },
+              ]}
             >
-              <Text
-                style={{ color: themeColor.onPrimary }}
-                className="text-xs font-semibold mr-1.5"
-              >
-                Launch App
-              </Text>
-              <ArrowRight size={14} color={themeColor.onPrimary} />
-            </TouchableOpacity>
-          </View>
+              Launch App
+            </Text>
+            <ArrowRight size={14} color={themeColor.onPrimary} />
+          </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView
+        style={styles.scroll}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 40) }}
-        className="flex-1"
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom, 40) },
+        ]}
       >
         {/* Hero Section */}
-        <View className="px-5 pt-12 pb-16">
-          <View className="mx-auto max-w-3xl items-center text-center">
-            {/* Pill Badge */}
-            <View className="mb-6 flex-row items-center rounded-full border border-zinc-200 bg-zinc-100 px-3.5 py-1.5 dark:border-zinc-800 dark:bg-zinc-900">
-              <View className="mr-2 h-2 w-2 rounded-full bg-emerald-500" />
-              <Text className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                100% Free & Open Source • Offline-First
-              </Text>
-            </View>
+        <View style={styles.heroSection}>
+          <View style={styles.heroInner}>
+            <StatusPill
+              variant="brand"
+              label="100% Free & Open Source • Offline-First"
+            />
 
-            <Text className="text-center text-3xl font-extrabold tracking-tight text-zinc-900 sm:text-5xl dark:text-zinc-50">
+            <Text
+              style={[
+                styles.heroHeading,
+                isWide ? styles.heroHeadingWide : null,
+                { color: palette.ink, fontFamily: fonts.bold },
+              ]}
+            >
               Student Treasury & Class Finances,{' '}
-              <Text style={{ color: themeColor.primary }}>Simplified.</Text>
+              <Text style={{ color: themeColor.primary, fontFamily: fonts.bold }}>
+                Simplified.
+              </Text>
             </Text>
 
-            <Text className="mt-5 text-center text-sm sm:text-base leading-relaxed text-zinc-600 dark:text-zinc-400 max-w-2xl">
-              The modern, privacy-focused financial management ledger crafted specifically for university class representatives, student councils, and student treasurers. Track dues, manage disciplinary fines, generate aesthetic report cards, and sync seamlessly.
+            <Text
+              style={[
+                styles.heroLead,
+                { color: palette.muted, fontFamily: fonts.regular },
+              ]}
+            >
+              The modern, privacy-focused financial management ledger crafted specifically for university class representatives, student councils, and student treasurers. Track dues, manage disciplinary fines, generate stationery report sheets, and sync seamlessly.
             </Text>
 
-            {/* CTA Buttons */}
-            <View className="mt-8 flex-row flex-wrap items-center justify-center gap-3">
+            <View style={styles.heroActions}>
               <TouchableOpacity
                 onPress={handleOpenApp}
-                style={{ backgroundColor: themeColor.primary }}
-                className="flex-row items-center rounded-2xl px-6 py-3.5 shadow-md"
+                activeOpacity={0.88}
+                accessibilityRole="button"
+                style={[
+                  styles.primaryBtn,
+                  {
+                    backgroundColor: themeColor.primary,
+                  },
+                ]}
               >
                 <Text
-                  style={{ color: themeColor.onPrimary }}
-                  className="text-sm font-bold mr-2"
+                  style={[
+                    styles.primaryBtnText,
+                    { color: themeColor.onPrimary, fontFamily: fonts.semibold },
+                  ]}
                 >
-                  Launch Web App
+                  Open App
                 </Text>
                 <ArrowRight size={16} color={themeColor.onPrimary} />
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={handleOpenReleases}
-                className="flex-row items-center rounded-2xl border border-zinc-300 bg-white px-5 py-3.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                style={[
+                  styles.secondaryBtn,
+                  {
+                    backgroundColor: palette.card,
+                    borderColor: palette.lineStrong,
+                  },
+                ]}
               >
-                <Smartphone size={16} color={isDark ? '#e4e4e7' : '#18181b'} />
-                <Text className="ml-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-                  Download APK
+                <Smartphone size={16} color={palette.ink} />
+                <Text
+                  style={[
+                    styles.secondaryBtnText,
+                    { color: palette.ink, fontFamily: fonts.semibold },
+                  ]}
+                >
+                  Releases & APK
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={handleOpenGitHub}
-                className="flex-row items-center rounded-2xl border border-zinc-300 bg-white px-4 py-3.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                style={[
+                  styles.secondaryBtn,
+                  {
+                    backgroundColor: palette.card,
+                    borderColor: palette.lineStrong,
+                  },
+                ]}
               >
-                <Code2 size={16} color={isDark ? '#e4e4e7' : '#18181b'} />
-                <Text className="ml-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                <Code2 size={16} color={palette.ink} />
+                <Text
+                  style={[
+                    styles.secondaryBtnText,
+                    { color: palette.ink, fontFamily: fonts.semibold },
+                  ]}
+                >
                   GitHub
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* Micro assurances */}
-            <View className="mt-6 flex-row flex-wrap items-center justify-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
-              <View className="flex-row items-center">
-                <CheckCircle2 size={13} color="#10b981" />
-                <Text className="ml-1 text-[11px] text-zinc-600 dark:text-zinc-400">No account required</Text>
-              </View>
-              <View className="flex-row items-center">
-                <CheckCircle2 size={13} color="#10b981" />
-                <Text className="ml-1 text-[11px] text-zinc-600 dark:text-zinc-400">No ads or telemetry</Text>
-              </View>
-              <View className="flex-row items-center">
-                <CheckCircle2 size={13} color="#10b981" />
-                <Text className="ml-1 text-[11px] text-zinc-600 dark:text-zinc-400">Myanmar KBZPay ready</Text>
-              </View>
+            <View style={styles.assurancesRow}>
+              {['No account required', 'No ads or telemetry', 'Myanmar KBZPay ready'].map(
+                (item) => (
+                  <View key={item} style={styles.assuranceItem}>
+                    <CheckCircle2 size={14} color={palette.paidText} />
+                    <Text
+                      style={[
+                        styles.assuranceText,
+                        { color: palette.muted, fontFamily: fonts.medium },
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                  </View>
+                )
+              )}
             </View>
           </View>
         </View>
 
-        {/* Feature Grid Section */}
-        <View className="border-t border-zinc-100 bg-zinc-50/70 px-5 py-16 dark:border-zinc-900 dark:bg-zinc-900/40">
-          <View className="mx-auto max-w-5xl">
-            <View className="mb-12 items-center text-center">
-              <Text className="text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-                Core Capabilities
+        {/* Core Capabilities */}
+        <View
+          style={[
+            styles.bandSection,
+            {
+              backgroundColor: palette.surface,
+              borderTopColor: palette.line,
+              borderBottomColor: palette.line,
+            },
+          ]}
+        >
+          <View style={styles.sectionInner}>
+            <View style={styles.sectionHeader}>
+              <Text
+                style={[
+                  styles.eyebrow,
+                  { color: themeColor.primary, fontFamily: fonts.monoMedium },
+                ]}
+              >
+                CORE CAPABILITIES
               </Text>
-              <Text className="mt-2 text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-zinc-100">
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  { color: palette.ink, fontFamily: fonts.bold },
+                ]}
+              >
                 Everything student treasurers need
               </Text>
             </View>
 
-            <View className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {/* Feature 1 */}
-              <View className="rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <View style={styles.cardGrid}>
+              {capabilities.map(({ title, description, Icon }) => (
                 <View
-                  style={{ backgroundColor: themeColor.surface }}
-                  className="mb-4 h-11 w-11 items-center justify-center rounded-xl"
+                  key={title}
+                  style={[
+                    styles.featureCard,
+                    {
+                      backgroundColor: palette.card,
+                      borderColor: palette.line,
+                      flexBasis: isWide ? 280 : '100%',
+                    },
+                  ]}
                 >
-                  <HeartHandshake size={22} color={themeColor.primary} />
+                  <View
+                    style={[
+                      styles.cardIconWrap,
+                      { backgroundColor: themeColor.surface },
+                    ]}
+                  >
+                    <Icon size={20} color={themeColor.primary} />
+                  </View>
+                  <Text
+                    style={[
+                      styles.cardTitle,
+                      { color: palette.ink, fontFamily: fonts.semibold },
+                    ]}
+                  >
+                    {title}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.cardBody,
+                      { color: palette.muted, fontFamily: fonts.regular },
+                    ]}
+                  >
+                    {description}
+                  </Text>
                 </View>
-                <Text className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Events & Bulk Assessment
-                </Text>
-                <Text className="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-                  Assess fixed fees or collect voluntary donation drives across your entire class roster with 1-tap contribution tracking.
-                </Text>
-              </View>
-
-              {/* Feature 2 */}
-              <View className="rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <View
-                  style={{ backgroundColor: themeColor.surface }}
-                  className="mb-4 h-11 w-11 items-center justify-center rounded-xl"
-                >
-                  <Gavel size={22} color={themeColor.primary} />
-                </View>
-                <Text className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Subject-Wise Fines
-                </Text>
-                <Text className="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-                  Keep disciplinary fines organized by academic course and subject. Track paid vs owed balances with automatic rollups.
-                </Text>
-              </View>
-
-              {/* Feature 3 */}
-              <View className="rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <View
-                  style={{ backgroundColor: themeColor.surface }}
-                  className="mb-4 h-11 w-11 items-center justify-center rounded-xl"
-                >
-                  <ImageIcon size={22} color={themeColor.primary} />
-                </View>
-                <Text className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Aesthetic Visual Reports
-                </Text>
-                <Text className="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-                  Generate high-resolution PNG & SVG report cards and donor lists ready to share directly into class chat groups on Viber & Telegram.
-                </Text>
-              </View>
-
-              {/* Feature 4 */}
-              <View className="rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <View
-                  style={{ backgroundColor: themeColor.surface }}
-                  className="mb-4 h-11 w-11 items-center justify-center rounded-xl"
-                >
-                  <Cloud size={22} color={themeColor.primary} />
-                </View>
-                <Text className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Cloud Sync & Multi-Tenancy
-                </Text>
-                <Text className="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-                  Store data locally first. Optionally sign in with Google or email via Supabase for encrypted, user-isolated real-time synchronization.
-                </Text>
-              </View>
-
-              {/* Feature 5 */}
-              <View className="rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <View
-                  style={{ backgroundColor: themeColor.surface }}
-                  className="mb-4 h-11 w-11 items-center justify-center rounded-xl"
-                >
-                  <FileSpreadsheet size={22} color={themeColor.primary} />
-                </View>
-                <Text className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Safe Data Export & Portability
-                </Text>
-                <Text className="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-                  Download JSON database backups and CSV exports with automated sanitization guarding against spreadsheet formula injection.
-                </Text>
-              </View>
-
-              {/* Feature 6 */}
-              <View className="rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <View
-                  style={{ backgroundColor: themeColor.surface }}
-                  className="mb-4 h-11 w-11 items-center justify-center rounded-xl"
-                >
-                  <Globe size={22} color={themeColor.primary} />
-                </View>
-                <Text className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Bilingual: English & Myanmar
-                </Text>
-                <Text className="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-                  Native language toggling between English and Myanmar (Burmese) with localized currency (MMK) and payment formatters.
-                </Text>
-              </View>
+              ))}
             </View>
           </View>
         </View>
 
-        {/* Platform Availability Section */}
-        <View className="px-5 py-16">
-          <View className="mx-auto max-w-4xl text-center">
-            <Text className="text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-              Multi-Platform
-            </Text>
-            <Text className="mt-2 text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-zinc-100">
-              Run everywhere you work
-            </Text>
+        {/* Multi-Platform */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionInner}>
+            <View style={styles.sectionHeader}>
+              <Text
+                style={[
+                  styles.eyebrow,
+                  { color: themeColor.primary, fontFamily: fonts.monoMedium },
+                ]}
+              >
+                MULTI-PLATFORM
+              </Text>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  { color: palette.ink, fontFamily: fonts.bold },
+                ]}
+              >
+                Run everywhere you work
+              </Text>
+            </View>
 
-            <View className="mt-10 flex-row flex-wrap justify-center gap-4">
-              <View className="w-64 rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <Globe size={24} color={themeColor.primary} />
-                <Text className="mt-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Web App
-                </Text>
-                <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  Zero installation. Open directly in Chrome, Safari, Firefox, or Edge on any computer.
-                </Text>
-                <TouchableOpacity
-                  onPress={handleOpenApp}
-                  className="mt-4 flex-row items-center"
+            <View style={styles.cardGrid}>
+              {platforms.map(({ title, description, cta, onPress, Icon, ActionIcon }) => (
+                <View
+                  key={title}
+                  style={[
+                    styles.platformCard,
+                    {
+                      backgroundColor: palette.card,
+                      borderColor: palette.line,
+                      flexBasis: isWide ? 230 : '100%',
+                    },
+                  ]}
                 >
-                  <Text
-                    style={{ color: themeColor.primary }}
-                    className="text-xs font-bold mr-1"
+                  <View
+                    style={[
+                      styles.cardIconWrap,
+                      { backgroundColor: themeColor.surface },
+                    ]}
                   >
-                    Open in Browser
-                  </Text>
-                  <ArrowRight size={13} color={themeColor.primary} />
-                </TouchableOpacity>
-              </View>
-
-              <View className="w-64 rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <Smartphone size={24} color={themeColor.primary} />
-                <Text className="mt-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Android APK & F-Droid
-                </Text>
-                <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  Standalone APK available on GitHub Releases and via F-Droid / IzzyOnDroid.
-                </Text>
-                <TouchableOpacity
-                  onPress={handleOpenReleases}
-                  className="mt-4 flex-row items-center"
-                >
+                    <Icon size={20} color={themeColor.primary} />
+                  </View>
                   <Text
-                    style={{ color: themeColor.primary }}
-                    className="text-xs font-bold mr-1"
+                    style={[
+                      styles.cardTitle,
+                      { color: palette.ink, fontFamily: fonts.semibold },
+                    ]}
                   >
-                    Get APK
+                    {title}
                   </Text>
-                  <Download size={13} color={themeColor.primary} />
-                </TouchableOpacity>
-              </View>
-
-              <View className="w-64 rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <Users size={24} color={themeColor.primary} />
-                <Text className="mt-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Linux Desktop
-                </Text>
-                <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  Native desktop packages (.deb and .AppImage) powered by Tauri for high performance.
-                </Text>
-                <TouchableOpacity
-                  onPress={handleOpenReleases}
-                  className="mt-4 flex-row items-center"
-                >
                   <Text
-                    style={{ color: themeColor.primary }}
-                    className="text-xs font-bold mr-1"
+                    style={[
+                      styles.cardBody,
+                      { color: palette.muted, fontFamily: fonts.regular },
+                    ]}
                   >
-                    Download Linux App
+                    {description}
                   </Text>
-                  <Download size={13} color={themeColor.primary} />
-                </TouchableOpacity>
-              </View>
+                  <Pressable
+                    onPress={onPress}
+                    accessibilityRole="button"
+                    style={styles.platformAction}
+                  >
+                    <Text
+                      style={[
+                        styles.platformActionText,
+                        { color: themeColor.primary, fontFamily: fonts.semibold },
+                      ]}
+                    >
+                      {cta}
+                    </Text>
+                    <ActionIcon size={14} color={themeColor.primary} />
+                  </Pressable>
+                </View>
+              ))}
             </View>
           </View>
         </View>
 
-        {/* FAQ Section */}
-        <View className="border-t border-zinc-100 bg-zinc-50/70 px-5 py-16 dark:border-zinc-900 dark:bg-zinc-900/40">
-          <View className="mx-auto max-w-3xl">
-            <Text className="text-center text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-              Questions & Answers
-            </Text>
-            <Text className="mt-2 text-center text-2xl font-extrabold text-zinc-900 dark:text-zinc-100">
-              Frequently Asked Questions
-            </Text>
+        {/* FAQ */}
+        <View
+          style={[
+            styles.bandSection,
+            {
+              backgroundColor: palette.surface,
+              borderTopColor: palette.line,
+              borderBottomColor: palette.line,
+            },
+          ]}
+        >
+          <View style={[styles.sectionInner, { maxWidth: 760 }]}>
+            <View style={styles.sectionHeader}>
+              <Text
+                style={[
+                  styles.eyebrow,
+                  { color: themeColor.primary, fontFamily: fonts.monoMedium },
+                ]}
+              >
+                QUESTIONS & ANSWERS
+              </Text>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  { color: palette.ink, fontFamily: fonts.bold },
+                ]}
+              >
+                Frequently Asked Questions
+              </Text>
+            </View>
 
-            <View className="mt-8 space-y-4">
-              <View className="rounded-xl border border-zinc-200 bg-white p-4.5 dark:border-zinc-800 dark:bg-zinc-900">
-                <Text className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                  Is Class Ledger completely free to use?
-                </Text>
-                <Text className="mt-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-                  Yes, Class Ledger is 100% free and open-source under the MIT license. There are no paid tiers, no advertisements, and no tracking.
-                </Text>
-              </View>
-
-              <View className="rounded-xl border border-zinc-200 bg-white p-4.5 dark:border-zinc-800 dark:bg-zinc-900">
-                <Text className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                  Can I use it completely offline?
-                </Text>
-                <Text className="mt-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-                  Yes! All students, fines, events, and dues are saved locally to your device storage. You only need an internet connection if you choose to sync your class data to the cloud.
-                </Text>
-              </View>
-
-              <View className="rounded-xl border border-zinc-200 bg-white p-4.5 dark:border-zinc-800 dark:bg-zinc-900">
-                <Text className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                  How does cloud synchronization work?
-                </Text>
-                <Text className="mt-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-                  Cloud sync uses Supabase with multi-tenant Row Level Security (RLS). When you sign in with Google or Email, your data is securely isolated so only your account can read or update your classroom data.
-                </Text>
-              </View>
+            <View style={styles.faqList}>
+              {faqs.map((faq) => (
+                <View
+                  key={faq.q}
+                  style={[
+                    styles.faqCard,
+                    { backgroundColor: palette.card, borderColor: palette.line },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.faqQ,
+                      { color: palette.ink, fontFamily: fonts.semibold },
+                    ]}
+                  >
+                    {faq.q}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.faqA,
+                      { color: palette.muted, fontFamily: fonts.regular },
+                    ]}
+                  >
+                    {faq.a}
+                  </Text>
+                </View>
+              ))}
             </View>
           </View>
         </View>
 
         {/* Footer */}
-        <View className="border-t border-zinc-200/80 px-5 pt-12 pb-6 dark:border-zinc-800">
-          <View className="mx-auto flex-col sm:flex-row max-w-5xl items-center justify-between gap-4">
-            <View className="flex-row items-center space-x-2">
-              <View
-                style={{ backgroundColor: themeColor.primary }}
-                className="h-7 w-7 items-center justify-center rounded-lg"
+        <View style={[styles.footer, { borderTopColor: palette.line }]}>
+          <View style={[styles.footerInner, isWide ? styles.footerInnerWide : null]}>
+            <View style={styles.footerBrand}>
+              <BrandMark size={24} accentColor={themeColor.primary} />
+              <Text
+                style={[
+                  styles.footerBrandText,
+                  { color: palette.ink, fontFamily: fonts.semibold },
+                ]}
               >
-                <BookOpen size={16} color={themeColor.onPrimary} />
-              </View>
-              <Text className="text-sm font-bold text-zinc-900 dark:text-zinc-100 ml-2">
                 Class Ledger
               </Text>
             </View>
 
-            <Text className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+            <Text
+              style={[
+                styles.footerCopy,
+                { color: palette.muted, fontFamily: fonts.regular },
+              ]}
+            >
               Licensed under MIT • Free and Open Source Software
             </Text>
 
-            <View className="flex-row items-center gap-4">
-              <TouchableOpacity onPress={handleOpenGitHub}>
-                <Text className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            <View style={styles.footerLinks}>
+              <Pressable onPress={handleOpenGitHub} accessibilityRole="button">
+                <Text
+                  style={[
+                    styles.footerLink,
+                    { color: palette.muted, fontFamily: fonts.medium },
+                  ]}
+                >
                   GitHub
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleOpenApp}>
+              </Pressable>
+              <Pressable onPress={handleOpenApp} accessibilityRole="button">
                 <Text
-                  style={{ color: themeColor.primary }}
-                  className="text-xs font-bold"
+                  style={[
+                    styles.footerLink,
+                    { color: themeColor.primary, fontFamily: fonts.semibold },
+                  ]}
                 >
                   Launch App
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -444,3 +598,266 @@ export default function ProductLandingPage() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  navbar: {
+    borderBottomWidth: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+  },
+  navbarInner: {
+    width: '100%',
+    maxWidth: 1024,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  brandGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  brandTitle: {
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  brandSubtitle: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  navCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  navCtaText: {
+    fontSize: 13,
+    lineHeight: 16,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  heroSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+  },
+  heroInner: {
+    width: '100%',
+    maxWidth: 740,
+    alignSelf: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  heroHeading: {
+    fontSize: 30,
+    lineHeight: 37,
+    textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  heroHeadingWide: {
+    fontSize: 42,
+    lineHeight: 50,
+  },
+  heroLead: {
+    fontSize: 15,
+    lineHeight: 23,
+    textAlign: 'center',
+    maxWidth: 620,
+  },
+  heroActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 6,
+  },
+  primaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+  },
+  primaryBtnText: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  secondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+  },
+  secondaryBtnText: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  assurancesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 14,
+    marginTop: 6,
+  },
+  assuranceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  assuranceText: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  bandSection: {
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+  },
+  sectionContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+  },
+  sectionInner: {
+    width: '100%',
+    maxWidth: 1024,
+    alignSelf: 'center',
+    gap: 24,
+  },
+  sectionHeader: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  eyebrow: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    lineHeight: 30,
+    textAlign: 'center',
+  },
+  cardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+  },
+  featureCard: {
+    flexGrow: 1,
+    borderRadius: 18,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    padding: 18,
+    gap: 8,
+  },
+  platformCard: {
+    flexGrow: 1,
+    borderRadius: 18,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    padding: 18,
+    gap: 8,
+  },
+  cardIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  cardTitle: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  cardBody: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  platformAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  platformActionText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  faqList: {
+    gap: 12,
+  },
+  faqCard: {
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    padding: 16,
+    gap: 6,
+  },
+  faqQ: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  faqA: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 12,
+  },
+  footerInner: {
+    width: '100%',
+    maxWidth: 1024,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  footerInnerWide: {
+    flexDirection: 'row',
+  },
+  footerBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  footerBrandText: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  footerCopy: {
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  footerLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  footerLink: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+});

@@ -1,0 +1,5 @@
+v2.0.0 Release:
+- Slate & Teal UI redesign with Outfit and DM Mono typography across all tabs and modals
+- Light, Dark, and Follow System theme switcher in Settings
+- Android NativeWind button/pill rendering fix and Burmese page header alignment
+- Mobile-responsive product landing page and persistent Android release keystore signing

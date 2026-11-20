@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import hashlib
 import os
 import subprocess
 from PIL import Image
@@ -8,150 +9,149 @@ PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 ASSETS_DIR = os.path.join(PROJECT_DIR, "assets", "images")
 TAURI_ICONS_DIR = os.path.join(PROJECT_DIR, "src-tauri", "icons")
 
-# 1. Master Icon (iOS & Universal App Icon) - 1024x1024 square, RGB (no alpha)
-MASTER_ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+OPEN_BOOK_COLOR_PATHS = """    <path d="M7.5 9.5C7.5 8.67 8.17 8 9 8H15.5V23.5H9C8.17 23.5 7.5 22.83 7.5 22V9.5Z" fill="#f7f9fa" />
+    <path d="M16.5 8H23C23.83 8 24.5 8.67 24.5 9.5V22C24.5 22.83 23.83 23.5 23 23.5H16.5V8Z" fill="#ecf0f2" />
+    <rect x="19" y="8" width="2.5" height="6.5" rx="0.6" fill="#0d7480" />
+    <path d="M9.5 12H13.5M9.5 15.5H13.5M9.5 19H12.5" stroke="#1f3038" stroke-width="1.5" stroke-linecap="round" />
+    <path d="M18.5 17H22.5M18.5 20H21.5" stroke="#0d7480" stroke-width="1.5" stroke-linecap="round" />"""
+
+# 1. Master Icon (iOS & Universal App Icon) - 1024x1024 square, 24-bit RGB (no alpha)
+MASTER_ICON_SVG = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366f1" />
-      <stop offset="45%" stop-color="#4f46e5" />
-      <stop offset="100%" stop-color="#3730a3" />
+    <linearGradient id="slateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#263a44" />
+      <stop offset="50%" stop-color="#1f3038" />
+      <stop offset="100%" stop-color="#16232a" />
     </linearGradient>
-    <radialGradient id="topGlow" cx="50%" cy="18%" r="65%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22" />
-      <stop offset="60%" stop-color="#ffffff" stop-opacity="0" />
+    <radialGradient id="tealGlow" cx="78%" cy="18%" r="68%">
+      <stop offset="0%" stop-color="#0d7480" stop-opacity="0.28" />
+      <stop offset="70%" stop-color="#0d7480" stop-opacity="0" />
     </radialGradient>
-    <filter id="bookShadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#1e1b4b" flood-opacity="0.38" />
-      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.22" />
-    </filter>
   </defs>
 
-  <!-- Opaque background with subtle depth -->
-  <rect width="1024" height="1024" fill="url(#primaryGrad)" />
-  <rect width="1024" height="1024" fill="url(#topGlow)" />
-  <line x1="0" y1="1" x2="1024" y2="1" stroke="#ffffff" stroke-opacity="0.25" stroke-width="2" />
+  <rect width="1024" height="1024" fill="url(#slateGrad)" />
+  <rect width="1024" height="1024" fill="url(#tealGlow)" />
 
-  <!-- BookOpen Emblem: scale=22.5, centered: 512 - 12*22.5 = 242 -->
-  <g transform="translate(242, 242) scale(22.5)"
-     filter="url(#bookShadow)"
-     fill="none"
-     stroke="#ffffff"
-     stroke-width="2.35"
-     stroke-linecap="round"
-     stroke-linejoin="round">
-    <path d="M12 5v16" />
-    <path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z" />
+  <g transform="translate(32, 39.5) scale(30)">
+{OPEN_BOOK_COLOR_PATHS}
   </g>
 </svg>"""
 
-# 2. Android Adaptive Icon Background - 1024x1024
+# 2. Android Adaptive Icon Background - 1024x1024 opaque 24-bit RGB
 ANDROID_BG_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366f1" />
-      <stop offset="45%" stop-color="#4f46e5" />
-      <stop offset="100%" stop-color="#3730a3" />
+    <linearGradient id="slateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#263a44" />
+      <stop offset="50%" stop-color="#1f3038" />
+      <stop offset="100%" stop-color="#16232a" />
     </linearGradient>
-    <radialGradient id="topGlow" cx="50%" cy="18%" r="65%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22" />
-      <stop offset="60%" stop-color="#ffffff" stop-opacity="0" />
+    <radialGradient id="tealGlow" cx="78%" cy="18%" r="68%">
+      <stop offset="0%" stop-color="#0d7480" stop-opacity="0.28" />
+      <stop offset="70%" stop-color="#0d7480" stop-opacity="0" />
     </radialGradient>
   </defs>
-  <rect width="1024" height="1024" fill="url(#primaryGrad)" />
-  <rect width="1024" height="1024" fill="url(#topGlow)" />
+  <rect width="1024" height="1024" fill="url(#slateGrad)" />
+  <rect width="1024" height="1024" fill="url(#tealGlow)" />
 </svg>"""
 
-# 3. Android Adaptive Icon Foreground - 1024x1024 transparent, inside 66% safe zone circle
-ANDROID_FG_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <defs>
-    <filter id="fgShadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#1e1b4b" flood-opacity="0.32" />
-      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.2" />
-    </filter>
-  </defs>
-  <!-- Scale 19, centered: 512 - 12*19 = 284. Safe circle radius = 313, max point radius = 266 -->
-  <g transform="translate(284, 284) scale(19)"
-     filter="url(#fgShadow)"
-     fill="none"
-     stroke="#ffffff"
-     stroke-width="2.35"
-     stroke-linecap="round"
-     stroke-linejoin="round">
-    <path d="M12 5v16" />
-    <path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z" />
+# 3. Android Adaptive Icon Foreground - 1024x1024 transparent RGBA, inside 66% safe zone circle
+ANDROID_FG_SVG = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <g transform="translate(112, 118.25) scale(25)">
+{OPEN_BOOK_COLOR_PATHS}
   </g>
 </svg>"""
 
-# 4. Android Adaptive Icon Monochrome - 1024x1024 transparent, white silhouette
+# 4. Android Adaptive Icon Monochrome - 1024x1024 transparent RGBA, crisp white silhouette
 ANDROID_MONO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- Exact same scale 19, centered at 284 -->
-  <g transform="translate(284, 284) scale(19)"
-     fill="none"
-     stroke="#ffffff"
-     stroke-width="2.35"
-     stroke-linecap="round"
-     stroke-linejoin="round">
-    <path d="M12 5v16" />
-    <path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z" />
+  <g transform="translate(112, 118.25) scale(25)">
+    <path d="M7.5 9.5C7.5 8.67 8.17 8 9 8H15.5V23.5H9C8.17 23.5 7.5 22.83 7.5 22V9.5Z" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round" />
+    <path d="M16.5 8H23C23.83 8 24.5 8.67 24.5 9.5V22C24.5 22.83 23.83 23.5 23 23.5H16.5V8Z" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round" />
+    <rect x="19" y="8" width="2.5" height="6.5" rx="0.6" fill="#ffffff" />
+    <path d="M9.5 12H13.5M9.5 15.5H13.5M9.5 19H12.5" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round" />
+    <path d="M18.5 17H22.5M18.5 20H21.5" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round" />
   </g>
 </svg>"""
 
-# 5. Splash Screen Icon - 1024x1024 transparent, centered squircle badge with soft elevation
-SPLASH_ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+# 5. Splash Screen Icon - 1024x1024 transparent RGBA, centered squircle badge
+SPLASH_ICON_SVG = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
     <linearGradient id="splashGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366f1" />
-      <stop offset="45%" stop-color="#4f46e5" />
-      <stop offset="100%" stop-color="#3730a3" />
+      <stop offset="0%" stop-color="#263a44" />
+      <stop offset="50%" stop-color="#1f3038" />
+      <stop offset="100%" stop-color="#16232a" />
     </linearGradient>
-    <radialGradient id="splashGlow" cx="50%" cy="20%" r="65%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.25" />
-      <stop offset="60%" stop-color="#ffffff" stop-opacity="0" />
+    <radialGradient id="splashGlow" cx="78%" cy="18%" r="68%">
+      <stop offset="0%" stop-color="#0d7480" stop-opacity="0.28" />
+      <stop offset="70%" stop-color="#0d7480" stop-opacity="0" />
     </radialGradient>
-    <filter id="badgeShadow" x="-25%" y="-25%" width="150%" height="150%">
-      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#1e1b4b" flood-opacity="0.30" />
-      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.18" />
-    </filter>
   </defs>
 
-  <!-- Centered squircle badge: 560x560, rx=136 at (232, 232) -->
-  <g filter="url(#badgeShadow)">
-    <rect x="232" y="232" width="560" height="560" rx="136" fill="url(#splashGrad)" />
-    <rect x="232" y="232" width="560" height="560" rx="136" fill="url(#splashGlow)" />
-  </g>
+  <rect x="232" y="232" width="560" height="560" rx="136" fill="url(#splashGrad)" />
+  <rect x="232" y="232" width="560" height="560" rx="136" fill="url(#splashGlow)" />
+  <rect x="232" y="232" width="560" height="560" rx="136" fill="none" stroke="#ffffff" stroke-opacity="0.14" stroke-width="3" />
 
-  <!-- Book emblem inside badge: scale 15, centered: 512 - 12*15 = 332 -->
-  <g transform="translate(332, 332) scale(15)"
-     fill="none"
-     stroke="#ffffff"
-     stroke-width="2.35"
-     stroke-linecap="round"
-     stroke-linejoin="round">
-    <path d="M12 5v16" />
-    <path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z" />
+  <g transform="translate(224, 228.5) scale(18)">
+{OPEN_BOOK_COLOR_PATHS}
   </g>
 </svg>"""
 
-# 6. Favicon SVG - 512x512
-FAVICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366f1" />
-      <stop offset="50%" stop-color="#4f46e5" />
-      <stop offset="100%" stop-color="#3730a3" />
-    </linearGradient>
-    <radialGradient id="topGlow" cx="50%" cy="18%" r="65%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22" />
-      <stop offset="60%" stop-color="#ffffff" stop-opacity="0" />
-    </radialGradient>
-  </defs>
-  <rect x="16" y="16" width="480" height="480" rx="116" fill="url(#bgGrad)" />
-  <rect x="16" y="16" width="480" height="480" rx="116" fill="url(#topGlow)" />
-  <g transform="translate(116, 116) scale(11.6667)" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12 5v16" />
-    <path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z" />
-  </g>
+# 6. Favicon SVG - 512x512 matching public/landing/favicon.svg BrandMark
+FAVICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="512" height="512" fill="none">
+  <rect width="32" height="32" rx="8" fill="#1f3038" />
+  <path d="M7.5 9.5C7.5 8.67 8.17 8 9 8H15.5V23.5H9C8.17 23.5 7.5 22.83 7.5 22V9.5Z" fill="#f7f9fa" />
+  <path d="M16.5 8H23C23.83 8 24.5 8.67 24.5 9.5V22C24.5 22.83 23.83 23.5 23 23.5H16.5V8Z" fill="#ecf0f2" />
+  <rect x="19" y="8" width="2.5" height="6.5" rx="0.6" fill="#0d7480" />
+  <path d="M9.5 12H13.5M9.5 15.5H13.5M9.5 19H12.5" stroke="#1f3038" stroke-width="1.5" stroke-linecap="round" />
+  <path d="M18.5 17H22.5M18.5 20H21.5" stroke="#0d7480" stroke-width="1.5" stroke-linecap="round" />
 </svg>"""
+
+
+def file_sha256(path: str) -> str:
+    if not os.path.exists(path):
+        return ""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def fallback_generate_tauri_icons(master_icon_path: str) -> None:
+    if not os.path.isdir(TAURI_ICONS_DIR):
+        return
+
+    master_rgba = Image.open(master_icon_path).convert("RGBA")
+    updated_pngs = 0
+
+    for root, _, files in os.walk(TAURI_ICONS_DIR):
+        for name in files:
+            if not name.lower().endswith(".png"):
+                continue
+            target_path = os.path.join(root, name)
+            try:
+                with Image.open(target_path) as existing:
+                    size = existing.size
+            except Exception:
+                size = (512, 512)
+            resized = master_rgba.resize(size, Image.Resampling.LANCZOS)
+            resized.save(target_path, "PNG")
+            updated_pngs += 1
+
+    ico_path = os.path.join(TAURI_ICONS_DIR, "icon.ico")
+    master_rgba.save(
+        ico_path,
+        format="ICO",
+        sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
+    )
+
+    icns_path = os.path.join(TAURI_ICONS_DIR, "icon.icns")
+    try:
+        master_rgba.save(icns_path, format="ICNS")
+        print(f"PIL fallback updated {updated_pngs} PNGs, icon.ico, and icon.icns in src-tauri/icons/")
+    except Exception as icns_err:
+        print(
+            f"PIL fallback updated {updated_pngs} PNGs and icon.ico in src-tauri/icons/ (ICNS skipped: {icns_err})"
+        )
 
 
 def main():
@@ -182,11 +182,16 @@ def main():
         print(f"Rendered {png_name} via ImageMagick")
 
     # Post-process with PIL to guarantee strict requirements:
-    # 1. icon.png must be 24-bit RGB (no alpha) for Apple App Store requirements
+    # 1. icon.png and android-icon-background.png must be 24-bit RGB (no alpha)
     icon_path = os.path.join(ASSETS_DIR, "icon.png")
     im_icon = Image.open(icon_path).convert("RGB")
     im_icon.save(icon_path, "PNG")
     print("Enforced 24-bit RGB on icon.png")
+
+    bg_path = os.path.join(ASSETS_DIR, "android-icon-background.png")
+    im_bg = Image.open(bg_path).convert("RGB")
+    im_bg.save(bg_path, "PNG")
+    print("Enforced 24-bit RGB on android-icon-background.png")
 
     # 2. Write favicon.svg and favicon.png (48x48 RGBA)
     favicon_svg_path = os.path.join(ASSETS_DIR, "favicon.svg")
@@ -194,15 +199,31 @@ def main():
         f.write(FAVICON_SVG)
 
     favicon_png_path = os.path.join(ASSETS_DIR, "favicon.png")
-    subprocess.check_call(["magick", "-background", "none", favicon_svg_path, "-resize", "48x48", f"PNG32:{favicon_png_path}"])
+    subprocess.check_call(
+        ["magick", "-background", "none", favicon_svg_path, "-resize", "48x48", f"PNG32:{favicon_png_path}"]
+    )
     print("Generated favicon.svg and favicon.png (48x48)")
 
-    # 3. Update Tauri desktop icons if tauri cli is present
+    # 3. Update Tauri desktop icons (check whether npx tauri icon succeeded and refreshed 128x128.png)
+    ref_tauri_icon = os.path.join(TAURI_ICONS_DIR, "128x128.png")
+    before_hash = file_sha256(ref_tauri_icon)
+    tauri_ok = False
     try:
-        subprocess.check_call(["npx", "tauri", "icon", icon_path])
-        print("Updated Tauri desktop icons in src-tauri/icons/")
+        env = os.environ.copy()
+        if "/usr/bin" not in env.get("PATH", "").split(":"):
+            env["PATH"] = f"/usr/bin:{env.get('PATH', '')}"
+        res = subprocess.run(["npx", "tauri", "icon", icon_path], env=env, check=False)
+        after_hash = file_sha256(ref_tauri_icon)
+        if res.returncode == 0 and after_hash and after_hash != before_hash:
+            tauri_ok = True
+            print("Updated Tauri desktop icons in src-tauri/icons/ via Tauri CLI")
+        else:
+            print(f"Tauri CLI returned {res.returncode} (updated={after_hash != before_hash}); running PIL fallback")
     except Exception as e:
-        print("Note: Tauri icon generation warning:", e)
+        print("Tauri CLI unavailable; running PIL fallback:", e)
+
+    if not tauri_ok:
+        fallback_generate_tauri_icons(icon_path)
 
     print("\nAll brand assets generated successfully!")
 
