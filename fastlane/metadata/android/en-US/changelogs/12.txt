@@ -1,0 +1,5 @@
+v2.1.0 Release:
+- Accent-tinted surface palettes across light and dark modes
+- Offline account persistence, pending sync queue, and automatic reconnect auto-merge
+- Web dark-mode SSR hydration fix and mobile Aesthetic Table Export modal layout fix
+- Web SVG & Apple touch favicon support

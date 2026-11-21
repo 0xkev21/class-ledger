@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_THEME_COLOR_ID } from '../theme/themeColors';
 import {
@@ -9,6 +10,90 @@ import {
   Student,
   Subject,
 } from '../types';
+
+const SYNC_QUEUE_KEY = '@ec_treasury_sync_queue_v1';
+
+export type SyncTable = 'students' | 'subjects' | 'events' | 'event_records' | 'fines';
+
+export interface PendingDelete {
+  table: SyncTable;
+  id: string;
+}
+
+export interface SyncQueueState {
+  hasPendingPush: boolean;
+  pendingDeletes: PendingDelete[];
+}
+
+const EMPTY_SYNC_QUEUE: SyncQueueState = {
+  hasPendingPush: false,
+  pendingDeletes: [],
+};
+
+export async function loadSyncQueue(): Promise<SyncQueueState> {
+  try {
+    const raw = await AsyncStorage.getItem(SYNC_QUEUE_KEY);
+    if (!raw) return EMPTY_SYNC_QUEUE;
+    const parsed = JSON.parse(raw);
+    return {
+      hasPendingPush: Boolean(parsed?.hasPendingPush),
+      pendingDeletes: Array.isArray(parsed?.pendingDeletes) ? parsed.pendingDeletes : [],
+    };
+  } catch {
+    return EMPTY_SYNC_QUEUE;
+  }
+}
+
+export async function saveSyncQueue(queue: SyncQueueState): Promise<void> {
+  try {
+    await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+  } catch (err) {
+    console.warn('Failed to persist sync queue:', err);
+  }
+}
+
+export async function markPendingPush(): Promise<SyncQueueState> {
+  const current = await loadSyncQueue();
+  const next: SyncQueueState = { ...current, hasPendingPush: true };
+  await saveSyncQueue(next);
+  return next;
+}
+
+export async function enqueuePendingDelete(
+  table: SyncTable,
+  id: string
+): Promise<SyncQueueState> {
+  const current = await loadSyncQueue();
+  const exists = current.pendingDeletes.some((d) => d.table === table && d.id === id);
+  const pendingDeletes = exists
+    ? current.pendingDeletes
+    : [...current.pendingDeletes, { table, id }];
+  const next: SyncQueueState = { hasPendingPush: true, pendingDeletes };
+  await saveSyncQueue(next);
+  return next;
+}
+
+export async function clearSyncQueue(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(SYNC_QUEUE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+export function isNetworkError(err: any): boolean {
+  const msg = String(err?.message || err || '').toLowerCase();
+  return (
+    msg.includes('network') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('fetch') ||
+    msg.includes('timeout') ||
+    msg.includes('offline') ||
+    msg.includes('internet') ||
+    msg.includes('econnrefused') ||
+    msg.includes('enotfound')
+  );
+}
 
 export interface SyncResult {
   success: boolean;
@@ -353,6 +438,215 @@ export async function deleteFineFromCloud(
     await client.from('fines').delete().eq('id', fineId);
   } catch (err) {
     console.error(`Failed to delete fine ${fineId} from cloud:`, err);
+  }
+}
+
+export async function flushPendingDeletes(
+  client: SupabaseClient,
+  pendingDeletes: PendingDelete[]
+): Promise<{ remaining: PendingDelete[]; error?: string }> {
+  const remaining: PendingDelete[] = [];
+  let lastError: string | undefined;
+
+  for (const item of pendingDeletes) {
+    try {
+      const { error } = await client.from(item.table).delete().eq('id', item.id);
+      if (error) {
+        remaining.push(item);
+        lastError = error.message;
+      }
+    } catch (err: any) {
+      remaining.push(item);
+      lastError = err?.message || 'Delete failed';
+    }
+  }
+
+  return { remaining, error: lastError };
+}
+
+function mergeById<T extends { id: string }>(
+  cloudItems: T[],
+  localItems: T[],
+  deletedIds: Set<string>,
+  preferLocal: boolean
+): T[] {
+  const map = new Map<string, T>();
+
+  if (preferLocal) {
+    for (const item of cloudItems) {
+      if (!deletedIds.has(item.id)) map.set(item.id, item);
+    }
+    for (const item of localItems) {
+      if (!deletedIds.has(item.id)) map.set(item.id, item);
+    }
+  } else {
+    for (const item of localItems) {
+      if (!deletedIds.has(item.id)) map.set(item.id, item);
+    }
+    for (const item of cloudItems) {
+      if (!deletedIds.has(item.id)) map.set(item.id, item);
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+/**
+ * Auto-merges local and cloud datasets by record ID while respecting pending offline deletions.
+ */
+export function mergeLocalAndCloudState(
+  local: AppDatabaseState,
+  cloud: AppDatabaseState,
+  pendingDeletes: PendingDelete[],
+  preferLocalOnConflict: boolean
+): AppDatabaseState {
+  const deletedByTable = new Map<SyncTable, Set<string>>();
+  for (const del of pendingDeletes) {
+    let set = deletedByTable.get(del.table);
+    if (!set) {
+      set = new Set<string>();
+      deletedByTable.set(del.table, set);
+    }
+    set.add(del.id);
+  }
+
+  const getDeleted = (table: SyncTable) => deletedByTable.get(table) ?? new Set<string>();
+
+  const students = mergeById(
+    cloud.students,
+    local.students,
+    getDeleted('students'),
+    preferLocalOnConflict
+  );
+  const subjects = mergeById(
+    cloud.subjects,
+    local.subjects,
+    getDeleted('subjects'),
+    preferLocalOnConflict
+  );
+  const events = mergeById(
+    cloud.events,
+    local.events,
+    getDeleted('events'),
+    preferLocalOnConflict
+  );
+  const eventRecords = mergeById(
+    cloud.eventRecords,
+    local.eventRecords,
+    getDeleted('event_records'),
+    preferLocalOnConflict
+  );
+  const fines = mergeById(
+    cloud.fines,
+    local.fines,
+    getDeleted('fines'),
+    preferLocalOnConflict
+  );
+
+  const settings: AppSettings = {
+    ecKbzpayName: preferLocalOnConflict
+      ? local.settings.ecKbzpayName || cloud.settings.ecKbzpayName || ''
+      : cloud.settings.ecKbzpayName || local.settings.ecKbzpayName || '',
+    ecKbzpayPhone: preferLocalOnConflict
+      ? local.settings.ecKbzpayPhone || cloud.settings.ecKbzpayPhone || ''
+      : cloud.settings.ecKbzpayPhone || local.settings.ecKbzpayPhone || '',
+    themeColorId:
+      local.settings.themeColorId || cloud.settings.themeColorId || DEFAULT_THEME_COLOR_ID,
+    themeMode: local.settings.themeMode || 'system',
+    language: local.settings.language || cloud.settings.language || 'my',
+  };
+
+  return {
+    settings,
+    students,
+    subjects,
+    events,
+    eventRecords,
+    fines,
+    version: 2,
+  };
+}
+
+/**
+ * Bidirectional auto-merge sync:
+ * 1. Flushes any pending offline deletions
+ * 2. Pulls cloud data
+ * 3. Merges local + cloud by ID (local wins on conflicts if there were pending offline edits)
+ * 4. Pushes merged state to cloud if local had pending edits or local-only records
+ */
+export async function syncWithCloud(
+  local: AppDatabaseState,
+  client: SupabaseClient,
+  userId?: string
+): Promise<SyncResult> {
+  if (!userId) {
+    return {
+      success: false,
+      message: 'Cloud sync requires an authenticated user account.',
+    };
+  }
+
+  try {
+    const queue = await loadSyncQueue();
+
+    if (queue.pendingDeletes.length > 0) {
+      const delRes = await flushPendingDeletes(client, queue.pendingDeletes);
+      if (delRes.remaining.length > 0) {
+        await saveSyncQueue({ ...queue, pendingDeletes: delRes.remaining });
+        return {
+          success: false,
+          message: delRes.error || 'Failed to sync pending deletions.',
+        };
+      }
+      queue.pendingDeletes = [];
+      await saveSyncQueue(queue);
+    }
+
+    const pullRes = await pullCloudToLocal(client, userId, local.settings);
+    if (!pullRes.success || !pullRes.updatedState) {
+      return pullRes;
+    }
+
+    const cloud = pullRes.updatedState;
+    const merged = mergeLocalAndCloudState(
+      local,
+      cloud,
+      queue.pendingDeletes,
+      queue.hasPendingPush
+    );
+
+    const hasLocalOnlyRecords =
+      merged.students.length > cloud.students.length ||
+      merged.subjects.length > cloud.subjects.length ||
+      merged.events.length > cloud.events.length ||
+      merged.eventRecords.length > cloud.eventRecords.length ||
+      merged.fines.length > cloud.fines.length;
+
+    if (queue.hasPendingPush || hasLocalOnlyRecords) {
+      const pushRes = await pushLocalToCloud(merged, client, userId);
+      if (!pushRes.success) {
+        return {
+          success: false,
+          message: pushRes.message,
+          updatedState: merged,
+        };
+      }
+      await clearSyncQueue();
+    } else {
+      await clearSyncQueue();
+    }
+
+    return {
+      success: true,
+      message: 'Synced local and cloud data.',
+      syncedAt: new Date().toISOString(),
+      updatedState: merged,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.message || 'Sync failed',
+    };
   }
 }
 

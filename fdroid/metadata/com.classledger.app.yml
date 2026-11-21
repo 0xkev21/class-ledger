@@ -73,7 +73,17 @@ Builds:
     gradle:
       - assembleRelease
 
+  - versionName: 2.1.0
+    versionCode: 12
+    commit: v2.1.0
+    prebuild:
+      - npm ci
+      - npx expo prebuild --platform android --clean --no-install
+    subdir: android
+    gradle:
+      - assembleRelease
+
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 2.0.0
-CurrentVersionCode: 11
+CurrentVersion: 2.1.0
+CurrentVersionCode: 12

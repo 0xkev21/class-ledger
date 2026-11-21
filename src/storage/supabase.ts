@@ -8,6 +8,7 @@ import { Platform } from 'react-native';
 WebBrowser.maybeCompleteAuthSession();
 
 const LAST_SYNCED_KEY = '@ec_treasury_last_synced_at';
+const CACHED_USER_KEY = '@ec_treasury_cached_user_v1';
 const LEGACY_CONFIG_KEY = '@ec_treasury_supabase_config_v1';
 
 // Automatically purge any legacy custom database configuration to protect privacy and security
@@ -527,10 +528,32 @@ export async function updateUserPassword(
   }
 }
 
+async function saveCachedUser(user: User | null): Promise<void> {
+  try {
+    if (user) {
+      await AsyncStorage.setItem(CACHED_USER_KEY, JSON.stringify(user));
+    } else {
+      await AsyncStorage.removeItem(CACHED_USER_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
+async function loadCachedUser(): Promise<User | null> {
+  try {
+    const raw = await AsyncStorage.getItem(CACHED_USER_KEY);
+    return raw ? (JSON.parse(raw) as User) : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Signs out the currently authenticated user
  */
 export async function signOutUser(): Promise<{ success: boolean; error?: string }> {
+  await saveCachedUser(null);
   try {
     const client = getSupabaseClient();
     if (!client) return { success: true };
@@ -543,17 +566,35 @@ export async function signOutUser(): Promise<{ success: boolean; error?: string 
 }
 
 /**
- * Gets currently authenticated user
+ * Gets currently authenticated user, falling back to local session/cached user when offline.
  */
 export async function getCurrentUser(): Promise<User | null> {
   try {
     const client = getSupabaseClient();
     if (!client) return null;
-    const { data, error } = await client.auth.getUser();
-    if (error) return null;
-    return data?.user || null;
+
+    // 1. Check locally persisted Supabase session first (works offline)
+    const { data: sessionData } = await client.auth.getSession();
+    if (sessionData?.session?.user) {
+      await saveCachedUser(sessionData.session.user);
+      return sessionData.session.user;
+    }
+
+    // 2. Try network verification if no active session object was returned
+    try {
+      const { data, error } = await client.auth.getUser();
+      if (!error && data?.user) {
+        await saveCachedUser(data.user);
+        return data.user;
+      }
+    } catch {
+      // Network error while offline
+    }
+
+    // 3. Fallback to cached user profile so offline sessions still show signed-in account
+    return await loadCachedUser();
   } catch {
-    return null;
+    return await loadCachedUser();
   }
 }
 
@@ -566,9 +607,17 @@ export function subscribeToAuthChanges(callback: (user: User | null) => void): (
     if (!client) return () => {};
     const {
       data: { subscription },
-    } = client.auth.onAuthStateChange((_event, session) => {
+    } = client.auth.onAuthStateChange((event, session) => {
       try {
-        callback(session?.user || null);
+        if (event === 'SIGNED_OUT') {
+          void saveCachedUser(null);
+          callback(null);
+          return;
+        }
+        if (session?.user) {
+          void saveCachedUser(session.user);
+          callback(session.user);
+        }
       } catch (err) {
         console.warn('[Supabase Auth] auth state callback error:', err);
       }

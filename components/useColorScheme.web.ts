@@ -1,16 +1,12 @@
-import { useEffect, useState } from 'react';
-import { useColorScheme as useColorSchemeCore } from 'react-native';
+import { useEffect, useLayoutEffect, useState } from 'react';
+
+const useIsomorphicLayoutEffect =
+  typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 export function useColorScheme(): 'light' | 'dark' {
-  const coreScheme = useColorSchemeCore();
-  const [scheme, setScheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return coreScheme === 'dark' ? 'dark' : 'light';
-  });
+  const [scheme, setScheme] = useState<'light' | 'dark'>('light');
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');

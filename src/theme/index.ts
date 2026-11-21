@@ -1,5 +1,11 @@
 import { Platform } from 'react-native';
 import { Color } from 'expo-router';
+import {
+  DEFAULT_THEME_COLOR_ID,
+  hexToRgb,
+  THEME_COLOR_PRESETS,
+  ThemeColorId,
+} from './themeColors';
 
 export * from './themeColors';
 
@@ -60,6 +66,76 @@ export const surfaces: { light: SurfacePalette; dark: SurfacePalette } = {
     dangerText: '#fca5a5',
   },
 };
+
+function mixHex(baseHex: string, tintHex: string, tintWeight: number): string {
+  const base = hexToRgb(baseHex);
+  const tint = hexToRgb(tintHex);
+  const r = Math.max(0, Math.min(255, Math.round(base.r * (1 - tintWeight) + tint.r * tintWeight)));
+  const g = Math.max(0, Math.min(255, Math.round(base.g * (1 - tintWeight) + tint.g * tintWeight)));
+  const b = Math.max(0, Math.min(255, Math.round(base.b * (1 - tintWeight) + tint.b * tintWeight)));
+  const toHex = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+/**
+ * Generates a subtle accent-tinted surface palette for light and dark modes.
+ * Keeps the default Slate Teal preset exact while tinting neutrals for all other accents.
+ */
+export function getSurfacePalette(
+  themeColorId: ThemeColorId | string = DEFAULT_THEME_COLOR_ID,
+  isDark = false
+): SurfacePalette {
+  if (!themeColorId || themeColorId === DEFAULT_THEME_COLOR_ID || !(themeColorId in THEME_COLOR_PRESETS)) {
+    return isDark ? surfaces.dark : surfaces.light;
+  }
+
+  const primary = THEME_COLOR_PRESETS[themeColorId as ThemeColorId].primary;
+
+  if (isDark) {
+    const bg = mixHex('#15171a', primary, 0.12);
+    const card = mixHex('#1e2125', primary, 0.14);
+    const surface = mixHex('#24282d', primary, 0.14);
+    const ink = mixHex('#f8f9fa', primary, 0.03);
+    const muted = mixHex('#9fa4aa', primary, 0.06);
+    const subtle = mixHex('#b8bec4', primary, 0.06);
+    const bgRgb = hexToRgb(bg);
+    const inkRgb = hexToRgb(ink);
+
+    return {
+      ...surfaces.dark,
+      bg,
+      surface,
+      card,
+      ink,
+      muted,
+      subtle,
+      line: `rgba(${inkRgb.r}, ${inkRgb.g}, ${inkRgb.b}, 0.12)`,
+      lineStrong: `rgba(${inkRgb.r}, ${inkRgb.g}, ${inkRgb.b}, 0.24)`,
+      headerBg: `rgba(${bgRgb.r}, ${bgRgb.g}, ${bgRgb.b}, 0.94)`,
+    };
+  }
+
+  const bg = mixHex('#f8f9fa', primary, 0.03);
+  const surface = mixHex('#edf0f2', primary, 0.05);
+  const ink = mixHex('#1c2024', primary, 0.14);
+  const muted = mixHex('#61666b', primary, 0.08);
+  const subtle = mixHex('#4a5056', primary, 0.10);
+  const bgRgb = hexToRgb(bg);
+  const inkRgb = hexToRgb(ink);
+
+  return {
+    ...surfaces.light,
+    bg,
+    surface,
+    card: '#ffffff',
+    ink,
+    muted,
+    subtle,
+    line: `rgba(${inkRgb.r}, ${inkRgb.g}, ${inkRgb.b}, 0.11)`,
+    lineStrong: `rgba(${inkRgb.r}, ${inkRgb.g}, ${inkRgb.b}, 0.22)`,
+    headerBg: `rgba(${bgRgb.r}, ${bgRgb.g}, ${bgRgb.b}, 0.94)`,
+  };
+}
 
 /**
  * Bundled font family names registered in app/_layout.tsx (Outfit + DM Mono).

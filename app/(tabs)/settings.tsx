@@ -55,6 +55,8 @@ export default function SettingsScreen() {
     resetToDefaults,
     getDatabaseJSON,
     user,
+    isOnline,
+    hasPendingSync,
     lastSyncedAt,
     syncNow,
     language,
@@ -127,7 +129,7 @@ export default function SettingsScreen() {
   const handleManualSync = async () => {
     setIsManualSyncing(true);
     try {
-      const result = await syncNow('push');
+      const result = await syncNow('merge');
       if (result.success) {
         setToastMessage(t.settings.syncSuccess);
       } else {
@@ -703,8 +705,16 @@ export default function SettingsScreen() {
         </View>
 
         <StatusPill
-          variant={user ? 'paid' : 'neutral'}
-          label={user ? t.settings.connected : t.settings.offlineMode}
+          variant={user ? (isOnline ? 'paid' : 'unpaid') : 'neutral'}
+          label={
+            user
+              ? isOnline
+                ? t.settings.connected
+                : hasPendingSync
+                ? `${t.common.offline} • Pending`
+                : t.common.offline
+              : t.settings.offlineMode
+          }
         />
       </View>
 

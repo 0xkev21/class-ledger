@@ -22,7 +22,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { surfaces } from '@/src/theme';
+import { useAppTheme } from '@/src/context/TreasuryContext';
+import { getSurfacePalette } from '@/src/theme';
 import { Haptics } from '@/src/utils/haptics';
 import { project, rubberband } from '@/src/utils/motion';
 
@@ -53,10 +54,11 @@ export const DragDismissSheet: React.FC<DragDismissSheetProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
+  const { themeColorId } = useAppTheme();
   const colorScheme = useColorScheme();
   const isDark = propIsDark !== undefined ? propIsDark : colorScheme === 'dark';
-  const palette = isDark ? surfaces.dark : surfaces.light;
-  const resolvedBg = propBg || (isDark ? surfaces.dark.card : surfaces.light.bg);
+  const palette = getSurfacePalette(themeColorId, isDark);
+  const resolvedBg = propBg || (isDark ? palette.card : palette.bg);
   const reducedMotion = useReducedMotion();
   const [modalRendered, setModalRendered] = useState(visible);
 

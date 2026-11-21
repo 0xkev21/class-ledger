@@ -57,6 +57,8 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
     updateUserPassword,
     signOut,
     syncStatus,
+    isOnline,
+    hasPendingSync,
     lastSyncedAt,
     syncNow,
     language,
@@ -605,11 +607,19 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
                     />
                   ) : (
                     <StatusPill
-                      variant="paid"
+                      variant={isOnline ? 'paid' : 'unpaid'}
                       label={
-                        language === 'en'
-                          ? 'Live Cloud Sync'
-                          : 'Cloud Sync ချိတ်ဆက်ထားသည်'
+                        isOnline
+                          ? language === 'en'
+                            ? 'Live Cloud Sync'
+                            : 'Cloud Sync ချိတ်ဆက်ထားသည်'
+                          : hasPendingSync
+                          ? language === 'en'
+                            ? 'Offline • Pending Sync'
+                            : 'အော့ဖ်လိုင်း • Sync စောင့်ဆိုင်းနေသည်'
+                          : language === 'en'
+                          ? 'Offline • Signed In'
+                          : 'အော့ဖ်လိုင်း • အကောင့်ဝင်ထားသည်'
                       }
                     />
                   )}

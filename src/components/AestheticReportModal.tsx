@@ -952,7 +952,10 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
                     }
                   : { flex: 1, backgroundColor: palette.card },
               ]}
-              contentContainerStyle={styles.controlsContent}
+              contentContainerStyle={[
+                styles.controlsContent,
+                { paddingBottom: Math.max(insets.bottom, 16) + 12 },
+              ]}
               showsVerticalScrollIndicator={false}
             >
               {/* 1. Report Type Selector */}
@@ -970,56 +973,68 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
                 <View style={styles.reportTypeGrid}>
                   {(
                     [
-                      {
-                        id: 'student_fines',
-                        label: t.modals.aesthetic.sourceStudentFines,
-                      },
-                      {
-                        id: 'subject_fines',
-                        label: t.modals.aesthetic.sourceSubjectFines,
-                      },
-                      {
-                        id: 'event_donors',
-                        label: t.modals.aesthetic.sourceEventDonors,
-                      },
-                      {
-                        id: 'fines_ledger',
-                        label: t.modals.aesthetic.sourceFinesLedger,
-                      },
+                      [
+                        {
+                          id: 'student_fines',
+                          label: t.modals.aesthetic.sourceStudentFines,
+                        },
+                        {
+                          id: 'subject_fines',
+                          label: t.modals.aesthetic.sourceSubjectFines,
+                        },
+                      ],
+                      [
+                        {
+                          id: 'event_donors',
+                          label: t.modals.aesthetic.sourceEventDonors,
+                        },
+                        {
+                          id: 'fines_ledger',
+                          label: t.modals.aesthetic.sourceFinesLedger,
+                        },
+                      ],
                     ] as const
-                  ).map((item) => {
-                    const isSelected = reportType === item.id;
-                    return (
-                      <TouchableOpacity
-                        key={item.id}
-                        onPress={() => setReportType(item.id)}
-                        activeOpacity={0.8}
-                        style={[
-                          styles.reportTypeBtn,
-                          {
-                            backgroundColor: isSelected
-                              ? palette.ink
-                              : palette.surface,
-                            borderColor: isSelected
-                              ? palette.ink
-                              : palette.line,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.reportTypeText,
-                            {
-                              color: isSelected ? palette.bg : palette.ink,
-                              fontFamily: fonts.medium,
-                            },
-                          ]}
-                        >
-                          {item.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                  ).map((row, rowIdx) => (
+                    <View key={rowIdx} style={styles.reportTypeRow}>
+                      {row.map((item) => {
+                        const isSelected = reportType === item.id;
+                        return (
+                          <TouchableOpacity
+                            key={item.id}
+                            onPress={() => setReportType(item.id)}
+                            activeOpacity={0.8}
+                            style={[
+                              styles.reportTypeBtn,
+                              {
+                                backgroundColor: isSelected
+                                  ? themeColor.surface
+                                  : palette.surface,
+                                borderColor: isSelected
+                                  ? themeColor.primary
+                                  : palette.line,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.reportTypeText,
+                                {
+                                  color: isSelected
+                                    ? themeColor.text
+                                    : palette.ink,
+                                  fontFamily: isSelected
+                                    ? fonts.semibold
+                                    : fonts.medium,
+                                },
+                              ]}
+                            >
+                              {item.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ))}
                 </View>
               </View>
 
@@ -1446,6 +1461,7 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
                     ]}
                   />
                   <Text
+                    numberOfLines={1}
                     style={[
                       styles.themeNameText,
                       { color: palette.subtle, fontFamily: fonts.medium },
@@ -1491,7 +1507,12 @@ export const AestheticReportModal: React.FC<AestheticReportModalProps> = ({
               ) : null}
 
               {/* Bottom Export Toolbar */}
-              <View style={styles.bottomActionsRow}>
+              <View
+                style={[
+                  styles.bottomActionsRow,
+                  { paddingBottom: Math.max(insets.bottom - 4, 0) },
+                ]}
+              >
                 <TouchableOpacity
                   onPress={handleCopyImage}
                   disabled={isExporting}
@@ -1748,18 +1769,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   reportTypeGrid: {
+    gap: 8,
+  },
+  reportTypeRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
   },
   reportTypeBtn: {
     flex: 1,
-    minWidth: 130,
+    minWidth: 0,
     borderRadius: 12,
     borderCurve: 'continuous',
     borderWidth: 1,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 11,
     alignItems: 'center',
     justifyContent: 'center',
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
@@ -1871,9 +1894,10 @@ const styles = StyleSheet.create({
   },
   previewToolbar: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: 8,
     marginBottom: 10,
   },
   previewToolbarLeft: {

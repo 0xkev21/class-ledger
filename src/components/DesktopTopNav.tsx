@@ -24,7 +24,7 @@ export const DesktopTopNav: React.FC = () => {
   const segments = useSegments() as string[];
   const insets = useSafeAreaInsets();
   const { palette, themeColor } = useAppTheme();
-  const { user, language, setLanguage, t } = useTreasury();
+  const { user, isOnline, language, setLanguage, t } = useTreasury();
 
   const tabsIdx = segments.indexOf('(tabs)');
   const activeTab: TabRouteKey =
@@ -84,7 +84,7 @@ export const DesktopTopNav: React.FC = () => {
                 { color: palette.muted, fontFamily: fonts.mono },
               ]}
             >
-              v2.0.0
+              v2.1.0
             </Text>
           </View>
         </Pressable>
@@ -132,11 +132,21 @@ export const DesktopTopNav: React.FC = () => {
             onPress={() => handleNavigate('/(tabs)/settings', 'settings')}
             activeOpacity={0.75}
             accessibilityRole="button"
-            accessibilityLabel={user ? t.common.active : t.common.offline}
+            accessibilityLabel={
+              user
+                ? isOnline
+                  ? t.common.active
+                  : `${t.common.offline} • ${user.email || ''}`
+                : t.common.offline
+            }
             style={[
               styles.statusPill,
               {
-                backgroundColor: user ? palette.paidBg : palette.surface,
+                backgroundColor: user
+                  ? isOnline
+                    ? palette.paidBg
+                    : palette.unpaidBg
+                  : palette.surface,
               },
             ]}
           >
@@ -144,20 +154,33 @@ export const DesktopTopNav: React.FC = () => {
               style={[
                 styles.statusDot,
                 {
-                  backgroundColor: user ? palette.paidText : palette.muted,
+                  backgroundColor: user
+                    ? isOnline
+                      ? palette.paidText
+                      : palette.unpaidText
+                    : palette.muted,
                 },
               ]}
             />
             <Text
+              numberOfLines={1}
               style={[
                 styles.statusLabel,
                 {
-                  color: user ? palette.paidText : palette.muted,
+                  color: user
+                    ? isOnline
+                      ? palette.paidText
+                      : palette.unpaidText
+                    : palette.muted,
                   fontFamily: fonts.medium,
                 },
               ]}
             >
-              {user ? t.common.active : t.common.offline}
+              {user
+                ? isOnline
+                  ? t.common.active
+                  : `${t.common.offline}${user.email ? ` • ${user.email.split('@')[0]}` : ''}`
+                : t.common.offline}
             </Text>
           </TouchableOpacity>
 

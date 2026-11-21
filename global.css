@@ -18,7 +18,7 @@
   }
 
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not(.light) {
       --bg-page: #16232a;
       --bg-header: rgba(22, 35, 42, 0.94);
       --border-header: rgba(247, 249, 250, 0.12);

@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Appearance, AppState, AppStateStatus, Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import { User } from '@supabase/supabase-js';
@@ -10,7 +18,7 @@ import {
   resolveThemeColor,
   ThemeColorId,
 } from '../theme/themeColors';
-import { surfaces } from '../theme';
+import { getSurfacePalette, SurfacePalette } from '../theme';
 import {
   clearLastSyncedAt,
   createSessionFromUrl,
@@ -30,15 +38,24 @@ import {
   verifyEmailOtp as apiVerifyEmailOtp,
 } from '../storage/supabase';
 import {
+  clearSyncQueue,
   deleteEventFromCloud,
   deleteEventRecordFromCloud,
   deleteFineFromCloud,
   deleteStudentFromCloud,
   deleteSubjectFromCloud,
+  enqueuePendingDelete,
+  flushPendingDeletes,
+  isNetworkError,
+  loadSyncQueue,
+  markPendingPush,
   pullCloudToLocal,
   pushLocalToCloud,
+  saveSyncQueue,
   subscribeToTreasuryRealtime,
   SyncResult,
+  SyncTable,
+  syncWithCloud,
 } from '../storage/sync';
 import {
   AppDatabaseState,
@@ -72,6 +89,7 @@ interface TreasuryContextType {
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => Promise<void>;
   themeColor: ActiveThemeColor;
+  palette: SurfacePalette;
   language: AppLanguage;
   setLanguage: (lang: AppLanguage) => Promise<void>;
   t: Translations;
@@ -157,11 +175,16 @@ interface TreasuryContextType {
   syncMessage: string;
   lastSyncedAt: string | null;
   isCloudConnected: boolean;
-  syncNow: (mode?: 'push' | 'pull') => Promise<SyncResult>;
+  isOnline: boolean;
+  hasPendingSync: boolean;
+  syncNow: (mode?: 'push' | 'pull' | 'merge') => Promise<SyncResult>;
   refreshCloudConnection: () => Promise<void>;
 }
 
 const TreasuryContext = createContext<TreasuryContextType | null>(null);
+
+const useIsomorphicLayoutEffect =
+  typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AppDatabaseState>(INITIAL_STATE);
@@ -173,24 +196,48 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>('idle');
   const [syncMessage, setSyncMessage] = useState<string>('');
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState<boolean>(
+    Platform.OS === 'web' && typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+  const [hasPendingSync, setHasPendingSync] = useState<boolean>(false);
 
   // User Authentication State
   const [user, setUser] = useState<User | null>(null);
+  const userRef = useRef<User | null>(null);
+  userRef.current = user;
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
   // Debounce ref for auto-pushing local changes to cloud
   const pushDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const realtimeDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPushingRef = useRef<boolean>(false);
+  const isSyncingRef = useRef<boolean>(false);
   const realtimeUnsubRef = useRef<(() => void) | null>(null);
   const authUnsubRef = useRef<(() => void) | null>(null);
 
   const isCloudConnected = isCloudConfigured();
 
   const systemColorScheme = useColorScheme();
+  const [hydratedThemeMode, setHydratedThemeMode] = useState<ThemeMode | null>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const stored = window.localStorage.getItem('cl-theme-mode');
+        if (stored === 'light' || stored === 'dark' || stored === 'system') {
+          setHydratedThemeMode(stored);
+        }
+      } catch {}
+    }
+  }, []);
+
+  const rawThemeMode =
+    isLoading && hydratedThemeMode !== null
+      ? hydratedThemeMode
+      : state.settings.themeMode;
   const themeMode: ThemeMode =
-    state.settings.themeMode === 'light' || state.settings.themeMode === 'dark'
-      ? state.settings.themeMode
+    rawThemeMode === 'light' || rawThemeMode === 'dark'
+      ? rawThemeMode
       : 'system';
   const isDark =
     themeMode === 'system'
@@ -203,6 +250,11 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       isDark
     );
   }, [state.settings.themeColorId, isDark]);
+
+  const palette = useMemo(
+    () => getSurfacePalette(state.settings.themeColorId, isDark),
+    [state.settings.themeColorId, isDark]
+  );
 
   useEffect(() => {
     if (isLoading) return;
@@ -275,89 +327,115 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     let isMounted = true;
 
+    const runAutoMergeSync = async (
+      targetUserId: string,
+      targetEmail?: string | null
+    ): Promise<SyncResult | null> => {
+      const client = getSupabaseClient();
+      if (!client || isSyncingRef.current) return null;
+
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && !navigator.onLine) {
+        if (isMounted) {
+          setIsOnline(false);
+          setSyncStatus('idle');
+          setSyncMessage('Offline mode — changes saved locally');
+        }
+        return null;
+      }
+
+      isSyncingRef.current = true;
+      if (isMounted) {
+        setSyncStatus('syncing');
+        setSyncMessage('Cloud နှင့် စာရင်းများ ချိန်ညှိနေပါသည်...');
+      }
+
+      try {
+        const res = await syncWithCloud(stateRef.current, client, targetUserId);
+        if (!isMounted) return res;
+
+        if (res.success && res.updatedState) {
+          setIsOnline(true);
+          setHasPendingSync(false);
+          await applyCloudState(
+            res.updatedState,
+            res.syncedAt || new Date().toISOString(),
+            targetEmail ? `Synced with ${targetEmail}` : 'Synced with Cloud'
+          );
+        } else if (isNetworkError(res.message)) {
+          setIsOnline(false);
+          setSyncStatus('idle');
+          setSyncMessage('Offline mode — changes saved locally');
+        } else {
+          setSyncStatus('error');
+          setSyncMessage(res.message);
+        }
+        return res;
+      } catch (err: any) {
+        if (isMounted) {
+          if (isNetworkError(err)) {
+            setIsOnline(false);
+            setSyncStatus('idle');
+            setSyncMessage('Offline mode — changes saved locally');
+          } else {
+            setSyncStatus('error');
+            setSyncMessage(err?.message || 'Sync error');
+          }
+        }
+        return null;
+      } finally {
+        isSyncingRef.current = false;
+      }
+    };
+
+    const ensureRealtimeSubscribed = (client: any) => {
+      if (realtimeUnsubRef.current) realtimeUnsubRef.current();
+      realtimeUnsubRef.current = subscribeToTreasuryRealtime(client, () => {
+        if (isPushingRef.current || isSyncingRef.current) return;
+        if (realtimeDebounceTimerRef.current) {
+          clearTimeout(realtimeDebounceTimerRef.current);
+        }
+        realtimeDebounceTimerRef.current = setTimeout(async () => {
+          try {
+            if (!isMounted || isPushingRef.current || isSyncingRef.current) return;
+            const activeUser = userRef.current || (await getCurrentUser());
+            if (!activeUser?.id) return;
+            await runAutoMergeSync(activeUser.id, activeUser.email);
+          } catch (rtErr) {
+            console.warn('[TreasuryContext] Realtime sync notice:', rtErr);
+          }
+        }, 800);
+      });
+    };
+
     (async () => {
       try {
-        // 1. Instant local load
-        const localData = await loadDatabase();
+        // 1. Instant local load & pending sync check
+        const [localData, queue, lastSync] = await Promise.all([
+          loadDatabase(),
+          loadSyncQueue(),
+          getLastSyncedAt(),
+        ]);
         if (isMounted) {
           setState(localData);
           stateRef.current = localData;
+          setHasPendingSync(queue.hasPendingPush || queue.pendingDeletes.length > 0);
+          if (lastSync) setLastSyncedAt(lastSync);
           setIsLoading(false);
         }
 
-        // 2. Load last cloud sync timestamp
-        const lastSync = await getLastSyncedAt();
-        if (lastSync && isMounted) {
-          setLastSyncedAt(lastSync);
-        }
-
-        // 3. Connect and auto-sync if credentials exist
+        // 2. Connect and auto-sync if credentials exist
         const client = getSupabaseClient();
         if (client) {
-          getCurrentUser()
-            .then((u) => {
-              if (isMounted) {
-                setUser(u);
-                setIsAuthLoading(false);
-              }
-            })
-            .catch((err) => {
-              console.warn('[TreasuryContext] Initial auth check notice:', err);
-              if (isMounted) {
-                setUser(null);
-                setIsAuthLoading(false);
-              }
-            });
-
           if (authUnsubRef.current) authUnsubRef.current();
           authUnsubRef.current = subscribeToAuthChanges(async (newUser) => {
             if (!isMounted) return;
             setUser(newUser);
+            userRef.current = newUser;
             setIsAuthLoading(false);
 
             if (newUser) {
-              setSyncStatus('syncing');
-              setSyncMessage('Google အကောင့်နှင့် ချိတ်ဆက်ပြီး Cloud စာရင်းရယူနေပါသည်...');
-              try {
-                const pullRes = await pullCloudToLocal(client, newUser.id, stateRef.current.settings);
-                if (pullRes.success && pullRes.updatedState) {
-                  const cloudHasData =
-                    pullRes.updatedState.students.length > 0 ||
-                    pullRes.updatedState.events.length > 0 ||
-                    pullRes.updatedState.fines.length > 0;
-
-                  if (cloudHasData) {
-                    await applyCloudState(
-                      pullRes.updatedState,
-                      pullRes.syncedAt || new Date().toISOString(),
-                      `Synced with ${newUser.email}`
-                    );
-                  } else if (
-                    stateRef.current.students.length > 0 ||
-                    stateRef.current.events.length > 0 ||
-                    stateRef.current.fines.length > 0
-                  ) {
-                    const pushRes = await pushLocalToCloud(stateRef.current, client, newUser.id);
-                    if (pushRes.success) {
-                      setSyncStatus('synced');
-                      setSyncMessage(`Local data uploaded to ${newUser.email}`);
-                      const now = pushRes.syncedAt || new Date().toISOString();
-                      setLastSyncedAt(now);
-                      await saveLastSyncedAt(now);
-                    }
-                  } else {
-                    setSyncStatus('synced');
-                    setSyncMessage(`Connected as ${newUser.email}`);
-                  }
-                } else if (!pullRes.success) {
-                  setSyncStatus('error');
-                  setSyncMessage(pullRes.message);
-                }
-              } catch (err: any) {
-                console.warn('Initial user sync error:', err);
-                setSyncStatus('error');
-                setSyncMessage(err.message || 'Sync error');
-              }
+              ensureRealtimeSubscribed(client);
+              await runAutoMergeSync(newUser.id, newUser.email);
             } else {
               setSyncStatus('idle');
             }
@@ -365,66 +443,30 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
           try {
             const currentUser = await getCurrentUser();
+            if (isMounted) {
+              setUser(currentUser);
+              userRef.current = currentUser;
+              setIsAuthLoading(false);
+            }
+
             if (currentUser?.id) {
-              setSyncStatus('syncing');
-              setSyncMessage('Checking cloud database...');
-              const pullRes = await pullCloudToLocal(client, currentUser.id, localData.settings);
-              if (!isMounted) return;
-
-              if (pullRes.success && pullRes.updatedState) {
-                const cloudHasData =
-                  pullRes.updatedState.students.length > 0 ||
-                  pullRes.updatedState.events.length > 0 ||
-                  pullRes.updatedState.fines.length > 0;
-
-                if (cloudHasData) {
-                  await applyCloudState(
-                    pullRes.updatedState,
-                    pullRes.syncedAt || new Date().toISOString(),
-                    `Synced with ${currentUser.email}`
-                  );
-                } else {
-                  const pushRes = await pushLocalToCloud(localData, client, currentUser.id);
-                  if (pushRes.success) {
-                    setSyncStatus('synced');
-                    setSyncMessage('Cloud database initialized!');
-                    const now = pushRes.syncedAt || new Date().toISOString();
-                    setLastSyncedAt(now);
-                    await saveLastSyncedAt(now);
-                  }
-                }
-
-                if (realtimeUnsubRef.current) realtimeUnsubRef.current();
-                realtimeUnsubRef.current = subscribeToTreasuryRealtime(client, () => {
-                  if (isPushingRef.current) return;
-                  if (realtimeDebounceTimerRef.current) {
-                    clearTimeout(realtimeDebounceTimerRef.current);
-                  }
-                  realtimeDebounceTimerRef.current = setTimeout(async () => {
-                    try {
-                      if (!isMounted || isPushingRef.current) return;
-                      const activeUser = await getCurrentUser();
-                      if (!activeUser?.id) return;
-                      const updateRes = await pullCloudToLocal(client, activeUser.id, stateRef.current.settings);
-                      if (updateRes.success && updateRes.updatedState && isMounted) {
-                        await applyCloudState(updateRes.updatedState, new Date().toISOString());
-                      }
-                    } catch (rtErr) {
-                      console.warn('[TreasuryContext] Realtime sync notice:', rtErr);
-                    }
-                  }, 800);
-                });
-              } else {
-                setSyncStatus('error');
-                setSyncMessage(pullRes.message);
-              }
+              ensureRealtimeSubscribed(client);
+              await runAutoMergeSync(currentUser.id, currentUser.email);
             } else {
               setSyncStatus('idle');
             }
           } catch (syncErr: any) {
             console.warn('[TreasuryContext] Initial sync notice:', syncErr?.message || syncErr);
-            setSyncStatus('error');
-            setSyncMessage(syncErr?.message || 'Offline mode');
+            if (isMounted) {
+              setIsAuthLoading(false);
+              if (isNetworkError(syncErr)) {
+                setIsOnline(false);
+                setSyncStatus('idle');
+              } else {
+                setSyncStatus('error');
+                setSyncMessage(syncErr?.message || 'Offline mode');
+              }
+            }
           }
         } else {
           setIsAuthLoading(false);
@@ -441,21 +483,33 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const handleAppResume = () => {
       const client = getSupabaseClient();
-      if (client) {
+      if (!client) return;
+      const activeId = userRef.current?.id;
+      if (activeId) {
+        void runAutoMergeSync(activeId, userRef.current?.email);
+      } else {
         getCurrentUser()
           .then((activeUser) => {
-            if (activeUser?.id) {
-              pullCloudToLocal(client, activeUser.id, stateRef.current.settings)
-                .then((updateRes) => {
-                  if (updateRes.success && updateRes.updatedState && isMounted) {
-                    applyCloudState(updateRes.updatedState, updateRes.syncedAt || new Date().toISOString());
-                  }
-                })
-                .catch(() => {});
+            if (activeUser?.id && isMounted) {
+              setUser(activeUser);
+              userRef.current = activeUser;
+              void runAutoMergeSync(activeUser.id, activeUser.email);
             }
           })
           .catch(() => {});
       }
+    };
+
+    const handleWebOnline = () => {
+      if (!isMounted) return;
+      setIsOnline(true);
+      handleAppResume();
+    };
+
+    const handleWebOffline = () => {
+      if (!isMounted) return;
+      setIsOnline(false);
+      setSyncStatus('idle');
     };
 
     const appStateSub = AppState.addEventListener('change', (status: AppStateStatus) => {
@@ -476,6 +530,7 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const u = await getCurrentUser();
           if (u && isMounted) {
             setUser(u);
+            userRef.current = u;
           }
         } else if (res.error) {
           console.warn('[TreasuryContext] Deep link authentication rejected:', res.error);
@@ -498,6 +553,7 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const u = await getCurrentUser();
           if (u && isMounted) {
             setUser(u);
+            userRef.current = u;
           }
         } else if (res.error) {
           console.warn('[TreasuryContext] Cold start deep link authentication rejected:', res.error);
@@ -507,6 +563,8 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       window.addEventListener('focus', handleAppResume);
+      window.addEventListener('online', handleWebOnline);
+      window.addEventListener('offline', handleWebOffline);
     }
 
     return () => {
@@ -515,6 +573,8 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       linkSub.remove();
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         window.removeEventListener('focus', handleAppResume);
+        window.removeEventListener('online', handleWebOnline);
+        window.removeEventListener('offline', handleWebOffline);
       }
       if (realtimeUnsubRef.current) realtimeUnsubRef.current();
       if (authUnsubRef.current) authUnsubRef.current();
@@ -526,7 +586,8 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Persist updated state locally and trigger automatic debounced cloud push
   const updateAndPersist = async (
     updater: (prev: AppDatabaseState) => AppDatabaseState,
-    cloudAction?: (client: any) => Promise<void>
+    cloudAction?: (client: any) => Promise<void>,
+    deleteTarget?: { table: SyncTable; id: string }
   ) => {
     let nextState: AppDatabaseState | null = null;
     setState((prev) => {
@@ -541,42 +602,87 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     saveDatabase(next).catch((e) => console.error('Local auto-save failed:', e));
 
-    const client = getSupabaseClient();
-    if (client) {
-      setSyncStatus('syncing');
-      setSyncMessage('အလိုအလျောက် Cloud သို့ သိမ်းဆည်းနေပါသည်...');
-
-      if (pushDebounceTimerRef.current) {
-        clearTimeout(pushDebounceTimerRef.current);
-      }
-
-      pushDebounceTimerRef.current = setTimeout(async () => {
-        try {
-          isPushingRef.current = true;
-          if (cloudAction) {
-            await cloudAction(client);
-          }
-          const res = await pushLocalToCloud(next, client, user?.id);
-          if (res.success) {
-            setSyncStatus('synced');
-            setSyncMessage(user ? `အလိုအလျောက် သိမ်းဆည်းပြီးပါပြီ (${user.email})` : 'Cloud သို့ အလိုအလျောက် သိမ်းဆည်းပြီးပါပြီ');
-            const now = new Date().toISOString();
-            setLastSyncedAt(now);
-            await saveLastSyncedAt(now);
-          } else {
-            setSyncStatus('error');
-            setSyncMessage(res.message);
-          }
-        } catch (err: any) {
-          setSyncStatus('error');
-          setSyncMessage(err.message || 'Auto sync failed');
-        } finally {
-          setTimeout(() => {
-            isPushingRef.current = false;
-          }, 1200);
-        }
-      }, 500);
+    // Mark offline queue immediately so edits are never lost if app closes or is offline
+    setHasPendingSync(true);
+    if (deleteTarget) {
+      await enqueuePendingDelete(deleteTarget.table, deleteTarget.id);
+    } else {
+      await markPendingPush();
     }
+
+    const client = getSupabaseClient();
+    const activeUser = userRef.current;
+    if (!client || !activeUser?.id) {
+      return;
+    }
+
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && !navigator.onLine) {
+      setIsOnline(false);
+      setSyncStatus('idle');
+      setSyncMessage('Offline — saved locally');
+      return;
+    }
+
+    setSyncStatus('syncing');
+    setSyncMessage('အလိုအလျောက် Cloud သို့ သိမ်းဆည်းနေပါသည်...');
+
+    if (pushDebounceTimerRef.current) {
+      clearTimeout(pushDebounceTimerRef.current);
+    }
+
+    pushDebounceTimerRef.current = setTimeout(async () => {
+      const currentUser = userRef.current;
+      if (!currentUser?.id) return;
+
+      try {
+        isPushingRef.current = true;
+        const queue = await loadSyncQueue();
+        if (queue.pendingDeletes.length > 0) {
+          const delRes = await flushPendingDeletes(client, queue.pendingDeletes);
+          if (delRes.remaining.length > 0) {
+            await saveSyncQueue({
+              hasPendingPush: queue.hasPendingPush,
+              pendingDeletes: delRes.remaining,
+            });
+            throw new Error(delRes.error || 'Network error deleting from cloud');
+          }
+        }
+        if (cloudAction) {
+          await cloudAction(client);
+        }
+        const res = await pushLocalToCloud(stateRef.current, client, currentUser.id);
+        if (res.success) {
+          await clearSyncQueue();
+          setHasPendingSync(false);
+          setIsOnline(true);
+          setSyncStatus('synced');
+          setSyncMessage(`အလိုအလျောက် သိမ်းဆည်းပြီးပါပြီ (${currentUser.email})`);
+          const now = new Date().toISOString();
+          setLastSyncedAt(now);
+          await saveLastSyncedAt(now);
+        } else if (isNetworkError(res.message)) {
+          setIsOnline(false);
+          setSyncStatus('idle');
+          setSyncMessage('Offline — saved locally');
+        } else {
+          setSyncStatus('error');
+          setSyncMessage(res.message);
+        }
+      } catch (err: any) {
+        if (isNetworkError(err)) {
+          setIsOnline(false);
+          setSyncStatus('idle');
+          setSyncMessage('Offline — saved locally');
+        } else {
+          setSyncStatus('error');
+          setSyncMessage(err?.message || 'Auto sync failed');
+        }
+      } finally {
+        setTimeout(() => {
+          isPushingRef.current = false;
+        }, 1200);
+      }
+    }, 500);
   };
 
   // Settings: Instant local update, fast persistence, and light background cloud sync
@@ -650,7 +756,8 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }),
       async (client) => {
         await deleteStudentFromCloud(id, client);
-      }
+      },
+      { table: 'students', id }
     );
   };
 
@@ -686,7 +793,8 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }),
       async (client) => {
         await deleteSubjectFromCloud(id, client);
-      }
+      },
+      { table: 'subjects', id }
     );
   };
 
@@ -748,7 +856,8 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }),
       async (client) => {
         await deleteEventFromCloud(id, client);
-      }
+      },
+      { table: 'events', id }
     );
   };
 
@@ -777,7 +886,8 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }),
       async (client) => {
         await deleteEventRecordFromCloud(recordId, client);
-      }
+      },
+      { table: 'event_records', id: recordId }
     );
   };
 
@@ -907,7 +1017,8 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }),
       async (client) => {
         await deleteFineFromCloud(fineId, client);
-      }
+      },
+      { table: 'fines', id: fineId }
     );
   };
 
@@ -1051,54 +1162,116 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error('Failed to revoke session:', err);
     } finally {
       setUser(null);
+      userRef.current = null;
       await resetDatabaseToDefaults();
       setState(INITIAL_STATE);
       stateRef.current = INITIAL_STATE;
       setLastSyncedAt(null);
+      setHasPendingSync(false);
       await clearLastSyncedAt();
+      await clearSyncQueue();
       setSyncStatus('idle');
       setSyncMessage('Signed out');
     }
   };
 
-  const syncNow = async (mode: 'push' | 'pull' = 'pull'): Promise<SyncResult> => {
+  const syncNow = async (mode: 'push' | 'pull' | 'merge' = 'merge'): Promise<SyncResult> => {
     const client = getSupabaseClient();
     if (!client) {
       return { success: false, message: 'Cloud database is not configured.' };
     }
 
-    if (!user) {
+    const activeUser = userRef.current;
+    if (!activeUser) {
       setSyncStatus('error');
       const msg = 'Cloud synchronization requires an authenticated account. Please sign in.';
       setSyncMessage(msg);
       return { success: false, message: msg };
     }
 
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && !navigator.onLine) {
+      setIsOnline(false);
+      setSyncStatus('idle');
+      const msg = 'Offline mode — changes will sync automatically when connected.';
+      setSyncMessage(msg);
+      return { success: false, message: msg };
+    }
+
     setSyncStatus('syncing');
-    setSyncMessage(mode === 'push' ? 'Pushing data to cloud...' : 'Pulling data from cloud...');
+    setSyncMessage(
+      mode === 'push'
+        ? 'Pushing data to cloud...'
+        : mode === 'pull'
+        ? 'Pulling data from cloud...'
+        : 'Syncing local and cloud data...'
+    );
 
     try {
       if (mode === 'push') {
-        const res = await pushLocalToCloud(state, client, user.id);
+        const queue = await loadSyncQueue();
+        if (queue.pendingDeletes.length > 0) {
+          const delRes = await flushPendingDeletes(client, queue.pendingDeletes);
+          if (delRes.remaining.length > 0) {
+            await saveSyncQueue({
+              hasPendingPush: queue.hasPendingPush,
+              pendingDeletes: delRes.remaining,
+            });
+            throw new Error(delRes.error || 'Failed to sync pending deletions.');
+          }
+        }
+        const res = await pushLocalToCloud(stateRef.current, client, activeUser.id);
         if (res.success) {
+          await clearSyncQueue();
+          setHasPendingSync(false);
+          setIsOnline(true);
           setSyncStatus('synced');
-          setSyncMessage(`Successfully pushed to ${user.email}`);
+          setSyncMessage(`Successfully pushed to ${activeUser.email}`);
           const now = new Date().toISOString();
           setLastSyncedAt(now);
           await saveLastSyncedAt(now);
+        } else if (isNetworkError(res.message)) {
+          setIsOnline(false);
+          setSyncStatus('idle');
+          setSyncMessage('Offline mode — saved locally');
+        } else {
+          setSyncStatus('error');
+          setSyncMessage(res.message);
+        }
+        return res;
+      } else if (mode === 'pull') {
+        const res = await pullCloudToLocal(client, activeUser.id, stateRef.current.settings);
+        if (res.success && res.updatedState) {
+          await clearSyncQueue();
+          setHasPendingSync(false);
+          setIsOnline(true);
+          await applyCloudState(
+            res.updatedState,
+            new Date().toISOString(),
+            `Successfully pulled for ${activeUser.email}`
+          );
+        } else if (isNetworkError(res.message)) {
+          setIsOnline(false);
+          setSyncStatus('idle');
+          setSyncMessage('Offline mode — saved locally');
         } else {
           setSyncStatus('error');
           setSyncMessage(res.message);
         }
         return res;
       } else {
-        const res = await pullCloudToLocal(client, user.id, stateRef.current.settings);
+        const res = await syncWithCloud(stateRef.current, client, activeUser.id);
         if (res.success && res.updatedState) {
+          setHasPendingSync(false);
+          setIsOnline(true);
           await applyCloudState(
             res.updatedState,
-            new Date().toISOString(),
-            user ? `Successfully pulled for ${user.email}` : 'Successfully pulled from Supabase'
+            res.syncedAt || new Date().toISOString(),
+            `Synced with ${activeUser.email}`
           );
+        } else if (isNetworkError(res.message)) {
+          setIsOnline(false);
+          setSyncStatus('idle');
+          setSyncMessage('Offline mode — saved locally');
         } else {
           setSyncStatus('error');
           setSyncMessage(res.message);
@@ -1106,6 +1279,12 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return res;
       }
     } catch (err: any) {
+      if (isNetworkError(err)) {
+        setIsOnline(false);
+        setSyncStatus('idle');
+        setSyncMessage('Offline mode — saved locally');
+        return { success: false, message: 'Offline mode — saved locally' };
+      }
       setSyncStatus('error');
       setSyncMessage(err.message || 'Sync operation failed');
       return { success: false, message: err.message || 'Sync failed' };
@@ -1117,20 +1296,23 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (client) {
       if (realtimeUnsubRef.current) realtimeUnsubRef.current();
       realtimeUnsubRef.current = subscribeToTreasuryRealtime(client, () => {
-        if (isPushingRef.current) return;
+        if (isPushingRef.current || isSyncingRef.current) return;
         if (realtimeDebounceTimerRef.current) {
           clearTimeout(realtimeDebounceTimerRef.current);
         }
         realtimeDebounceTimerRef.current = setTimeout(async () => {
-          if (isPushingRef.current) return;
-          const activeUser = await getCurrentUser();
-          const updateRes = await pullCloudToLocal(client, activeUser?.id, stateRef.current.settings);
-          if (updateRes.success && updateRes.updatedState) {
-            await applyCloudState(updateRes.updatedState, new Date().toISOString());
+          if (isPushingRef.current || isSyncingRef.current) return;
+          const activeUser = userRef.current || (await getCurrentUser());
+          if (!activeUser?.id) return;
+          const res = await syncWithCloud(stateRef.current, client, activeUser.id);
+          if (res.success && res.updatedState) {
+            setHasPendingSync(false);
+            setIsOnline(true);
+            await applyCloudState(res.updatedState, res.syncedAt || new Date().toISOString());
           }
         }, 800);
       });
-      syncNow('pull');
+      await syncNow('merge');
     } else {
       setSyncStatus('disabled');
       if (realtimeUnsubRef.current) realtimeUnsubRef.current();
@@ -1151,6 +1333,7 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         themeMode,
         setThemeMode,
         themeColor,
+        palette,
         language,
         setLanguage,
         t,
@@ -1192,6 +1375,8 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         syncMessage,
         lastSyncedAt,
         isCloudConnected,
+        isOnline,
+        hasPendingSync,
         syncNow,
         refreshCloudConnection,
       }}
@@ -1210,12 +1395,12 @@ export const useTreasury = () => {
 };
 
 export const useAppTheme = () => {
-  const { themeColor, isDark, themeMode, setThemeMode, settings, updateSettings } =
+  const { themeColor, palette, isDark, themeMode, setThemeMode, settings, updateSettings } =
     useTreasury();
   return {
     themeColor,
     isDark,
-    palette: isDark ? surfaces.dark : surfaces.light,
+    palette,
     themeColorId: (settings.themeColorId as ThemeColorId) || DEFAULT_THEME_COLOR_ID,
     setThemeColor: async (themeColorId: ThemeColorId) => {
       await updateSettings({

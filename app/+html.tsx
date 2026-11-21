@@ -6,6 +6,7 @@ import { type PropsWithChildren } from 'react';
  */
 export default function Root({ children }: PropsWithChildren) {
   const { headNodes, bodyNodes, htmlAttributes, bodyAttributes } = useServerDocumentContext();
+  const baseUrl = (process.env.EXPO_BASE_URL || '').trim().replace(/\/+$/, '');
 
   return (
     <html lang="en" {...htmlAttributes}>
@@ -18,7 +19,8 @@ export default function Root({ children }: PropsWithChildren) {
         />
         <meta name="theme-color" content="#f7f9fa" />
         <title>Class Ledger | အတန်းရန်ပုံငွေ</title>
-        <link rel="icon" href="/landing/favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href={`${baseUrl}/favicon.svg`} type="image/svg+xml" />
+        <link rel="apple-touch-icon" href={`${baseUrl}/favicon.png`} />
 
         {/* Ensures proper reset for React Native Web ScrollViews & full height */}
         <ScrollViewStyleReset />
@@ -42,10 +44,11 @@ export default function Root({ children }: PropsWithChildren) {
                     var mediaQuery = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
                     shouldUseDark = Boolean(mediaQuery && mediaQuery.matches);
                   }
-                  if (shouldUseDark) {
-                    document.documentElement.classList.add('dark');
-                  } else {
-                    document.documentElement.classList.remove('dark');
+                  document.documentElement.classList.toggle('dark', shouldUseDark);
+                  document.documentElement.classList.toggle('light', !shouldUseDark);
+                  var themeMeta = document.querySelector('meta[name="theme-color"]');
+                  if (themeMeta) {
+                    themeMeta.setAttribute('content', shouldUseDark ? '#16232a' : '#f7f9fa');
                   }
                 } catch (e) {}
               })();

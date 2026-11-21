@@ -10,39 +10,12 @@ import { ErrorBoundary as DefaultErrorBoundary, ErrorBoundaryProps } from 'expo-
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { TreasuryProvider, useAppTheme } from '@/src/context/TreasuryContext';
-import { surfaces } from '@/src/theme';
-
-const LedgerLightTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: '#0d7480',
-    background: surfaces.light.bg,
-    card: surfaces.light.card,
-    text: surfaces.light.ink,
-    border: '#d8e0e4',
-    notification: '#0d7480',
-  },
-};
-
-const LedgerDarkTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    primary: '#289aa7',
-    background: surfaces.dark.bg,
-    card: surfaces.dark.card,
-    text: surfaces.dark.ink,
-    border: '#2c3c44',
-    notification: '#289aa7',
-  },
-};
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   useEffect(() => {
@@ -117,24 +90,58 @@ function RootLayoutNav() {
 }
 
 function ThemedNavigationRoot() {
-  const { isDark } = useAppTheme();
+  const { isDark, palette, themeColor } = useAppTheme();
+  const [hasHydrated, setHasHydrated] = useState(Platform.OS !== 'web');
 
   useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
     if (typeof document !== 'undefined') {
-      if (isDark) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      const root = document.documentElement;
+      root.classList.toggle('dark', isDark);
+      root.classList.toggle('light', !isDark);
+
+      root.style.setProperty('--bg-page', palette.bg);
+      root.style.setProperty('--bg-header', palette.headerBg);
+      root.style.setProperty('--border-header', palette.line);
+      root.style.setProperty('--bg-tabbar', palette.card);
+      root.style.setProperty('--border-tabbar', palette.line);
+      root.style.setProperty('--tab-inactive', palette.muted);
+      root.style.setProperty('--bg-card', palette.card);
+      root.style.setProperty('--border-card', palette.line);
+      root.style.setProperty('--bg-surface', palette.surface);
+      root.style.setProperty('--text-primary', palette.ink);
+      root.style.setProperty('--text-muted', palette.muted);
+
       const themeMeta = document.querySelector('meta[name="theme-color"]');
       if (themeMeta) {
-        themeMeta.setAttribute('content', isDark ? '#16232a' : '#f7f9fa');
+        themeMeta.setAttribute('content', palette.bg);
       }
     }
-  }, [isDark]);
+  }, [hasHydrated, isDark, palette]);
+
+  const navigationTheme = useMemo(() => {
+    const base = isDark ? DarkTheme : DefaultTheme;
+    const primary = isDark ? themeColor.primaryLight : themeColor.primary;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary,
+        background: palette.bg,
+        card: palette.card,
+        text: palette.ink,
+        border: palette.lineStrong,
+        notification: primary,
+      },
+    };
+  }, [isDark, palette, themeColor]);
 
   return (
-    <ThemeProvider value={isDark ? LedgerDarkTheme : LedgerLightTheme}>
+    <ThemeProvider value={navigationTheme}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

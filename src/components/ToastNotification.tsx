@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/src/context/TreasuryContext';
-import { fonts, surfaces } from '@/src/theme';
+import { fonts, getSurfacePalette } from '@/src/theme';
 import { EASE_OUT } from '@/src/utils/motion';
 
 interface ToastNotificationProps {
@@ -25,7 +25,7 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
   duration = 2400,
 }) => {
   const insets = useSafeAreaInsets();
-  const { isDark } = useAppTheme();
+  const { isDark, themeColor, palette } = useAppTheme();
   const reducedMotion = useReducedMotion();
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(-20);
@@ -70,9 +70,10 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
 
   if (!message) return null;
 
-  const toastBg = isDark ? surfaces.light.bg : surfaces.dark.card;
-  const toastText = isDark ? surfaces.light.ink : surfaces.dark.ink;
-  const iconColor = isDark ? surfaces.light.paidText : '#34d399';
+  const invertedPalette = getSurfacePalette(themeColor.id, !isDark);
+  const toastBg = isDark ? invertedPalette.bg : invertedPalette.card;
+  const toastText = invertedPalette.ink;
+  const iconColor = isDark ? invertedPalette.paidText : '#34d399';
 
   return (
     <Animated.View
@@ -94,6 +95,7 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
           styles.toast,
           {
             backgroundColor: toastBg,
+            shadowColor: palette.ink,
           },
         ]}
       >

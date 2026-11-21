@@ -80,7 +80,7 @@ export default function ModalScreen() {
           >
             Class Ledger
           </Text>
-          <StatusPill variant="brand" mono label="v2.0.0" />
+          <StatusPill variant="brand" mono label="v2.1.0" />
         </View>
         <Text
           style={[
